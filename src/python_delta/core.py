@@ -115,6 +115,10 @@ class Delta:
             conflicting = self.required.edges.intersection(self.forbidden.edges)
             raise ValueError(f"Inconsistent constraints: edges both required and forbidden: {conflicting}")
 
+    # TODO: refactoring requried here. We need to simplify this to have
+    # "register x <= y", and "x in place of s", which puts in the implied requried edges
+    # between x and vars(s)
+
     def var(self, v, var_type=None):
         if var_type is None:
             var_type = BaseType(v)
@@ -168,8 +172,6 @@ class Delta:
             self.required.add_all_edges({yid}, succs)
 
         self._check_consistency()
-
-        
 
         x = Stream(xid, "catproj1", [sid], {xid}, left_type)
         y = Stream(yid, "catproj2", [sid], {yid}, right_type)
