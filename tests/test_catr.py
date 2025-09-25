@@ -3,14 +3,6 @@ from python_delta.core import *
 
 STRING_TY = BaseType("String")
 
-def test_var():
-    delta = Delta()
-    delta.var("x")
-
-def test_var_typed():
-    delta = Delta()
-    delta.var("x",STRING_TY)
-
 def test_catr():
     delta = Delta()
     x = delta.var("x",STRING_TY)
