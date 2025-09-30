@@ -4,18 +4,24 @@ from python_delta.stream import Stream
 
 class Delta:
     def __init__(self):
-        self.required = PartialOrder()
-        self.forbidden = PartialOrder()
+        self.metadata = {}  # Shared metadata dict for both partial orders
+        self.required = PartialOrder(self.metadata)
+        self.forbidden = PartialOrder(self.metadata)
         self.nodes = {}
 
     def _check_consistency(self):
         if self.required.overlaps_with(self.forbidden):
             conflicting = self.required.edges.intersection(self.forbidden.edges)
+            print(self.required)
+            print(self.forbidden)
             raise ValueError(f"Inconsistent constraints: edges both required and forbidden: {conflicting}")
 
     # TODO: refactoring requried here. We need to simplify this to have
     # "register x <= y", and "x in place of s", which puts in the implied requried edges
     # between x and vars(s)
+
+    def _register_metadata(self, node_id, name):
+        self.metadata[node_id] = name
 
     def var(self, v, var_type=None):
         if var_type is None:
@@ -24,6 +30,7 @@ class Delta:
         xid = hash(name)
         s = Stream(xid, name, [], {xid}, var_type)
         self.nodes[xid] = s
+        self._register_metadata(xid, name)
         return s
 
     def catr(self, s1, s2):
@@ -41,6 +48,7 @@ class Delta:
 
         s = Stream(zid, zname, [s1id, s2id], s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
+        self._register_metadata(zid,zname)
         return s
 
     def catl(self, s):
@@ -57,14 +65,13 @@ class Delta:
         self.required.add_edge(xid, yid)
         self.forbidden.add_edge(yid, xid)
 
-        for var in s.vars:
-            preds = self.required.predecessors(var)
-            self.required.add_all_edges(preds, {xid})
-            self.required.add_all_edges(preds, {yid})
+        common_preds = set.intersection(*[self.required.predecessors(var) for var in s.vars])
+        common_succs = set.intersection(*[self.required.successors(var) for var in s.vars])
 
-            succs = self.required.successors(var)
-            self.required.add_all_edges({xid}, succs)
-            self.required.add_all_edges({yid}, succs)
+        self.required.add_all_edges(common_preds, {xid})
+        self.required.add_all_edges(common_preds, {yid})
+        self.required.add_all_edges({xid}, common_succs)
+        self.required.add_all_edges({yid}, common_succs)
 
         self._check_consistency()
 
@@ -72,6 +79,8 @@ class Delta:
         y = Stream(yid, "catproj2", [sid], {yid}, right_type)
         self.nodes[xid] = x
         self.nodes[yid] = y
+        self._register_metadata(xid,lname)
+        self._register_metadata(yid,rname)
         return (x, y)
 
     def parr(self, s1, s2):
@@ -86,6 +95,7 @@ class Delta:
 
         s = Stream(zid, zname, [s1id, s2id], s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
+        self._register_metadata(zid,zname)
         return s
 
     def parl(self, s):
@@ -102,14 +112,13 @@ class Delta:
         self.forbidden.add_edge(xid, yid)
         self.forbidden.add_edge(yid, xid)
 
-        for var in s.vars:
-            preds = self.required.predecessors(var)
-            self.required.add_all_edges(preds, {xid})
-            self.required.add_all_edges(preds, {yid})
+        common_preds = set.intersection(*[self.required.predecessors(var) for var in s.vars])
+        common_succs = set.intersection(*[self.required.successors(var) for var in s.vars])
 
-            succs = self.required.successors(var)
-            self.required.add_all_edges({xid}, succs)
-            self.required.add_all_edges({yid}, succs)
+        self.required.add_all_edges(common_preds, {xid})
+        self.required.add_all_edges(common_preds, {yid})
+        self.required.add_all_edges({xid}, common_succs)
+        self.required.add_all_edges({yid}, common_succs)
 
         self._check_consistency()
 
@@ -117,6 +126,8 @@ class Delta:
         y = Stream(yid, "parproj2", [sid], {yid}, right_type)
         self.nodes[xid] = x
         self.nodes[yid] = y
+        self._register_metadata(xid,lname)
+        self._register_metadata(yid,rname)
         return (x, y)
 
     @staticmethod

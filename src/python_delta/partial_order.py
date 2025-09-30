@@ -1,6 +1,7 @@
 class PartialOrder:
-    def __init__(self):
+    def __init__(self, metadata=None):
         self.edges = set()  # Set of (x, y) where x <= y (maintains transitive closure, non-reflexive)
+        self.metadata = metadata if metadata is not None else {}  # Shared metadata dict
 
     def _ensure_transitive_closure(self):
         changed = True
@@ -38,8 +39,14 @@ class PartialOrder:
     def overlaps_with(self, other):
         return bool(self.edges.intersection(other.edges))
 
+    def _format_node(self, node):
+        """Format a node with metadata if available."""
+        if node in self.metadata:
+            return f"{self.metadata[node]}(#{node})"
+        return str(node)
+
     def __str__(self):
         if not self.edges:
             return "PartialOrder({})"
-        edges_str = ", ".join(f"{x} < {y}" for x, y in sorted(self.edges))
+        edges_str = ", ".join(f"{self._format_node(x)} < {self._format_node(y)}" for x, y in sorted(self.edges))
         return f"PartialOrder({{{edges_str}}})"

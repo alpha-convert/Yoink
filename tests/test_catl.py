@@ -151,4 +151,4 @@ def test_valid_ordering():
     y = delta.var("y",STRING_TY)
     z = delta.catr(x, y)
     a, b = delta.catl(z)
-    return delta.catr(a, b)
+    delta.catr(a, b)
