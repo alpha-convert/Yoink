@@ -144,3 +144,11 @@ def test_nested_catl_bad_nested4():
     s2 = delta.catr(y,v) #allowed
     with pytest.raises(Exception):
         delta.catr(s2,s1)
+
+def test_valid_ordering():
+    delta = Delta()
+    x = delta.var("x",STRING_TY)
+    y = delta.var("y",STRING_TY)
+    z = delta.catr(x, y)
+    a, b = delta.catl(z)
+    return delta.catr(a, b)
