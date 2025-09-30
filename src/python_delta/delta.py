@@ -1,27 +1,18 @@
-from python_delta.partial_order import PartialOrder
+from python_delta.realized_ordering import RealizedOrdering
 from python_delta.types import BaseType, TyCat, TyPar
 from python_delta.stream import Stream
 
 class Delta:
     def __init__(self):
-        self.metadata = {}  # Shared metadata dict for both partial orders
-        self.required = PartialOrder(self.metadata)
-        self.forbidden = PartialOrder(self.metadata)
+        self.ordering = RealizedOrdering()
         self.nodes = {}
-
-    def _check_consistency(self):
-        if self.required.overlaps_with(self.forbidden):
-            conflicting = self.required.edges.intersection(self.forbidden.edges)
-            print(self.required)
-            print(self.forbidden)
-            raise ValueError(f"Inconsistent constraints: edges both required and forbidden: {conflicting}")
 
     # TODO: refactoring requried here. We need to simplify this to have
     # "register x <= y", and "x in place of s", which puts in the implied requried edges
     # between x and vars(s)
 
     def _register_metadata(self, node_id, name):
-        self.metadata[node_id] = name
+        self.ordering.metadata[node_id] = name
 
     def var(self, v, var_type=None):
         if var_type is None:
@@ -42,13 +33,11 @@ class Delta:
         if s1.vars.intersection(s2.vars):
             raise ValueError("Illegal CatR, overlapping vars")
 
-        self.required.add_all_edges(s1.vars, s2.vars)
-        self.forbidden.add_all_edges(s2.vars, s1.vars)
-        self._check_consistency()
+        self.ordering.add_all_ordered(s1.vars, s2.vars)
 
         s = Stream(zid, zname, [s1id, s2id], s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
-        self._register_metadata(zid,zname)
+        self._register_metadata(zid, zname)
         return s
 
     def catl(self, s):
@@ -62,25 +51,20 @@ class Delta:
         rname = f"catproj2_{sid}"
         xid = hash(lname)
         yid = hash(rname)
-        self.required.add_edge(xid, yid)
-        self.forbidden.add_edge(yid, xid)
 
-        common_preds = set.intersection(*[self.required.predecessors(var) for var in s.vars])
-        common_succs = set.intersection(*[self.required.successors(var) for var in s.vars])
+        # x must come before y
+        self.ordering.add_ordered(xid, yid)
 
-        self.required.add_all_edges(common_preds, {xid})
-        self.required.add_all_edges(common_preds, {yid})
-        self.required.add_all_edges({xid}, common_succs)
-        self.required.add_all_edges({yid}, common_succs)
-
-        self._check_consistency()
+        # Both projections inherit ordering from s.vars
+        self.ordering.add_in_place_of(xid, s.vars)
+        self.ordering.add_in_place_of(yid, s.vars)
 
         x = Stream(xid, "catproj1", [sid], {xid}, left_type)
         y = Stream(yid, "catproj2", [sid], {yid}, right_type)
         self.nodes[xid] = x
         self.nodes[yid] = y
-        self._register_metadata(xid,lname)
-        self._register_metadata(yid,rname)
+        self._register_metadata(xid, lname)
+        self._register_metadata(yid, rname)
         return (x, y)
 
     def parr(self, s1, s2):
@@ -89,13 +73,11 @@ class Delta:
         zname = f"parr_{s1id}_{s2id}"
         zid = hash(zname)
 
-        self.forbidden.add_all_edges(s1.vars, s2.vars)
-        self.forbidden.add_all_edges(s2.vars, s1.vars)  # Make it symmetric
-        self._check_consistency()
+        self.ordering.add_all_unordered(s1.vars, s2.vars)
 
         s = Stream(zid, zname, [s1id, s2id], s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
-        self._register_metadata(zid,zname)
+        self._register_metadata(zid, zname)
         return s
 
     def parl(self, s):
@@ -109,25 +91,18 @@ class Delta:
         rname = f"parproj2_{sid}"
         xid = hash(lname)
         yid = hash(rname)
-        self.forbidden.add_edge(xid, yid)
-        self.forbidden.add_edge(yid, xid)
 
-        common_preds = set.intersection(*[self.required.predecessors(var) for var in s.vars])
-        common_succs = set.intersection(*[self.required.successors(var) for var in s.vars])
+        self.ordering.add_unordered(xid, yid)
 
-        self.required.add_all_edges(common_preds, {xid})
-        self.required.add_all_edges(common_preds, {yid})
-        self.required.add_all_edges({xid}, common_succs)
-        self.required.add_all_edges({yid}, common_succs)
-
-        self._check_consistency()
+        self.ordering.add_in_place_of(xid, s.vars)
+        self.ordering.add_in_place_of(yid, s.vars)
 
         x = Stream(xid, "parproj1", [sid], {xid}, left_type)
         y = Stream(yid, "parproj2", [sid], {yid}, right_type)
         self.nodes[xid] = x
         self.nodes[yid] = y
-        self._register_metadata(xid,lname)
-        self._register_metadata(yid,rname)
+        self._register_metadata(xid, lname)
+        self._register_metadata(yid, rname)
         return (x, y)
 
     @staticmethod
