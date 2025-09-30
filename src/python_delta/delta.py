@@ -1,6 +1,6 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.types import BaseType, TyCat, TyPar
-from python_delta.stream_op import Var, CatR, CatProj, ParR, ParProj, CatLCoordinator, ParLCoordinator
+from python_delta.stream_op import Var, CatR, CatProj, ParR, ParProj, ParLCoordinator
 
 
 class CompiledFunction:
@@ -83,17 +83,10 @@ class Delta:
         right_type = s.stream_type.right_type
 
         sid = s.id
-        coordname = f"catlcoord_{sid}"
         lname = f"catproj1_{sid}"
         rname = f"catproj2_{sid}"
-        coordid = hash(coordname)
         xid = hash(lname)
         yid = hash(rname)
-
-        # Create coordinator that manages shared state between projections
-        coord = CatLCoordinator(coordid, s, s.vars, s.stream_type)
-        self.nodes[coordid] = coord
-        self._register_metadata(coordid, coordname)
 
         # x must come before y
         self.ordering.add_ordered(xid, yid)
@@ -102,8 +95,9 @@ class Delta:
         self.ordering.add_in_place_of(xid, s.vars)
         self.ordering.add_in_place_of(yid, s.vars)
 
-        x = CatProj(xid, coord, left_type, 1)
-        y = CatProj(yid, coord, right_type, 2)
+        # Both projections pull from the same input stream
+        x = CatProj(xid, s, left_type, 1)
+        y = CatProj(yid, s, right_type, 2)
         self.nodes[xid] = x
         self.nodes[yid] = y
         self._register_metadata(xid, lname)

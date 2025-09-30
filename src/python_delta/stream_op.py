@@ -109,41 +109,35 @@ class CatR(StreamOp):
             stream.reset()
 
 
-# TODO: this might be kinda inefficient: in position 2, you can just pull from the input forever
-class CatLCoordinator(StreamOp):
-    """Coordinator for catl that manages shared state between two CatProj instances."""
-    def __init__(self, id, input_stream, vars, stream_type):
-        super().__init__(id, vars, stream_type)
+class CatProj(StreamOp):
+    """Projection from a TyCat stream."""
+    def __init__(self, id, input_stream, stream_type, position):
+        super().__init__(id, {id}, stream_type)
         self.input_stream = input_stream
-        self.seen_punc = False
-        self.exhausted = False
+        self.position = position  # 1 or 2
+        self.seen_punc = False  # For position 2, track if we've seen CatPunc
 
-    def pull_for_position(self, position):
-        """
-        Pull the next event for the given position.
+    def __str__(self):
+        return f"CatProj{self.position}({self.stream_type})"
 
-        Returns the unwrapped value if event is relevant, None if should skip,
+    def __next__(self):
+        """Pull next event and extract value for this position.
+
+        Returns the unwrapped value if event is for our side, None if should skip,
         or raises StopIteration when done.
         """
-        if self.exhausted:
-            raise StopIteration
+        event = next(self.input_stream)
 
-        try:
-            event = next(self.input_stream)
-        except StopIteration:
-            self.exhausted = True
-            raise
-
-        if position == 1:
+        if self.position == 1:
+            # Position 1: return CatEvA values, stop at CatPunc
             if isinstance(event, CatEvA):
                 return event.value
             elif isinstance(event, CatPunc):
-                self.seen_punc = True
                 raise StopIteration
             else:
                 return None  # Skip
-        else:
-            # Position 2: skip until CatPunc, then return unwrapped values
+        else:  # position == 2
+            # Position 2: skip until CatPunc (or CatEvB if punc already consumed), then return unwrapped values
             if isinstance(event, CatEvA):
                 return None  # Skip (shouldn't happen if sequential)
             elif isinstance(event, CatPunc):
@@ -151,43 +145,15 @@ class CatLCoordinator(StreamOp):
                 return None  # Skip the punc itself
             else:
                 # After CatPunc, events are unwrapped
-                if self.seen_punc:
-                    return event  # Return unwrapped value
-                else:
-                    return None  # Still before punc, skip
-
-    def __next__(self):
-        """Coordinators are not directly iterable."""
-        raise NotImplementedError("CatLCoordinator should not be iterated directly")
+                # If we see unwrapped value before punc, position 1 must have consumed the punc
+                if not self.seen_punc:
+                    self.seen_punc = True
+                return event  # Return unwrapped value
 
     def reset(self):
-        """Reset coordinator state."""
+        """Reset state and recursively reset input stream."""
         self.seen_punc = False
-        self.exhausted = False
         self.input_stream.reset()
-
-
-class CatProj(StreamOp):
-    """Projection from a TyCat stream."""
-    def __init__(self, id, coordinator, stream_type, position):
-        super().__init__(id, {id}, stream_type)
-        self.coordinator = coordinator  # CatLCoordinator instance
-        self.position = position  # 1 or 2
-
-    def __str__(self):
-        return f"CatProj{self.position}({self.stream_type})"
-
-    def __next__(self):
-        """Pull next event for this position from the coordinator.
-
-        Returns the unwrapped value if event is for our side, None if should skip,
-        or raises StopIteration when done.
-        """
-        return self.coordinator.pull_for_position(self.position)
-
-    def reset(self):
-        """Reset is handled by the coordinator."""
-        pass  # Coordinator manages the state
 
 
 class ParR(StreamOp):

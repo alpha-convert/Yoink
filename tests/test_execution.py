@@ -120,7 +120,6 @@ def test_parr_then_parl():
 
     a, b = roundtrip.run(iter([1, 2, 3]), iter([4, 5, 6]))
 
-    # Can consume in any order - buffering handles it
     a_results = [x for x in a if x is not None]
     b_results = [x for x in b if x is not None]
 
