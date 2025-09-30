@@ -109,6 +109,7 @@ class CatR(StreamOp):
             stream.reset()
 
 
+# TODO: this might be kinda inefficient: in position 2, you can just pull from the input forever
 class CatLCoordinator(StreamOp):
     """Coordinator for catl that manages shared state between two CatProj instances."""
     def __init__(self, id, input_stream, vars, stream_type):
@@ -288,11 +289,6 @@ class ParProj(StreamOp):
         return f"ParProj{self.position}({self.stream_type})"
 
     def __next__(self):
-        """Pull next event for this position from the coordinator.
-
-        Returns the unwrapped value if event is for our side, None if should skip,
-        or raises StopIteration when done.
-        """
         return self.coordinator.pull_for_position(self.position)
 
     def reset(self):

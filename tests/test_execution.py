@@ -1,7 +1,8 @@
 """
 Tests for stream execution semantics.
 """
-from python_delta.core import Delta, BaseType, CatEvA, CatPunc
+import random
+from python_delta.core import Delta, BaseType, CatEvA, CatPunc, TyCat, TyPar, ParEvA, ParEvB
 
 STRING_TY = BaseType("String")
 
@@ -11,20 +12,14 @@ def test_simple_catr():
     def concat(delta, x: STRING_TY, y: STRING_TY):
         return delta.catr(x, y)
 
-    # Run with concrete data
     output = concat.run(iter(['a', 'b']), iter(['c', 'd']))
-
-    # Collect results
     results = list(output)
-
-    # Should be: CatEvA('a'), CatEvA('b'), CatPunc, 'c', 'd' (unwrapped after punc)
     assert len(results) == 5
     assert results[0] == CatEvA('a')
     assert results[1] == CatEvA('b')
     assert results[2] == CatPunc()
-    assert results[3] == 'c'  # Unwrapped
-    assert results[4] == 'd'  # Unwrapped
-    print("✓ test_simple_catr passed")
+    assert results[3] == 'c'
+    assert results[4] == 'd'
 
 def test_catl_projection():
     """Test catl projection execution."""
@@ -43,9 +38,91 @@ def test_catl_projection():
 
     assert a_results == [1, 2, 3]
     assert b_results == [4, 5, 6]
-    print("✓ test_catl_projection passed")
 
-if __name__ == "__main__":
-    test_simple_catr()
-    test_catl_projection()
-    print("n✅ All execution tests passed!")
+def test_nested_catr():
+    """Test nested concatenation: catr(x, catr(y, z))."""
+    @Delta.jit
+    def nested(delta, x: STRING_TY, y: STRING_TY, z: STRING_TY):
+        return delta.catr(x, delta.catr(y, z))
+
+    output = nested.run(iter([1]), iter([2]), iter([3]))
+    results = list(output)
+
+    # Should be: CatEvA(1), CatPunc, CatEvA(2), CatPunc, 3
+    assert len(results) == 5
+    assert results[0] == CatEvA(1)
+    assert results[1] == CatPunc()
+    assert results[2] == CatEvA(2)
+    assert results[3] == CatPunc()
+    assert results[4] == 3
+
+def test_catl():
+    t = TyCat(STRING_TY, STRING_TY)
+    """Test catr followed by catl (round-trip)."""
+    @Delta.jit
+    def roundtrip(delta, z : t):
+        a, b = delta.catl(z)
+        return (a, b)
+
+    a, b = roundtrip.run(iter([CatEvA(1), CatEvA(2), CatPunc(),3,4]))
+    a_results = [x for x in a if x is not None]
+    b_results = [x for x in b if x is not None]
+
+    assert a_results == [1, 2]
+    assert b_results == [3, 4]
+
+def test_parl():
+    t = TyPar(STRING_TY, STRING_TY)
+    @Delta.jit
+    def roundtrip(delta, z: t):
+        a, b = delta.parl(z)
+        return (a, b)
+
+    a = [1,2,3,4,5]
+    b = [6,7,8,9,10]
+    aev = [ParEvA(x) for x in a]
+    bev = [ParEvB(x) for x in b]
+    c = [x.pop(0) for x in random.sample([aev]*len(aev) + [bev]*len(bev), len(aev)+len(bev))]
+    a, b = roundtrip.run(iter(c))
+    a_results = [x for x in a if x is not None]
+    b_results = [x for x in b if x is not None]
+
+    assert a_results == [1,2,3,4,5]
+    assert b_results == [6,7,8,9,10]
+
+def test_simple_parr():
+    """Test basic parallel composition execution."""
+    @Delta.jit
+    def parallel(delta, x: STRING_TY, y: STRING_TY):
+        return delta.parr(x, y)
+
+    output = parallel.run(iter([1, 2]), iter([3, 4]))
+    results = list(output)
+
+    # Should be interleaved ParEvA and ParEvB events
+    # With alternating strategy: ParEvA(1), ParEvB(3), ParEvA(2), ParEvB(4)
+    assert len(results) == 4
+
+    # Extract values by type
+    a_vals = [r.value for r in results if isinstance(r, ParEvA)]
+    b_vals = [r.value for r in results if isinstance(r, ParEvB)]
+
+    assert a_vals == [1, 2]
+    assert b_vals == [3, 4]
+
+def test_parr_then_parl():
+    """Test parr followed by parl (round-trip)."""
+    @Delta.jit
+    def roundtrip(delta, x: STRING_TY, y: STRING_TY):
+        z = delta.parr(x, y)
+        a, b = delta.parl(z)
+        return (a, b)
+
+    a, b = roundtrip.run(iter([1, 2, 3]), iter([4, 5, 6]))
+
+    # Can consume in any order - buffering handles it
+    a_results = [x for x in a if x is not None]
+    b_results = [x for x in b if x is not None]
+
+    assert a_results == [1, 2, 3]
+    assert b_results == [4, 5, 6]
