@@ -1,15 +1,11 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.types import BaseType, TyCat, TyPar
-from python_delta.stream import Stream
+from python_delta.stream_op import Var, CatR, CatProj, ParR, ParProj
 
 class Delta:
     def __init__(self):
         self.ordering = RealizedOrdering()
         self.nodes = {}
-
-    # TODO: refactoring requried here. We need to simplify this to have
-    # "register x <= y", and "x in place of s", which puts in the implied requried edges
-    # between x and vars(s)
 
     def _register_metadata(self, node_id, name):
         self.ordering.metadata[node_id] = name
@@ -19,7 +15,7 @@ class Delta:
             var_type = BaseType(v)
         name = f"var_{v}"
         xid = hash(name)
-        s = Stream(xid, name, [], {xid}, var_type)
+        s = Var(xid, name, var_type)
         self.nodes[xid] = s
         self._register_metadata(xid, name)
         return s
@@ -35,7 +31,7 @@ class Delta:
 
         self.ordering.add_all_ordered(s1.vars, s2.vars)
 
-        s = Stream(zid, zname, [s1id, s2id], s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
+        s = CatR(zid, s1id, s2id, s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
         self._register_metadata(zid, zname)
         return s
@@ -59,8 +55,8 @@ class Delta:
         self.ordering.add_in_place_of(xid, s.vars)
         self.ordering.add_in_place_of(yid, s.vars)
 
-        x = Stream(xid, "catproj1", [sid], {xid}, left_type)
-        y = Stream(yid, "catproj2", [sid], {yid}, right_type)
+        x = CatProj(xid, sid, left_type, 1)
+        y = CatProj(yid, sid, right_type, 2)
         self.nodes[xid] = x
         self.nodes[yid] = y
         self._register_metadata(xid, lname)
@@ -75,7 +71,7 @@ class Delta:
 
         self.ordering.add_all_unordered(s1.vars, s2.vars)
 
-        s = Stream(zid, zname, [s1id, s2id], s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
+        s = ParR(zid, s1id, s2id, s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
         self._register_metadata(zid, zname)
         return s
@@ -97,8 +93,8 @@ class Delta:
         self.ordering.add_in_place_of(xid, s.vars)
         self.ordering.add_in_place_of(yid, s.vars)
 
-        x = Stream(xid, "parproj1", [sid], {xid}, left_type)
-        y = Stream(yid, "parproj2", [sid], {yid}, right_type)
+        x = ParProj(xid, sid, left_type, 1)
+        y = ParProj(yid, sid, right_type, 2)
         self.nodes[xid] = x
         self.nodes[yid] = y
         self._register_metadata(xid, lname)

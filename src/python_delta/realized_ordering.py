@@ -3,8 +3,8 @@ from python_delta.partial_order import PartialOrder
 class RealizedOrdering:
     """
     A realized ordering consists of two partial orders:
-    - required: edges that must exist (x < y means x must come before y)
-    - forbidden: edges that cannot exist (mutual exclusion)
+    - required: edges that must exist
+    - forbidden: edges that cannot exist
 
     Both partial orders share the same metadata dictionary for human-readable names.
     """
