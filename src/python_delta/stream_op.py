@@ -374,3 +374,25 @@ class CaseOp(StreamOp):
         self.input_stream.reset()
         self.left_branch.reset()
         self.right_branch.reset()
+
+
+class RecCall(StreamOp):
+    """Recursive call - executes a compiled function at runtime with input streams."""
+    def __init__(self, id, compiled_func, input_streams, vars, stream_type):
+        super().__init__(id, vars, stream_type)
+        self.compiled_func = compiled_func  # CompiledFunction to call
+        self.input_streams = input_streams  # List of input StreamOps
+        self.output = None  # Will be set after calling the function
+
+    def __next__(self):
+        """Execute the recursive call and pull from its output."""
+        if self.output is None:
+            # First call: execute the compiled function with input streams
+            self.output = self.compiled_func.run(*self.input_streams)
+        return next(self.output)
+
+    def reset(self):
+        """Reset state and recursively reset input streams."""
+        self.output = None
+        for stream in self.input_streams:
+            stream.reset()

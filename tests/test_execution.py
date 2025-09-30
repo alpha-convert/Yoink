@@ -12,7 +12,7 @@ def test_simple_catr():
     def concat(delta, x: STRING_TY, y: STRING_TY):
         return delta.catr(x, y)
 
-    output = concat.run(iter(['a', 'b']), iter(['c', 'd']))
+    output = concat(iter(['a', 'b']), iter(['c', 'd']))
     results = list(output)
     assert len(results) == 5
     assert results[0] == CatEvA('a')
@@ -29,10 +29,8 @@ def test_catl_projection():
         a, b = delta.catl(z)
         return (a,b)
 
-    # Run with concrete data
-    a,b = split_concat.run(iter([1, 2, 3]), iter([4, 5, 6]))
+    a,b = split_concat(iter([1, 2, 3]), iter([4, 5, 6]))
 
-    # Collect results from each projection, filtering out None values
     a_results = [x for x in a if x is not None]
     b_results = [x for x in b if x is not None]
 
@@ -45,10 +43,9 @@ def test_nested_catr():
     def nested(delta, x: STRING_TY, y: STRING_TY, z: STRING_TY):
         return delta.catr(x, delta.catr(y, z))
 
-    output = nested.run(iter([1]), iter([2]), iter([3]))
+    output = nested(iter([1]), iter([2]), iter([3]))
     results = list(output)
 
-    # Should be: CatEvA(1), CatPunc, CatEvA(2), CatPunc, 3
     assert len(results) == 5
     assert results[0] == CatEvA(1)
     assert results[1] == CatPunc()
@@ -64,7 +61,7 @@ def test_catl():
         a, b = delta.catl(z)
         return (a, b)
 
-    a, b = roundtrip.run(iter([CatEvA(1), CatEvA(2), CatPunc(),3,4]))
+    a, b = roundtrip(iter([CatEvA(1), CatEvA(2), CatPunc(),3,4]))
     a_results = [x for x in a if x is not None]
     b_results = [x for x in b if x is not None]
 
@@ -83,7 +80,7 @@ def test_parl():
     aev = [ParEvA(x) for x in a]
     bev = [ParEvB(x) for x in b]
     c = [x.pop(0) for x in random.sample([aev]*len(aev) + [bev]*len(bev), len(aev)+len(bev))]
-    a, b = roundtrip.run(iter(c))
+    a, b = roundtrip(iter(c))
     a_results = [x for x in a if x is not None]
     b_results = [x for x in b if x is not None]
 
@@ -99,8 +96,6 @@ def test_simple_parr():
     output = parallel.run(iter([1, 2]), iter([3, 4]))
     results = list(output)
 
-    # Should be interleaved ParEvA and ParEvB events
-    # With alternating strategy: ParEvA(1), ParEvB(3), ParEvA(2), ParEvB(4)
     assert len(results) == 4
 
     # Extract values by type
@@ -118,7 +113,7 @@ def test_parr_then_parl():
         a, b = delta.parl(z)
         return (a, b)
 
-    a, b = roundtrip.run(iter([1, 2, 3]), iter([4, 5, 6]))
+    a, b = roundtrip(iter([1, 2, 3]), iter([4, 5, 6]))
 
     a_results = [x for x in a if x is not None]
     b_results = [x for x in b if x is not None]

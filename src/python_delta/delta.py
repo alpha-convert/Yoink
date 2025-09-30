@@ -22,6 +22,7 @@ class CompiledFunction:
         self.outputs = outputs
         self.original_func = original_func
         self.input_types = input_types
+        self._tracing = False  # Flag to detect recursive calls
 
     def __call__(self, *args):
         """
@@ -38,10 +39,47 @@ class CompiledFunction:
             # Symbolic execution: inline the trace into caller's delta
             if len(args) != len(self.input_types) + 1:
                 raise ValueError(f"Expected {len(self.input_types) + 1} arguments (delta + {len(self.input_types)} streams), got {len(args)}")
-            return self.original_func(*args)
+
+            if self._tracing:
+                # Recursive call detected: create RecCall node instead of inlining
+                delta = args[0]
+                input_streams = args[1:]
+                return self._create_rec_call(delta, input_streams)
+
+            # Normal composition: inline by tracing
+            self._tracing = True
+            try:
+                result = self.original_func(*args)
+            finally:
+                self._tracing = False
+            return result
         else:
             # Concrete execution: use pre-compiled graph
             return self.run(*args)
+
+    def _create_rec_call(self, delta, input_streams):
+        """Create a RecCall node for recursive function call."""
+        from python_delta.stream_op import RecCall
+
+        # Generate unique ID for this recursive call
+        stream_ids = "_".join(str(s.id) for s in input_streams)
+        rec_name = f"rec_{self.original_func.__name__}_{stream_ids}"
+        rec_id = hash(rec_name)
+
+        # Collect all vars from input streams
+        all_vars = set()
+        for stream in input_streams:
+            all_vars = all_vars.union(stream.vars)
+
+        # Get output type from the original traced outputs
+        output_type = self.outputs.stream_type
+
+        # Create RecCall node
+        rec_call = RecCall(rec_id, self, input_streams, all_vars, output_type)
+        delta.nodes[rec_id] = rec_call
+        delta._register_metadata(rec_id, rec_name)
+
+        return rec_call
 
     def run(self, *iterators):
         """
@@ -167,7 +205,7 @@ class Delta:
         xid = hash(lname)
         yid = hash(rname)
 
-        # Create coordinator that manages buffering between projections
+        # TODO jcutler: give this two pulls so you don't have to buffer it?
         coord = ParLCoordinator(coordid, s, s.vars, s.stream_type)
         self.nodes[coordid] = coord
         self._register_metadata(coordid, coordname)
@@ -266,7 +304,7 @@ class Delta:
         The traced Delta is passed as the first argument to the function.
         Input types are read from the function's type annotations.
 
-        Returns a CompiledFunction that can be executed with .run(*iterators).
+        Returns a CompiledFunction that can be executed by calling it.
 
         Example:
             @Delta.jit
@@ -276,7 +314,7 @@ class Delta:
                 return delta.catr(a, b)
 
             # Run with concrete data
-            output = my_func.run(iter([1, 2, 3]), iter([4, 5, 6]))
+            output = my_func(iter([1, 2, 3]), iter([4, 5, 6]))
             for item in output:
                 print(item)
         """
