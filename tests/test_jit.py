@@ -48,3 +48,22 @@ def test_jit_multiple_returns():
         z = delta.catr(x, y)
         a, b = delta.catl(z)
         return (a, b)
+
+
+def test_jit_composition():
+    """Test that jitted functions can be composed by calling one inside another."""
+    @Delta.jit
+    def inner(delta, x: STRING_TY, y : STRING_TY):
+        return delta.catr(x, y)
+
+    @Delta.jit
+    def outer(delta, z: TyCat(STRING_TY,STRING_TY)):
+        a, b = delta.catl(z)
+        return inner(delta,a,b)
+
+    output = outer(iter([CatEvA("hello"), CatPunc (), "world"]))
+    result = [x for x in list(output) if x is not None]
+
+    assert result[0] == CatEvA("hello")
+    assert result[1] == CatPunc()
+    assert result[2] == "world"

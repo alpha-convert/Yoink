@@ -33,19 +33,19 @@ class ParEvB:
     def __eq__(self, other):
         return isinstance(other, ParEvB) and self.value == other.value
 
-class InL:
+class PlusPuncA:
     """Tag marker for left injection in sum types."""
     def __repr__(self):
-        return "InL"
+        return "PlusPuncA"
     def __eq__(self, other):
-        return isinstance(other, InL)
+        return isinstance(other, PlusPuncA)
 
-class InR:
+class PlusPuncB:
     """Tag marker for right injection in sum types."""
     def __repr__(self):
-        return "InR"
+        return "PlusPuncB"
     def __eq__(self, other):
-        return isinstance(other, InR)
+        return isinstance(other, PlusPuncB)
 
 
 class StreamOp:
@@ -89,6 +89,23 @@ class Var(StreamOp):
 
     def reset(self):
         """Var has no internal state to reset."""
+        pass
+
+
+class Eps(StreamOp):
+    """Empty stream - immediately raises StopIteration."""
+    def __init__(self, id, stream_type):
+        super().__init__(id, set(), stream_type)
+
+    def __str__(self):
+        return f"Eps({self.stream_type})"
+
+    def __next__(self):
+        """Always raise StopIteration - empty stream has no elements."""
+        raise StopIteration
+
+    def reset(self):
+        """Eps has no internal state to reset."""
         pass
 
 
@@ -173,7 +190,6 @@ class ParR(StreamOp):
     def __init__(self, id, s1, s2, vars, stream_type):
         super().__init__(id, vars, stream_type)
         self.input_streams = [s1, s2]
-        # TODO jcutler: do this less fairly
         self.next_choice = 0  # Alternate between 0 and 1
 
     def __next__(self):
@@ -277,18 +293,18 @@ class ParProj(StreamOp):
         pass  # Coordinator manages the state
 
 
-class InLOp(StreamOp):
-    """Left injection - emits InL tag followed by input stream values."""
+class InL(StreamOp):
+    """Left injection - emits PlusPuncA tag followed by input stream values."""
     def __init__(self, id, input_stream, vars, stream_type):
         super().__init__(id, vars, stream_type)
         self.input_stream = input_stream
         self.tag_emitted = False
 
     def __next__(self):
-        """Emit InL tag first, then pull from input stream."""
+        """Emit PlusPuncA tag first, then pull from input stream."""
         if not self.tag_emitted:
             self.tag_emitted = True
-            return InL()
+            return PlusPuncA()
         return next(self.input_stream)
 
     def reset(self):
@@ -297,18 +313,18 @@ class InLOp(StreamOp):
         self.input_stream.reset()
 
 
-class InROp(StreamOp):
-    """Right injection - emits InR tag followed by input stream values."""
+class InR(StreamOp):
+    """Right injection - emits PlusPuncB tag followed by input stream values."""
     def __init__(self, id, input_stream, vars, stream_type):
         super().__init__(id, vars, stream_type)
         self.input_stream = input_stream
         self.tag_emitted = False
 
     def __next__(self):
-        """Emit InR tag first, then pull from input stream."""
+        """Emit PlusPuncB tag first, then pull from input stream."""
         if not self.tag_emitted:
             self.tag_emitted = True
-            return InR()
+            return PlusPuncB()
         return next(self.input_stream)
 
     def reset(self):
@@ -318,7 +334,7 @@ class InROp(StreamOp):
 
 
 class CaseOp(StreamOp):
-    """Case analysis on sum types - routes based on InL/InR tag."""
+    """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
     def __init__(self, id, input_stream, left_branch, right_branch, left_var, right_var, vars, stream_type):
         super().__init__(id, vars, stream_type)
         self.input_stream = input_stream
@@ -333,16 +349,19 @@ class CaseOp(StreamOp):
         """Read tag and route to appropriate branch."""
         if not self.tag_read:
             tag = next(self.input_stream)
+            if tag is None:
+                return None
             self.tag_read = True
 
-            if isinstance(tag, InL):
+            if isinstance(tag, PlusPuncA):
                 self.active_branch = self.left_branch
                 self.left_var.source = self.input_stream
-            elif isinstance(tag, InR):
+            elif isinstance(tag, PlusPuncB):
                 self.active_branch = self.right_branch
                 self.right_var.source = self.input_stream
             else:
-                raise RuntimeError(f"Expected InL or InR tag, got {tag}")
+                raise RuntimeError(f"Expected PlusPuncA or PlusPuncB tag, got {tag}")
+            return None
 
         return next(self.active_branch)
 
