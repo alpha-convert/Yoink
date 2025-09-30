@@ -1,6 +1,46 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.types import BaseType, TyCat, TyPar
-from python_delta.stream_op import Var, CatR, CatProj, ParR, ParProj
+from python_delta.stream_op import Var, CatR, CatProj, ParR, ParProj, CatLCoordinator, ParLCoordinator
+
+
+class CompiledFunction:
+    """
+    A compiled stream function that can be executed with concrete iterators.
+    """
+    def __init__(self, traced_delta, input_vars, outputs):
+        """
+        Args:
+            traced_delta: The Delta instance containing the traced computation graph
+            input_vars: List of Var nodes representing function inputs
+            outputs: The output StreamOp(s) from the traced function
+        """
+        self.traced_delta = traced_delta
+        self.input_vars = input_vars
+        self.outputs = outputs
+
+    def run(self, *iterators):
+        """
+        Execute the compiled function with concrete iterators.
+
+        Args:
+            *iterators: Concrete iterators to bind to input variables
+
+        Returns:
+            The output stream(s), ready to be iterated
+        """
+        if len(iterators) != len(self.input_vars):
+            raise ValueError(f"Expected {len(self.input_vars)} iterators, got {len(iterators)}")
+
+        # Reset all nodes to initial state
+        for node in self.traced_delta.nodes.values():
+            node.reset()
+
+        # Bind concrete iterators to Var sources
+        for var, iterator in zip(self.input_vars, iterators):
+            var.source = iterator
+
+        # Return the output stream(s)
+        return self.outputs
 
 class Delta:
     def __init__(self):
@@ -31,7 +71,7 @@ class Delta:
 
         self.ordering.add_all_ordered(s1.vars, s2.vars)
 
-        s = CatR(zid, s1id, s2id, s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
+        s = CatR(zid, s1, s2, s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
         self._register_metadata(zid, zname)
         return s
@@ -43,10 +83,17 @@ class Delta:
         right_type = s.stream_type.right_type
 
         sid = s.id
+        coordname = f"catlcoord_{sid}"
         lname = f"catproj1_{sid}"
         rname = f"catproj2_{sid}"
+        coordid = hash(coordname)
         xid = hash(lname)
         yid = hash(rname)
+
+        # Create coordinator that manages shared state between projections
+        coord = CatLCoordinator(coordid, s, s.vars, s.stream_type)
+        self.nodes[coordid] = coord
+        self._register_metadata(coordid, coordname)
 
         # x must come before y
         self.ordering.add_ordered(xid, yid)
@@ -55,8 +102,8 @@ class Delta:
         self.ordering.add_in_place_of(xid, s.vars)
         self.ordering.add_in_place_of(yid, s.vars)
 
-        x = CatProj(xid, sid, left_type, 1)
-        y = CatProj(yid, sid, right_type, 2)
+        x = CatProj(xid, coord, left_type, 1)
+        y = CatProj(yid, coord, right_type, 2)
         self.nodes[xid] = x
         self.nodes[yid] = y
         self._register_metadata(xid, lname)
@@ -71,7 +118,7 @@ class Delta:
 
         self.ordering.add_all_unordered(s1.vars, s2.vars)
 
-        s = ParR(zid, s1id, s2id, s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
+        s = ParR(zid, s1, s2, s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
         self.nodes[zid] = s
         self._register_metadata(zid, zname)
         return s
@@ -83,18 +130,25 @@ class Delta:
         right_type = s.stream_type.right_type
 
         sid = s.id
+        coordname = f"parlcoord_{sid}"
         lname = f"parproj1_{sid}"
         rname = f"parproj2_{sid}"
+        coordid = hash(coordname)
         xid = hash(lname)
         yid = hash(rname)
+
+        # Create coordinator that manages buffering between projections
+        coord = ParLCoordinator(coordid, s, s.vars, s.stream_type)
+        self.nodes[coordid] = coord
+        self._register_metadata(coordid, coordname)
 
         self.ordering.add_unordered(xid, yid)
 
         self.ordering.add_in_place_of(xid, s.vars)
         self.ordering.add_in_place_of(yid, s.vars)
 
-        x = ParProj(xid, sid, left_type, 1)
-        y = ParProj(yid, sid, right_type, 2)
+        x = ParProj(xid, coord, left_type, 1)
+        y = ParProj(yid, coord, right_type, 2)
         self.nodes[xid] = x
         self.nodes[yid] = y
         self._register_metadata(xid, lname)
@@ -110,12 +164,19 @@ class Delta:
         The traced Delta is passed as the first argument to the function.
         Input types are read from the function's type annotations.
 
+        Returns a CompiledFunction that can be executed with .run(*iterators).
+
         Example:
             @Delta.jit
             def my_func(delta, x: STRING_TY, y: STRING_TY):
                 z = delta.catr(x, y)
                 a, b = delta.catl(z)
                 return delta.catr(a, b)
+
+            # Run with concrete data
+            output = my_func.run(iter([1, 2, 3]), iter([4, 5, 6]))
+            for item in output:
+                print(item)
         """
         import inspect
 
@@ -132,8 +193,10 @@ class Delta:
 
         # Create traced delta and symbolic inputs
         traced_delta = Delta()
-        inputs = [traced_delta.var(f"arg{i}", ty) for i, ty in enumerate(input_types)]
+        input_vars = [traced_delta.var(f"arg{i}", ty) for i, ty in enumerate(input_types)]
 
         # Trace the function
-        outputs = func(traced_delta, *inputs)
-        return outputs
+        outputs = func(traced_delta, *input_vars)
+
+        # Return a compiled function
+        return CompiledFunction(traced_delta, input_vars, outputs)
