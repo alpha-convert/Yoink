@@ -46,3 +46,19 @@ class TyPar(Type):
 
     def __hash__(self):
         return hash(("TyPar", self.left_type, self.right_type))
+
+class TyPlus(Type):
+    def __init__(self, left_type, right_type):
+        self.left_type = left_type
+        self.right_type = right_type
+
+    def __str__(self):
+        return f"TyPlus({self.left_type}, {self.right_type})"
+
+    def __eq__(self, other):
+        return (isinstance(other, TyPlus) and
+                self.left_type == other.left_type and
+                self.right_type == other.right_type)
+
+    def __hash__(self):
+        return hash(("TyPlus", self.left_type, self.right_type))

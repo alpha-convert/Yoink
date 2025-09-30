@@ -33,6 +33,20 @@ class ParEvB:
     def __eq__(self, other):
         return isinstance(other, ParEvB) and self.value == other.value
 
+class InL:
+    """Tag marker for left injection in sum types."""
+    def __repr__(self):
+        return "InL"
+    def __eq__(self, other):
+        return isinstance(other, InL)
+
+class InR:
+    """Tag marker for right injection in sum types."""
+    def __repr__(self):
+        return "InR"
+    def __eq__(self, other):
+        return isinstance(other, InR)
+
 
 class StreamOp:
     """Base class for stream operations."""
@@ -48,7 +62,7 @@ class StreamOp:
         """Make StreamOp iterable."""
         return self
 
-    def __next__(self):
+    def __Text__(self):
         """Pull the next element from the stream. Raise StopIteration when exhausted."""
         raise NotImplementedError("Subclasses must implement __next__")
 
@@ -90,6 +104,8 @@ class CatR(StreamOp):
         if self.current_input == 0:
             try:
                 val = next(self.input_streams[0])
+                if val is None:
+                    return None
                 return CatEvA(val)
             except StopIteration:
                 self.current_input = 1
@@ -97,10 +113,10 @@ class CatR(StreamOp):
         elif self.current_input == 1:
             self.current_input = 2
             val = next(self.input_streams[1])
-            return val  # Unwrapped
+            return val  # Unwrapped (including None skips)
         else:  # current_input == 2
             val = next(self.input_streams[1])
-            return val  # Unwrapped
+            return val  # Unwrapped (including None skips)
 
     def reset(self):
         """Reset state and recursively reset input streams."""
@@ -121,11 +137,6 @@ class CatProj(StreamOp):
         return f"CatProj{self.position}({self.stream_type})"
 
     def __next__(self):
-        """Pull next event and extract value for this position.
-
-        Returns the unwrapped value if event is for our side, None if should skip,
-        or raises StopIteration when done.
-        """
         event = next(self.input_stream)
 
         if self.position == 1:
@@ -135,14 +146,15 @@ class CatProj(StreamOp):
             elif isinstance(event, CatPunc):
                 raise StopIteration
             else:
-                return None  # Skip
-        else:  # position == 2
-            # Position 2: skip until CatPunc (or CatEvB if punc already consumed), then return unwrapped values
+                return None
+        else:
             if isinstance(event, CatEvA):
-                return None  # Skip (shouldn't happen if sequential)
+                return None
             elif isinstance(event, CatPunc):
                 self.seen_punc = True
                 return None  # Skip the punc itself
+            elif event is None:
+                return None  # Propagate skip without changing state
             else:
                 # After CatPunc, events are unwrapped
                 # If we see unwrapped value before punc, position 1 must have consumed the punc
@@ -161,6 +173,7 @@ class ParR(StreamOp):
     def __init__(self, id, s1, s2, vars, stream_type):
         super().__init__(id, vars, stream_type)
         self.input_streams = [s1, s2]
+        # TODO jcutler: do this less fairly
         self.next_choice = 0  # Alternate between 0 and 1
 
     def __next__(self):
@@ -170,6 +183,8 @@ class ParR(StreamOp):
         self.next_choice = 1 - self.next_choice  # Alternate
 
         val = next(self.input_streams[choice])
+        if val is None:
+            return None
         if choice == 0:
             return ParEvA(val)
         else:
@@ -260,3 +275,83 @@ class ParProj(StreamOp):
     def reset(self):
         """Reset is handled by the coordinator."""
         pass  # Coordinator manages the state
+
+
+class InLOp(StreamOp):
+    """Left injection - emits InL tag followed by input stream values."""
+    def __init__(self, id, input_stream, vars, stream_type):
+        super().__init__(id, vars, stream_type)
+        self.input_stream = input_stream
+        self.tag_emitted = False
+
+    def __next__(self):
+        """Emit InL tag first, then pull from input stream."""
+        if not self.tag_emitted:
+            self.tag_emitted = True
+            return InL()
+        return next(self.input_stream)
+
+    def reset(self):
+        """Reset state and recursively reset input stream."""
+        self.tag_emitted = False
+        self.input_stream.reset()
+
+
+class InROp(StreamOp):
+    """Right injection - emits InR tag followed by input stream values."""
+    def __init__(self, id, input_stream, vars, stream_type):
+        super().__init__(id, vars, stream_type)
+        self.input_stream = input_stream
+        self.tag_emitted = False
+
+    def __next__(self):
+        """Emit InR tag first, then pull from input stream."""
+        if not self.tag_emitted:
+            self.tag_emitted = True
+            return InR()
+        return next(self.input_stream)
+
+    def reset(self):
+        """Reset state and recursively reset input stream."""
+        self.tag_emitted = False
+        self.input_stream.reset()
+
+
+class CaseOp(StreamOp):
+    """Case analysis on sum types - routes based on InL/InR tag."""
+    def __init__(self, id, input_stream, left_branch, right_branch, left_var, right_var, vars, stream_type):
+        super().__init__(id, vars, stream_type)
+        self.input_stream = input_stream
+        self.left_branch = left_branch  # StreamOp that produces output
+        self.right_branch = right_branch  # StreamOp that produces output
+        self.left_var = left_var  # Var node in left branch
+        self.right_var = right_var  # Var node in right branch
+        self.active_branch = None  # Will be set to left_branch or right_branch after reading tag
+        self.tag_read = False
+
+    def __next__(self):
+        """Read tag and route to appropriate branch."""
+        if not self.tag_read:
+            tag = next(self.input_stream)
+            self.tag_read = True
+
+            if isinstance(tag, InL):
+                self.active_branch = self.left_branch
+                self.left_var.source = self.input_stream
+            elif isinstance(tag, InR):
+                self.active_branch = self.right_branch
+                self.right_var.source = self.input_stream
+            else:
+                raise RuntimeError(f"Expected InL or InR tag, got {tag}")
+
+        return next(self.active_branch)
+
+    def reset(self):
+        """Reset state and recursively reset branches."""
+        self.tag_read = False
+        self.active_branch = None
+        self.left_var.source = None
+        self.right_var.source = None
+        self.input_stream.reset()
+        self.left_branch.reset()
+        self.right_branch.reset()

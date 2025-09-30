@@ -152,7 +152,7 @@ class Delta:
     @staticmethod
     def jit(func):
         """
-        JAX-style tracing JIT decorator.
+        Tracing JIT decorator.
 
         Creates a fresh Delta instance and traces the function with symbolic inputs.
         The traced Delta is passed as the first argument to the function.
