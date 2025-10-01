@@ -246,38 +246,19 @@ class ParProj(StreamOp):
         pass  # Coordinator manages the state
 
 
-class InL(StreamOp):
-    """Left injection - emits PlusPuncA tag followed by input stream values."""
-    def __init__(self, id, input_stream, vars, stream_type):
+class SumInj(StreamOp):
+    """Sum injection - emits PlusPuncA (position=0) or PlusPuncB (position=1) tag followed by input stream values."""
+    def __init__(self, id, input_stream, vars, stream_type, position):
         super().__init__(id, vars, stream_type)
         self.input_stream = input_stream
+        self.position = position  # 0 for left (PlusPuncA), 1 for right (PlusPuncB)
         self.tag_emitted = False
 
     def __next__(self):
-        """Emit PlusPuncA tag first, then pull from input stream."""
+        """Emit tag first (PlusPuncA if position=0, PlusPuncB if position=1), then pull from input stream."""
         if not self.tag_emitted:
             self.tag_emitted = True
-            return PlusPuncA()
-        return next(self.input_stream)
-
-    def reset(self):
-        """Reset state and recursively reset input stream."""
-        self.tag_emitted = False
-        self.input_stream.reset()
-
-
-class InR(StreamOp):
-    """Right injection - emits PlusPuncB tag followed by input stream values."""
-    def __init__(self, id, input_stream, vars, stream_type):
-        super().__init__(id, vars, stream_type)
-        self.input_stream = input_stream
-        self.tag_emitted = False
-
-    def __next__(self):
-        """Emit PlusPuncB tag first, then pull from input stream."""
-        if not self.tag_emitted:
-            self.tag_emitted = True
-            return PlusPuncB()
+            return PlusPuncA() if self.position == 0 else PlusPuncB()
         return next(self.input_stream)
 
     def reset(self):

@@ -1,9 +1,9 @@
-class UnificationError(BaseException):
+class UnificationError(Exception):
     def __init__(self,ty1,ty2):
         self.ty1 = ty1
         self.ty2 = ty2
 
-class OccursCheckFail(BaseException):
+class OccursCheckFail(Exception):
     def __init__(self):
         pass
 

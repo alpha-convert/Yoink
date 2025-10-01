@@ -1,7 +1,7 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.compiled_function import CompiledFunction
 from python_delta.types import BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, InL, InR, CaseOp
+from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp
 
 class Delta:
     def __init__(self):
@@ -90,11 +90,6 @@ class Delta:
         right_type = self._fresh_type_var()
         s.stream_type.unify_with(TyPar(left_type,right_type))
 
-        # if not isinstance(s.stream_type, TyPar):
-        #     raise TypeError(f"parl requires TyPar type, got {s.stream_type}")
-        # left_type = s.stream_type.left_type
-        # right_type = s.stream_type.right_type
-
         sid = s.id
         coordname = f"parlcoord_{sid}"
         lname = f"parproj1_{sid}"
@@ -126,7 +121,7 @@ class Delta:
 
         # TODO: unfication
         output_type = TyPlus(s.stream_type, BaseType("unknown"))
-        z = InL(zid, s, s.vars, output_type)
+        z = SumInj(zid, s, s.vars, output_type, position=0)
         self.ordering.add_in_place_of(zid, s.vars)
         self._register_node(zid, zname,z)
         return z
@@ -139,7 +134,7 @@ class Delta:
 
         # TODO: unfication
         output_type = TyPlus(BaseType("unkown"), s.stream_type)
-        z = InR(zid, s, s.vars, output_type)
+        z = SumInj(zid, s, s.vars, output_type, position=1)
         self.ordering.add_in_place_of(zid, s.vars)
         self._register_node(zid, zname,z)
         return z
@@ -252,8 +247,6 @@ class Delta:
 
             # Run with concrete data
             output = my_func(iter([1, 2, 3]), iter([4, 5, 6]))
-            for item in output:
-                print(item)
         """
         import inspect
 
