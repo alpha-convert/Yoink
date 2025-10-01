@@ -234,7 +234,7 @@ class ParLCoordinator(StreamOp):
         self.input_stream = input_stream
         self.buffer_1 = []  # Buffer for position 1 (ParEvA events)
         self.buffer_2 = []  # Buffer for position 2 (ParEvB events)
-        self.exhausted = False
+        self.input_exhausted = False
 
     @property
     def id(self):
@@ -253,18 +253,16 @@ class ParLCoordinator(StreamOp):
         """
         buffer = self.buffer_1 if position == 1 else self.buffer_2
 
-        # Check buffer first
         if buffer:
             return buffer.pop(0)
 
-        # Buffer empty, need to pull from input
-        if self.exhausted:
+        if self.input_exhausted:
             raise StopIteration
 
         try:
             event = next(self.input_stream)
         except StopIteration:
-            self.exhausted = True
+            self.input_exhausted = True
             raise
 
         # Route the event
@@ -283,7 +281,7 @@ class ParLCoordinator(StreamOp):
                 self.buffer_2.append(event.value)
                 return None
         else:
-            return None  # Unknown event type
+            return None
 
     def __next__(self):
         """Coordinators are not directly iterable."""
@@ -293,7 +291,7 @@ class ParLCoordinator(StreamOp):
         """Reset coordinator state."""
         self.buffer_1.clear()
         self.buffer_2.clear()
-        self.exhausted = False
+        self.input_exhausted = False
         self.input_stream.reset()
 
 
