@@ -1,7 +1,7 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.compiled_function import CompiledFunction
 from python_delta.types import BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp
+from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, Cons, CaseOp, Nil
 
 class Delta:
     def __init__(self):
@@ -86,7 +86,8 @@ class Delta:
 
     def inl(self, s):
         """Left injection into sum type."""
-        output_type = TyPlus(s.stream_type, BaseType("unknown"))
+        right_type = self._fresh_type_var()
+        output_type = TyPlus(s.stream_type, right_type)
         z = SumInj(s, output_type, position=0)
         self.ordering.add_in_place_of(z.id, s.vars)
         self._register_node(z)
@@ -94,7 +95,8 @@ class Delta:
 
     def inr(self, s):
         """Right injection into sum type."""
-        output_type = TyPlus(BaseType("unkown"), s.stream_type)
+        left_type = self._fresh_type_var()
+        output_type = TyPlus(left_type, s.stream_type)
         z = SumInj(s, output_type, position=1)
         self.ordering.add_in_place_of(z.id, s.vars)
         self._register_node(z)
@@ -131,33 +133,25 @@ class Delta:
     def nil(self, element_type = None):
         if element_type is None:
             element_type = self._fresh_type_var()
-
-        # TODO jcutler: make this be a nil operation
-        eps = self.eps(BaseType("unit"))
-        return self.inl(eps)
+        s = Nil(TyStar(element_type))
+        self._register_node(s)
+        return s
 
     def cons(self, head, tail):
-        """Cons operation - elaborates to InR(CatR(head, tail))."""
-        # Type check: tail must be TyStar
-        if not isinstance(tail.stream_type, TyStar):
-            raise TypeError(f"cons requires tail to be TyStar type, got {tail.stream_type}")
+        """Cons operation - creates Cons(head, tail) which behaves like InR(CatR(head, tail))."""
+        element_type = self._fresh_type_var()
+        star_type = TyStar(element_type)
+        head.stream_type.unify_with(element_type)
+        tail.stream_type.unify_with(star_type)
 
-        element_type = tail.stream_type.element_type
-
-        # Type check: head must match element type
-        if head.stream_type != element_type:
-            raise TypeError(f"cons head type {head.stream_type} does not match tail element type {element_type}")
-
-        # Check no overlapping vars
         if head.vars.intersection(tail.vars):
             raise ValueError("Illegal cons, overlapping vars between head and tail")
 
-        # Add ordering: all vars in head before all vars in tail
         self.ordering.add_all_ordered(head.vars, tail.vars)
 
-        # Create elaboration: InR(CatR(head, tail))
-        cat = self.catr(head, tail)
-        return self.inr(cat)
+        s = Cons(head, tail, star_type)
+        self._register_node(s)
+        return s
 
     def starcase(self, x, nil_fn, cons_fn):
         """Star case analysis - elaborates to case + catl."""
@@ -199,14 +193,21 @@ class Delta:
         """
         import inspect
 
-        # Get the function signature
         sig = inspect.signature(func)
         params = list(sig.parameters.values())
 
-        # Skip the first parameter (delta), extract types from the rest
+        # TODO jcutler: type inference and generalization!
+        # We should do the following:
+        # (1) check the output against the written output type (if one exists)
+        # (2) allow for function types to be *not written*, and use type variables if there were none
+        # (3) record the inferred type, and generalize as appropreate
+        # (4) Ensure that we correctly typecheck at function call sites!
+        # (5) Let people write down ordered contexts as the initial realized
+        #     ordering --- ensure we check against these at call sites!
+        # (6) Reify the existing partial order into a context??? The least FJ poset consistent with the realized ordering?
+
         input_types = []
         for param in params[1:]:  # Skip first param which is 'delta'
-            # TODO jcutler: type inference and generalization!
             if param.annotation == inspect.Parameter.empty:
                 raise TypeError(f"Parameter '{param.name}' missing type annotation")
             input_types.append(param.annotation)

@@ -1,4 +1,20 @@
 from python_delta.event import CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
+from enum import Enum
+
+
+class CatRState(Enum):
+    """State machine for CatR operation."""
+    FIRST_STREAM = 0   # Pulling from first stream (wrapped in CatEvA)
+    EMIT_PUNC = 1      # Emit CatPunc separator
+    SECOND_STREAM = 2  # Pulling from second stream (unwrapped)
+
+
+class ConsState(Enum):
+    """State machine for Cons operation."""
+    EMIT_TAG = 0       # Emit PlusPuncB tag (right injection)
+    HEAD = 1           # Pulling from head stream (wrapped in CatEvA)
+    EMIT_PUNC = 2      # Emit CatPunc separator
+    TAIL = 3           # Pulling from tail stream (unwrapped)
 
 
 class StreamOp:
@@ -85,13 +101,12 @@ class Eps(StreamOp):
         """Eps has no internal state to reset."""
         pass
 
-
 class CatR(StreamOp):
     """Concatenation (right) - ordered composition."""
     def __init__(self, s1, s2, stream_type):
         super().__init__(stream_type)
         self.input_streams = [s1, s2]
-        self.current_input = 0  # 0=first stream, 1=emit punctuation, 2=second stream
+        self.current_state = CatRState.FIRST_STREAM
 
     @property
     def id(self):
@@ -103,29 +118,28 @@ class CatR(StreamOp):
 
     def __next__(self):
         """Pull from first stream (wrapped in CatEvA), then CatPunc, then second stream (unwrapped)."""
-        if self.current_input == 0:
+        if self.current_state == CatRState.FIRST_STREAM:
             try:
                 val = next(self.input_streams[0])
                 if val is None:
                     return None
                 return CatEvA(val)
             except StopIteration:
-                self.current_input = 1
+                self.current_state = CatRState.EMIT_PUNC
                 return CatPunc()
-        elif self.current_input == 1:
-            self.current_input = 2
+        elif self.current_state == CatRState.EMIT_PUNC:
+            self.current_state = CatRState.SECOND_STREAM
             val = next(self.input_streams[1])
             return val  # Unwrapped (including None skips)
-        else:  # current_input == 2
+        else:  # CatRState.SECOND_STREAM
             val = next(self.input_streams[1])
             return val  # Unwrapped (including None skips)
 
     def reset(self):
         """Reset state and recursively reset input streams."""
-        self.current_input = 0
+        self.current_state = CatRState.FIRST_STREAM
         for stream in self.input_streams:
             stream.reset()
-
 
 class CatProj(StreamOp):
     """Projection from a TyCat stream."""
@@ -212,7 +226,6 @@ class ParR(StreamOp):
         self.next_choice = 0
         for stream in self.input_streams:
             stream.reset()
-
 
 class ParLCoordinator(StreamOp):
     """Coordinator for parl that manages buffering between two ParProj instances."""
@@ -339,6 +352,50 @@ class SumInj(StreamOp):
         self.input_stream.reset()
 
 
+class Cons(StreamOp):
+    """Cons operation - emits PlusPuncB, then CatR(head, tail) structure."""
+    def __init__(self, head, tail, stream_type):
+        super().__init__(stream_type)
+        self.input_streams = [head, tail]
+        self.current_state = ConsState.EMIT_TAG
+
+    @property
+    def id(self):
+        return hash(("Cons", self.input_streams[0].id, self.input_streams[1].id))
+
+    @property
+    def vars(self):
+        return self.input_streams[0].vars | self.input_streams[1].vars
+
+    def __next__(self):
+        """Emit PlusPuncB tag, then pull from head (wrapped in CatEvA), then CatPunc, then tail (unwrapped)."""
+        if self.current_state == ConsState.EMIT_TAG:
+            self.current_state = ConsState.HEAD
+            return PlusPuncB()
+        elif self.current_state == ConsState.HEAD:
+            try:
+                val = next(self.input_streams[0])
+                if val is None:
+                    return None
+                return CatEvA(val)
+            except StopIteration:
+                self.current_state = ConsState.EMIT_PUNC
+                return CatPunc()
+        elif self.current_state == ConsState.EMIT_PUNC:
+            self.current_state = ConsState.TAIL
+            val = next(self.input_streams[1])
+            return val  # Unwrapped (including None skips)
+        else:  # ConsState.TAIL
+            val = next(self.input_streams[1])
+            return val  # Unwrapped (including None skips)
+
+    def reset(self):
+        """Reset state and recursively reset input streams."""
+        self.current_state = ConsState.EMIT_TAG
+        for stream in self.input_streams:
+            stream.reset()
+
+
 class CaseOp(StreamOp):
     """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
     def __init__(self, input_stream, left_branch, right_branch, left_var, right_var, stream_type):
@@ -423,3 +480,67 @@ class RecCall(StreamOp):
             stream.reset()
 
 
+class Nil(StreamOp):
+    """Nil injection - emits PlusPuncA, and then behaves like Eps (Raises)"""
+    def __init__(self, stream_type):
+        super().__init__(stream_type)
+        self.tag_emitted = False
+
+    @property
+    def id(self):
+        return hash(("Nil",id(self)))
+
+    @property
+    def vars(self):
+        return set()
+
+    def __next__(self):
+        """Emit PlusPuncA then raise """
+        if not self.tag_emitted:
+            self.tag_emitted = True
+            return PlusPuncA()
+        raise StopIteration
+
+    def reset(self):
+        self.tag_emitted = False
+
+
+# class CatR(StreamOp):
+#     """Concatenation (right) - ordered composition."""
+#     def __init__(self, s1, s2, stream_type):
+#         super().__init__(stream_type)
+#         self.input_streams = [s1, s2]
+#         self.current_state = 0  # 0=first stream, 1=emit punctuation, 2=second stream
+
+#     @property
+#     def id(self):
+#         return hash(("CatR", self.input_streams[0].id, self.input_streams[1].id))
+
+#     @property
+#     def vars(self):
+#         return self.input_streams[0].vars | self.input_streams[1].vars
+
+#     def __next__(self):
+#         """Pull from first stream (wrapped in CatEvA), then CatPunc, then second stream (unwrapped)."""
+#         if self.current_state == 0:
+#             try:
+#                 val = next(self.input_streams[0])
+#                 if val is None:
+#                     return None
+#                 return CatEvA(val)
+#             except StopIteration:
+#                 self.current_state = 1
+#                 return CatPunc()
+#         elif self.current_state == 1:
+#             self.current_state = 2
+#             val = next(self.input_streams[1])
+#             return val  # Unwrapped (including None skips)
+#         else:  # current_input == 2
+#             val = next(self.input_streams[1])
+#             return val  # Unwrapped (including None skips)
+
+#     def reset(self):
+#         """Reset state and recursively reset input streams."""
+#         self.current_state = 0
+#         for stream in self.input_streams:
+#             stream.reset()
