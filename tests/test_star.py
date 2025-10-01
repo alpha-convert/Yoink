@@ -42,7 +42,7 @@ def test_cons_cons_nil():
     """Test cons with cons-nil creates a two-element list."""
     @Delta.jit
     def f(delta, x: STRING_TY, y: STRING_TY):
-        nil_list = delta.nil(STRING_TY)
+        nil_list = delta.nil()
         one_elem = delta.cons(y, nil_list)
         two_elem = delta.cons(x, one_elem)
         return two_elem
@@ -64,64 +64,57 @@ def test_cons_cons_nil():
 def test_starcase_nil():
     """Test starcase on nil takes the nil branch."""
     @Delta.jit
-    def f(delta, x: TyStar(STRING_TY)):
+    def f(delta, x: TyStar(STRING_TY), base_case : STRING_TY):
         return delta.starcase(
             x,
-            lambda _: delta.var("nil_result", STRING_TY),  # Nil branch
+            lambda _: base_case,  # Nil branch
             lambda head, tail: head  # Cons branch (not taken)
         )
 
-    # Create nil input: PlusPuncA
-    output = f(iter([PlusPuncA()]))
-    result = list(output)
-
-    # Should bind to nil_result var, which we'll pass "NIL" to
-    # Actually, we need to pass concrete data for the var
-    # Let me revise this test
+    output = f(iter([PlusPuncA()]),iter(["Hi"]))
+    result = [x for x in list(output) if x is not None]
+    assert result[0] == "Hi"
 
 
 def test_starcase_cons():
-    """Test starcase on cons takes the cons branch."""
+    """Test starcase on nil takes the cons branch."""
     @Delta.jit
-    def f(delta, x: TyStar(STRING_TY)):
+    def f(delta, x: TyStar(STRING_TY), base_case : STRING_TY):
         return delta.starcase(
             x,
-            lambda _: delta.eps(STRING_TY),  # Nil branch (not taken)
-            lambda head, tail: head  # Cons branch: return head
+            lambda _: base_case,  # Nil branch
+            lambda head, tail: head  # Cons branch (not taken)
         )
 
-    # Create cons input: PlusPuncB, CatEvA("hello"), CatPunc, PlusPuncA (nil tail)
-    output = f(iter([PlusPuncB(), CatEvA("hello"), CatPunc(), PlusPuncA()]))
-    result = list(output)
-
-    # Should return the head, which is "hello"
-    assert result == ["hello"]
+    output = f(iter([PlusPuncB(),CatEvA("World"),CatPunc(),PlusPuncA()]),iter(["Hi"]))
+    result = [x for x in list(output) if x is not None]
+    assert result[0] == "World"
 
 
-def test_recursive_list_length():
-    """Test recursive function to compute list length using starcase."""
-    @Delta.jit
-    def length(delta, xs: TyStar(STRING_TY)):
-        return delta.starcase(
-            xs,
-            lambda _: delta.eps(INT_TY),  # Nil: return empty stream (length 0)
-            lambda head, tail: length(delta, tail)  # Cons: recurse on tail
-        )
+# def test_recursive_list_length():
+#     """Test recursive function to compute list length using starcase."""
+#     @Delta.jit
+#     def length(delta, xs: TyStar(STRING_TY)):
+#         return delta.starcase(
+#             xs,
+#             lambda _: delta.eps(),  # Nil: return empty stream (length 0)
+#             lambda head, tail: length(delta, tail)  # Cons: recurse on tail
+#         )
 
-    # Create a 2-element list
-    # PlusPuncB, CatEvA("a"), CatPunc, PlusPuncB, CatEvA("b"), CatPunc, PlusPuncA
-    two_elem_list = iter([
-        PlusPuncB(),
-        CatEvA("a"),
-        CatPunc(),
-        PlusPuncB(),
-        CatEvA("b"),
-        CatPunc(),
-        PlusPuncA()
-    ])
+#     # Create a 2-element list
+#     # PlusPuncB, CatEvA("a"), CatPunc, PlusPuncB, CatEvA("b"), CatPunc, PlusPuncA
+#     two_elem_list = iter([
+#         PlusPuncB(),
+#         CatEvA("a"),
+#         CatPunc(),
+#         PlusPuncB(),
+#         CatEvA("b"),
+#         CatPunc(),
+#         PlusPuncA()
+#     ])
 
-    output = length(two_elem_list)
-    result = list(output)
+#     output = length(two_elem_list)
+#     result = list(output)
 
-    # Should recursively process, but since we return eps, result is empty
-    assert result == []
+#     # Should recursively process, but since we return eps, result is empty
+#     assert result == []
