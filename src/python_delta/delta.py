@@ -1,7 +1,7 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.compiled_function import CompiledFunction
 from python_delta.types import BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, Cons, CaseOp, Nil
+from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp
 
 class Delta:
     def __init__(self):
@@ -133,12 +133,13 @@ class Delta:
     def nil(self, element_type = None):
         if element_type is None:
             element_type = self._fresh_type_var()
-        s = Nil(TyStar(element_type))
+        eps = Eps(TyEps())
+        s = SumInj(eps,TyStar(element_type),position=0)
         self._register_node(s)
         return s
 
     def cons(self, head, tail):
-        """Cons operation - creates Cons(head, tail) which behaves like InR(CatR(head, tail))."""
+        """Cons operation - builds InR(CatR(head, tail)) directly."""
         element_type = self._fresh_type_var()
         star_type = TyStar(element_type)
         head.stream_type.unify_with(element_type)
@@ -149,23 +150,22 @@ class Delta:
 
         self.ordering.add_all_ordered(head.vars, tail.vars)
 
-        s = Cons(head, tail, star_type)
+        cat = CatR(head, tail, TyCat(element_type, star_type))
+        s = SumInj(cat, star_type, position=1)
         self._register_node(s)
         return s
 
     def starcase(self, x, nil_fn, cons_fn):
         """Star case analysis - elaborates to case + catl."""
-        # Type check: x must be TyStar
-        if not isinstance(x.stream_type, TyStar):
-            raise TypeError(f"starcase requires TyStar type, got {x.stream_type}")
+        element_type = self._fresh_type_var()
+        star_type = TyStar(element_type)
 
-        element_type = x.stream_type.element_type
+        # Unify x with TyStar(element_type)
+        x.stream_type.unify_with(star_type)
 
         # Elaborate to: case(x, nil_fn, lambda z: let (y, ys) = catl(z) in cons_fn(y, ys))
         def right_branch(z):
-            # z has type TyCat(element_type, TyStar(element_type))
             y, ys = self.catl(z)
-            # y has type element_type, ys has type TyStar(element_type)
             return cons_fn(y, ys)
 
         return self.case(x, nil_fn, right_branch)
