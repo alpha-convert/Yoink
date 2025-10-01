@@ -1,7 +1,7 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.compiled_function import CompiledFunction
-from python_delta.types import BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp
+from python_delta.types import Type, BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
+from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp
 
 class Delta:
     def __init__(self):
@@ -24,7 +24,7 @@ class Delta:
 
     def eps(self):
         """Create an empty stream that immediately raises StopIteration."""
-        s = Eps(TyEps)
+        s = Eps(TyEps())
         self._register_node(s)
         return s
 
@@ -156,19 +156,43 @@ class Delta:
         return s
 
     def starcase(self, x, nil_fn, cons_fn):
-        """Star case analysis - elaborates to case + catl."""
+        """Star case analysis - builds CaseOp directly for TyStar."""
         element_type = self._fresh_type_var()
         star_type = TyStar(element_type)
 
-        # Unify x with TyStar(element_type)
         x.stream_type.unify_with(star_type)
 
-        # Elaborate to: case(x, nil_fn, lambda z: let (y, ys) = catl(z) in cons_fn(y, ys))
-        def right_branch(z):
-            y, ys = self.catl(z)
-            return cons_fn(y, ys)
+        nil_var = Var("starcase_nil", TyEps())
+        cons_var = Var("starcase_cons", TyCat(element_type, star_type))
 
-        return self.case(x, nil_fn, right_branch)
+        self.ordering.add_in_place_of(nil_var.id, x.vars)
+        self.ordering.add_in_place_of(cons_var.id, x.vars)
+
+        self._register_node(nil_var)
+        self._register_node(cons_var)
+
+        head = CatProj(cons_var, element_type, 1)
+        tail = CatProj(cons_var, star_type, 2)
+
+        self.ordering.add_ordered(head.id, tail.id)
+
+        self.ordering.add_in_place_of(head.id, x.vars)
+        self.ordering.add_in_place_of(tail.id, x.vars)
+
+        self._register_node(head)
+        self._register_node(tail)
+
+        nil_output : StreamOp = nil_fn(nil_var)
+        cons_output : StreamOp = cons_fn(head, tail)
+
+        nil_output.stream_type.unify_with(other=cons_output.stream_type)
+
+        output_type = nil_output.stream_type
+
+        z = CaseOp(x, nil_output, cons_output, nil_var, cons_var, output_type)
+        self._register_node(z)
+
+        return z
 
     @staticmethod
     def jit(func):
