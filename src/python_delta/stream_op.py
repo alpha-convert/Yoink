@@ -3,10 +3,18 @@ from python_delta.event import CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusP
 
 class StreamOp:
     """Base class for stream operations."""
-    def __init__(self, id, vars, stream_type):
-        self.id = id
-        self.vars = vars
+    def __init__(self, stream_type):
         self.stream_type = stream_type
+
+    @property
+    def id(self):
+        """Compute structural ID from operation structure. Subclasses must override."""
+        raise NotImplementedError("Subclasses must implement id property")
+
+    @property
+    def vars(self):
+        """Compute vars set from operation structure. Subclasses must override."""
+        raise NotImplementedError("Subclasses must implement vars property")
 
     def __str__(self):
         return f"{self.__class__.__name__}({self.stream_type})"
@@ -15,7 +23,7 @@ class StreamOp:
         """Make StreamOp iterable."""
         return self
 
-    def __Text__(self):
+    def __next__(self):
         """Pull the next element from the stream. Raise StopIteration when exhausted."""
         raise NotImplementedError("Subclasses must implement __next__")
 
@@ -26,10 +34,18 @@ class StreamOp:
 
 class Var(StreamOp):
     """Variable stream operation."""
-    def __init__(self, id, name, stream_type):
-        super().__init__(id, {id}, stream_type)
+    def __init__(self, name, stream_type):
+        super().__init__(stream_type)
         self.name = name
         self.source = None  # Will be bound during .run()
+
+    @property
+    def id(self):
+        return hash(("Var", self.name))
+
+    @property
+    def vars(self):
+        return {self.id}
 
     def __str__(self):
         return f"Var({self.name}: {self.stream_type})"
@@ -47,8 +63,16 @@ class Var(StreamOp):
 
 class Eps(StreamOp):
     """Empty stream - immediately raises StopIteration."""
-    def __init__(self, id, stream_type):
-        super().__init__(id, set(), stream_type)
+    def __init__(self, stream_type):
+        super().__init__(stream_type)
+
+    @property
+    def id(self):
+        return hash(("Eps", id(self)))
+
+    @property
+    def vars(self):
+        return set()
 
     def __str__(self):
         return f"Eps({self.stream_type})"
@@ -64,10 +88,18 @@ class Eps(StreamOp):
 
 class CatR(StreamOp):
     """Concatenation (right) - ordered composition."""
-    def __init__(self, id, s1, s2, vars, stream_type):
-        super().__init__(id, vars, stream_type)
+    def __init__(self, s1, s2, stream_type):
+        super().__init__(stream_type)
         self.input_streams = [s1, s2]
         self.current_input = 0  # 0=first stream, 1=emit punctuation, 2=second stream
+
+    @property
+    def id(self):
+        return hash(("CatR", self.input_streams[0].id, self.input_streams[1].id))
+
+    @property
+    def vars(self):
+        return self.input_streams[0].vars | self.input_streams[1].vars
 
     def __next__(self):
         """Pull from first stream (wrapped in CatEvA), then CatPunc, then second stream (unwrapped)."""
@@ -97,11 +129,19 @@ class CatR(StreamOp):
 
 class CatProj(StreamOp):
     """Projection from a TyCat stream."""
-    def __init__(self, id, input_stream, stream_type, position):
-        super().__init__(id, {id}, stream_type)
+    def __init__(self, input_stream, stream_type, position):
+        super().__init__(stream_type)
         self.input_stream = input_stream
         self.position = position  # 1 or 2
         self.seen_punc = False  # For position 2, track if we've seen CatPunc
+
+    @property
+    def id(self):
+        return hash(("CatProj", self.input_stream.id, self.position))
+
+    @property
+    def vars(self):
+        return {self.id}
 
     def __str__(self):
         return f"CatProj{self.position}({self.stream_type})"
@@ -140,10 +180,18 @@ class CatProj(StreamOp):
 
 class ParR(StreamOp):
     """Parallel composition (right)."""
-    def __init__(self, id, s1, s2, vars, stream_type):
-        super().__init__(id, vars, stream_type)
+    def __init__(self, s1, s2, stream_type):
+        super().__init__(stream_type)
         self.input_streams = [s1, s2]
         self.next_choice = 0  # Alternate between 0 and 1
+
+    @property
+    def id(self):
+        return hash(("ParR", self.input_streams[0].id, self.input_streams[1].id))
+
+    @property
+    def vars(self):
+        return self.input_streams[0].vars | self.input_streams[1].vars
 
     def __next__(self):
         """Non-deterministically choose an input stream and pull from it, wrapping in ParEvA or ParEvB."""
@@ -168,12 +216,20 @@ class ParR(StreamOp):
 
 class ParLCoordinator(StreamOp):
     """Coordinator for parl that manages buffering between two ParProj instances."""
-    def __init__(self, id, input_stream, vars, stream_type):
-        super().__init__(id, vars, stream_type)
+    def __init__(self, input_stream, stream_type):
+        super().__init__(stream_type)
         self.input_stream = input_stream
         self.buffer_1 = []  # Buffer for position 1 (ParEvA events)
         self.buffer_2 = []  # Buffer for position 2 (ParEvB events)
         self.exhausted = False
+
+    @property
+    def id(self):
+        return hash(("ParLCoordinator", self.input_stream.id))
+
+    @property
+    def vars(self):
+        return self.input_stream.vars
 
     def pull_for_position(self, position):
         """
@@ -230,10 +286,18 @@ class ParLCoordinator(StreamOp):
 
 class ParProj(StreamOp):
     """Projection from a TyPar stream."""
-    def __init__(self, id, coordinator, stream_type, position):
-        super().__init__(id, {id}, stream_type)
+    def __init__(self, coordinator, stream_type, position):
+        super().__init__(stream_type)
         self.coordinator = coordinator  # ParLCoordinator instance
         self.position = position  # 1 or 2
+
+    @property
+    def id(self):
+        return hash(("ParProj", self.coordinator.id, self.position))
+
+    @property
+    def vars(self):
+        return self.coordinator.vars
 
     def __str__(self):
         return f"ParProj{self.position}({self.stream_type})"
@@ -248,11 +312,19 @@ class ParProj(StreamOp):
 
 class SumInj(StreamOp):
     """Sum injection - emits PlusPuncA (position=0) or PlusPuncB (position=1) tag followed by input stream values."""
-    def __init__(self, id, input_stream, vars, stream_type, position):
-        super().__init__(id, vars, stream_type)
+    def __init__(self, input_stream, stream_type, position):
+        super().__init__(stream_type)
         self.input_stream = input_stream
         self.position = position  # 0 for left (PlusPuncA), 1 for right (PlusPuncB)
         self.tag_emitted = False
+
+    @property
+    def id(self):
+        return hash(("SumInj", self.input_stream.id, self.position))
+
+    @property
+    def vars(self):
+        return self.input_stream.vars
 
     def __next__(self):
         """Emit tag first (PlusPuncA if position=0, PlusPuncB if position=1), then pull from input stream."""
@@ -269,8 +341,8 @@ class SumInj(StreamOp):
 
 class CaseOp(StreamOp):
     """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
-    def __init__(self, id, input_stream, left_branch, right_branch, left_var, right_var, vars, stream_type):
-        super().__init__(id, vars, stream_type)
+    def __init__(self, input_stream, left_branch, right_branch, left_var, right_var, stream_type):
+        super().__init__(stream_type)
         self.input_stream = input_stream
         self.left_branch = left_branch  # StreamOp that produces output
         self.right_branch = right_branch  # StreamOp that produces output
@@ -278,6 +350,15 @@ class CaseOp(StreamOp):
         self.right_var = right_var  # Var node in right branch
         self.active_branch = None  # Will be set to left_branch or right_branch after reading tag
         self.tag_read = False
+
+    @property
+    def id(self):
+        return hash(("CaseOp", self.input_stream.id, self.left_branch.id, self.right_branch.id))
+
+    @property
+    def vars(self):
+        # TODO: delete left var/right var from this...
+        return self.input_stream.vars | self.left_var.vars | self.right_var.vars
 
     def __next__(self):
         """Read tag and route to appropriate branch."""
@@ -312,11 +393,21 @@ class CaseOp(StreamOp):
 
 class RecCall(StreamOp):
     """Recursive call - executes a compiled function at runtime with input streams."""
-    def __init__(self, id, compiled_func, input_streams, vars, stream_type):
-        super().__init__(id, vars, stream_type)
+    def __init__(self, compiled_func, input_streams, stream_type):
+        super().__init__(stream_type)
         self.compiled_func = compiled_func  # CompiledFunction to call
         self.input_streams = input_streams  # List of input StreamOps
         self.output = None  # Will be set after calling the function
+
+    @property
+    def id(self):
+        return hash(("RecCall", id(self.compiled_func), tuple(s.id for s in self.input_streams)))
+
+    @property
+    def vars(self):
+        if not self.input_streams:
+            return set()
+        return set().union(*[s.vars for s in self.input_streams])
 
     def __next__(self):
         """Execute the recursive call and pull from its output."""

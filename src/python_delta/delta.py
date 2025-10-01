@@ -12,40 +12,30 @@ class Delta:
     def _fresh_type_var(self):
         return TypeVar(self.current_level)
 
-    def _register_node(self, node_id, name, node):
+    def _register_node(self, node):
         self.nodes.add(node)
-        self.ordering.metadata[node_id] = name
 
     def var(self, v, var_type=None):
         if var_type is None:
             var_type = self._fresh_type_var()
-        name = f"var_{v}"
-        xid = hash(name)
-        s = Var(xid, name, var_type)
-        self._register_node(xid, name,s)
+        s = Var(v, var_type)
+        self._register_node(s)
         return s
 
     def eps(self):
         """Create an empty stream that immediately raises StopIteration."""
-        name = f"eps_{id(self)}"
-        xid = hash(name)
-        s = Eps(xid, TyEps)
-        self._register_node(xid, name,s)
+        s = Eps(TyEps)
+        self._register_node(s)
         return s
 
     def catr(self, s1, s2):
-        s1id = s1.id
-        s2id = s2.id
-        zname = f"catr_{s1id}_{s2id}"
-        zid = hash(zname)
-
         if s1.vars.intersection(s2.vars):
             raise ValueError("Illegal CatR, overlapping vars")
 
         self.ordering.add_all_ordered(s1.vars, s2.vars)
 
-        s = CatR(zid, s1, s2, s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
-        self._register_node(zid, zname,s)
+        s = CatR(s1, s2, TyCat(s1.stream_type, s2.stream_type))
+        self._register_node(s)
         return s
 
     def catl(self, s):
@@ -53,36 +43,25 @@ class Delta:
         right_type = self._fresh_type_var()
         s.stream_type.unify_with(TyCat(left_type,right_type))
 
-        sid = s.id
-        lname = f"catproj1_{sid}"
-        rname = f"catproj2_{sid}"
-        xid = hash(lname)
-        yid = hash(rname)
+        x = CatProj(s, left_type, 1)
+        y = CatProj(s, right_type, 2)
 
         # x must come before y
-        self.ordering.add_ordered(xid, yid)
+        self.ordering.add_ordered(x.id, y.id)
 
         # Both projections inherit ordering from s.vars
-        self.ordering.add_in_place_of(xid, s.vars)
-        self.ordering.add_in_place_of(yid, s.vars)
+        self.ordering.add_in_place_of(x.id, s.vars)
+        self.ordering.add_in_place_of(y.id, s.vars)
 
-        # Both projections pull from the same input stream
-        x = CatProj(xid, s, left_type, 1)
-        y = CatProj(yid, s, right_type, 2)
-        self._register_node(xid, lname,x)
-        self._register_node(yid, rname,y)
+        self._register_node(x)
+        self._register_node(y)
         return (x, y)
 
     def parr(self, s1, s2):
-        s1id = s1.id
-        s2id = s2.id
-        zname = f"parr_{s1id}_{s2id}"
-        zid = hash(zname)
-
         self.ordering.add_all_unordered(s1.vars, s2.vars)
 
-        s = ParR(zid, s1, s2, s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
-        self._register_node(zid, zname,s)
+        s = ParR(s1, s2, TyPar(s1.stream_type, s2.stream_type))
+        self._register_node(s)
         return s
 
     def parl(self, s):
@@ -90,53 +69,35 @@ class Delta:
         right_type = self._fresh_type_var()
         s.stream_type.unify_with(TyPar(left_type,right_type))
 
-        sid = s.id
-        coordname = f"parlcoord_{sid}"
-        lname = f"parproj1_{sid}"
-        rname = f"parproj2_{sid}"
-        coordid = hash(coordname)
-        xid = hash(lname)
-        yid = hash(rname)
+        coord = ParLCoordinator(s, s.stream_type)
+        self._register_node(coord)
 
-        # TODO jcutler: give this two pulls so you don't have to buffer it?
-        coord = ParLCoordinator(coordid, s, s.vars, s.stream_type)
-        self._register_node(coordid, coordname,coord)
+        x = ParProj(coord, left_type, 1)
+        y = ParProj(coord, right_type, 2)
 
-        self.ordering.add_unordered(xid, yid)
+        self.ordering.add_unordered(x.id, y.id)
 
-        self.ordering.add_in_place_of(xid, s.vars)
-        self.ordering.add_in_place_of(yid, s.vars)
+        self.ordering.add_in_place_of(x.id, s.vars)
+        self.ordering.add_in_place_of(y.id, s.vars)
 
-        x = ParProj(xid, coord, left_type, 1)
-        y = ParProj(yid, coord, right_type, 2)
-        self._register_node(xid, lname,x)
-        self._register_node(yid, rname,y)
+        self._register_node(x)
+        self._register_node(y)
         return (x, y)
 
     def inl(self, s):
         """Left injection into sum type."""
-        sid = s.id
-        zname = f"inl_{sid}"
-        zid = hash(zname)
-
-        # TODO: unfication
         output_type = TyPlus(s.stream_type, BaseType("unknown"))
-        z = SumInj(zid, s, s.vars, output_type, position=0)
-        self.ordering.add_in_place_of(zid, s.vars)
-        self._register_node(zid, zname,z)
+        z = SumInj(s, output_type, position=0)
+        self.ordering.add_in_place_of(z.id, s.vars)
+        self._register_node(z)
         return z
 
     def inr(self, s):
         """Right injection into sum type."""
-        sid = s.id
-        zname = f"inr_{sid}"
-        zid = hash(zname)
-
-        # TODO: unfication
         output_type = TyPlus(BaseType("unkown"), s.stream_type)
-        z = SumInj(zid, s, s.vars, output_type, position=1)
-        self.ordering.add_in_place_of(zid, s.vars)
-        self._register_node(zid, zname,z)
+        z = SumInj(s, output_type, position=1)
+        self.ordering.add_in_place_of(z.id, s.vars)
+        self._register_node(z)
         return z
 
     def case(self, x, left_fn, right_fn):
@@ -144,18 +105,14 @@ class Delta:
         right_type = self._fresh_type_var()
         x.stream_type.unify_with(TyPlus(left_type,right_type))
 
-        left_name = f"case_left_{x.id}"
-        left_id = hash(left_name)
-        right_name = f"case_right_{x.id}"
-        right_id = hash(right_name)
-        left_var = Var(left_id, left_name, left_type)
-        right_var = Var(right_id, right_name, right_type)
+        left_var = Var("case_left", left_type)
+        right_var = Var("case_right", right_type)
 
-        self.ordering.add_in_place_of(left_id, x.vars)
-        self.ordering.add_in_place_of(right_id, x.vars)
+        self.ordering.add_in_place_of(left_var.id, x.vars)
+        self.ordering.add_in_place_of(right_var.id, x.vars)
 
-        self._register_node(left_var.id, left_var.name, left_var)
-        self._register_node(right_var.id, right_var.name, right_var)
+        self._register_node(left_var)
+        self._register_node(right_var)
 
         # Trace both branches with the same delta instance
         left_output = left_fn(left_var)
@@ -166,14 +123,8 @@ class Delta:
 
         output_type = left_output.stream_type
 
-        # Create CaseOp
-        xid = x.id
-        zname = f"case_{xid}"
-        zid = hash(zname)
-
-        all_vars = x.vars.union(left_var.vars).union(right_var.vars)
-        z = CaseOp(zid, x, left_output, right_output, left_var, right_var, all_vars, output_type)
-        self._register_node(zid, zname,z)
+        z = CaseOp(x, left_output, right_output, left_var, right_var, output_type)
+        self._register_node(z)
 
         return z
 

@@ -55,23 +55,13 @@ class CompiledFunction:
         """Create a RecCall node for recursive function call."""
         from python_delta.stream_op import RecCall
 
-        # Generate unique ID for this recursive call
-        stream_ids = "_".join(str(s.id) for s in input_streams)
-        rec_name = f"rec_{self.original_func.__name__}_{stream_ids}"
-        rec_id = hash(rec_name)
-
-        # Collect all vars from input streams
-        all_vars = set()
-        for stream in input_streams:
-            all_vars = all_vars.union(stream.vars)
-
         # Get output type from the original traced outputs
         output_type = self.outputs.stream_type
 
-        # Create RecCall node
-        rec_call = RecCall(rec_id, self, input_streams, all_vars, output_type)
-        delta.nodes[rec_id] = rec_call
-        delta._register_metadata(rec_id, rec_name)
+        # Create RecCall node (ID is computed automatically from structure)
+        rec_call = RecCall(self, input_streams, output_type)
+        delta.nodes.add(rec_call)
+        delta._register_node(rec_call.id, f"rec_{self.original_func.__name__}_{rec_call.id}", rec_call)
 
         return rec_call
 
