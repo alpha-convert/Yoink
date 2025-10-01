@@ -8,7 +8,8 @@ class Delta:
         self.ordering = RealizedOrdering()
         self.nodes = {}
 
-    def _register_metadata(self, node_id, name):
+    def _register_node(self, node_id, name, node):
+        self.nodes[node_id] = node
         self.ordering.metadata[node_id] = name
 
     def var(self, v, var_type=None):
@@ -17,8 +18,7 @@ class Delta:
         name = f"var_{v}"
         xid = hash(name)
         s = Var(xid, name, var_type)
-        self.nodes[xid] = s
-        self._register_metadata(xid, name)
+        self._register_node(xid, name,s)
         return s
 
     def eps(self):
@@ -26,8 +26,7 @@ class Delta:
         name = f"eps_{id(self)}"
         xid = hash(name)
         s = Eps(xid, TyEps)
-        self.nodes[xid] = s
-        self._register_metadata(xid, name)
+        self._register_node(xid, name,s)
         return s
 
     def catr(self, s1, s2):
@@ -42,8 +41,7 @@ class Delta:
         self.ordering.add_all_ordered(s1.vars, s2.vars)
 
         s = CatR(zid, s1, s2, s1.vars.union(s2.vars), TyCat(s1.stream_type, s2.stream_type))
-        self.nodes[zid] = s
-        self._register_metadata(zid, zname)
+        self._register_node(zid, zname,s)
         return s
 
     def catl(self, s):
@@ -68,10 +66,8 @@ class Delta:
         # Both projections pull from the same input stream
         x = CatProj(xid, s, left_type, 1)
         y = CatProj(yid, s, right_type, 2)
-        self.nodes[xid] = x
-        self.nodes[yid] = y
-        self._register_metadata(xid, lname)
-        self._register_metadata(yid, rname)
+        self._register_node(xid, lname,x)
+        self._register_node(yid, rname,y)
         return (x, y)
 
     def parr(self, s1, s2):
@@ -83,8 +79,7 @@ class Delta:
         self.ordering.add_all_unordered(s1.vars, s2.vars)
 
         s = ParR(zid, s1, s2, s1.vars.union(s2.vars), TyPar(s1.stream_type, s2.stream_type))
-        self.nodes[zid] = s
-        self._register_metadata(zid, zname)
+        self._register_node(zid, zname,s)
         return s
 
     def parl(self, s):
@@ -103,8 +98,7 @@ class Delta:
 
         # TODO jcutler: give this two pulls so you don't have to buffer it?
         coord = ParLCoordinator(coordid, s, s.vars, s.stream_type)
-        self.nodes[coordid] = coord
-        self._register_metadata(coordid, coordname)
+        self._register_node(coordid, coordname,coord)
 
         self.ordering.add_unordered(xid, yid)
 
@@ -113,10 +107,8 @@ class Delta:
 
         x = ParProj(xid, coord, left_type, 1)
         y = ParProj(yid, coord, right_type, 2)
-        self.nodes[xid] = x
-        self.nodes[yid] = y
-        self._register_metadata(xid, lname)
-        self._register_metadata(yid, rname)
+        self._register_node(xid, lname,x)
+        self._register_node(yid, rname,y)
         return (x, y)
 
     def inl(self, s):
@@ -127,9 +119,8 @@ class Delta:
 
         output_type = TyPlus(s.stream_type, BaseType("unknown"))
         z = InL(zid, s, s.vars, output_type)
-        self.nodes[zid] = z
         self.ordering.add_in_place_of(zid, s.vars)
-        self._register_metadata(zid, zname)
+        self._register_node(zid, zname,z)
         return z
 
     def inr(self, s):
@@ -140,9 +131,8 @@ class Delta:
 
         output_type = TyPlus(BaseType("unkown"), s.stream_type)
         z = InR(zid, s, s.vars, output_type)
-        self.nodes[zid] = z
         self.ordering.add_in_place_of(zid, s.vars)
-        self._register_metadata(zid, zname)
+        self._register_node(zid, zname,z)
         return z
 
     def case(self, x, left_fn, right_fn):
@@ -166,8 +156,8 @@ class Delta:
 
         self.nodes[left_var.id] = left_var
         self.nodes[right_var.id] = right_var
-        self._register_metadata(left_var.id, left_var.name)
-        self._register_metadata(right_var.id, right_var.name)
+        self._register_node(left_var.id, left_var.name, left_var)
+        self._register_node(right_var.id, right_var.name, right_var)
 
         # Trace both branches with the same delta instance
         left_output = left_fn(left_var)
@@ -186,8 +176,7 @@ class Delta:
 
         all_vars = x.vars.union(left_var.vars).union(right_var.vars)
         z = CaseOp(zid, x, left_output, right_output, left_var, right_var, all_vars, output_type)
-        self.nodes[zid] = z
-        self._register_metadata(zid, zname)
+        self._register_node(zid, zname,z)
 
         return z
 

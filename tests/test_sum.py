@@ -38,11 +38,10 @@ def test_case_left():
     def f(delta, x: TyPlus(STRING_TY, STRING_TY)):
         return delta.case(
             x,
-            lambda left: left,   # Left branch: identity
-            lambda right: right  # Right branch: identity
+            lambda left: left,
+            lambda right: right
         )
 
-    # Create input with PlusPuncA tag
     output = f.run(iter([PlusPuncA(), "a", "b", "c"]))
     result = [x for x in list(output) if x is not None]
 
@@ -55,11 +54,10 @@ def test_case_right():
     def f(delta, x: TyPlus(STRING_TY, STRING_TY)):
         return delta.case(
             x,
-            lambda left: left,   # Left branch: identity
-            lambda right: right  # Right branch: identity
+            lambda left: left,   
+            lambda right: right  
         )
 
-    # Create input with PlusPuncB tag
     output = f.run(iter([PlusPuncB(), 1, 2, 3]))
     result = [x for x in list(output) if x is not None]
 
