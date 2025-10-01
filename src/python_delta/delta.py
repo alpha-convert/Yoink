@@ -6,14 +6,14 @@ from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLC
 class Delta:
     def __init__(self):
         self.ordering = RealizedOrdering()
-        self.nodes = {}
+        self.nodes = set()
         self.current_level = 1
     
     def _fresh_type_var(self):
         return TypeVar(self.current_level)
 
     def _register_node(self, node_id, name, node):
-        self.nodes[node_id] = node
+        self.nodes.add(node)
         self.ordering.metadata[node_id] = name
 
     def var(self, v, var_type=None):
@@ -154,8 +154,6 @@ class Delta:
         self.ordering.add_in_place_of(left_id, x.vars)
         self.ordering.add_in_place_of(right_id, x.vars)
 
-        self.nodes[left_var.id] = left_var
-        self.nodes[right_var.id] = right_var
         self._register_node(left_var.id, left_var.name, left_var)
         self._register_node(right_var.id, right_var.name, right_var)
 

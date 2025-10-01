@@ -89,7 +89,7 @@ class CompiledFunction:
             raise ValueError(f"Expected {len(self.input_vars)} iterators, got {len(iterators)}")
 
         # Reset all nodes to initial state
-        for node in self.traced_delta.nodes.values():
+        for node in self.traced_delta.nodes:
             node.reset()
 
         # Bind concrete iterators to Var sources
