@@ -31,7 +31,6 @@ class CompiledFunction:
 
         # Check if first arg is a Delta instance (tracing context)
         if isinstance(args[0], type(self.traced_delta)):
-            # Symbolic execution: inline the trace into caller's delta
             if len(args) != len(self.input_types) + 1:
                 raise ValueError(f"Expected {len(self.input_types) + 1} arguments (delta + {len(self.input_types)} streams), got {len(args)}")
 

@@ -1,12 +1,16 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.compiled_function import CompiledFunction
-from python_delta.types import BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps
+from python_delta.types import BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
 from python_delta.stream_op import Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, InL, InR, CaseOp
 
 class Delta:
     def __init__(self):
         self.ordering = RealizedOrdering()
         self.nodes = {}
+        self.current_level = 1
+    
+    def _fresh_type_var(self):
+        return TypeVar(self.current_level)
 
     def _register_node(self, node_id, name, node):
         self.nodes[node_id] = node
@@ -14,7 +18,7 @@ class Delta:
 
     def var(self, v, var_type=None):
         if var_type is None:
-            var_type = BaseType(v)
+            var_type = self._fresh_type_var()
         name = f"var_{v}"
         xid = hash(name)
         s = Var(xid, name, var_type)
@@ -45,10 +49,9 @@ class Delta:
         return s
 
     def catl(self, s):
-        if not isinstance(s.stream_type, TyCat):
-            raise TypeError(f"catl requires TyCat type, got {s.stream_type}")
-        left_type = s.stream_type.left_type
-        right_type = s.stream_type.right_type
+        left_type = self._fresh_type_var()
+        right_type = self._fresh_type_var()
+        s.stream_type.unify_with(TyCat(left_type,right_type))
 
         sid = s.id
         lname = f"catproj1_{sid}"
@@ -83,10 +86,14 @@ class Delta:
         return s
 
     def parl(self, s):
-        if not isinstance(s.stream_type, TyPar):
-            raise TypeError(f"parl requires TyPar type, got {s.stream_type}")
-        left_type = s.stream_type.left_type
-        right_type = s.stream_type.right_type
+        left_type = self._fresh_type_var()
+        right_type = self._fresh_type_var()
+        s.stream_type.unify_with(TyPar(left_type,right_type))
+
+        # if not isinstance(s.stream_type, TyPar):
+        #     raise TypeError(f"parl requires TyPar type, got {s.stream_type}")
+        # left_type = s.stream_type.left_type
+        # right_type = s.stream_type.right_type
 
         sid = s.id
         coordname = f"parlcoord_{sid}"
@@ -117,6 +124,7 @@ class Delta:
         zname = f"inl_{sid}"
         zid = hash(zname)
 
+        # TODO: unfication
         output_type = TyPlus(s.stream_type, BaseType("unknown"))
         z = InL(zid, s, s.vars, output_type)
         self.ordering.add_in_place_of(zid, s.vars)
@@ -129,6 +137,7 @@ class Delta:
         zname = f"inr_{sid}"
         zid = hash(zname)
 
+        # TODO: unfication
         output_type = TyPlus(BaseType("unkown"), s.stream_type)
         z = InR(zid, s, s.vars, output_type)
         self.ordering.add_in_place_of(zid, s.vars)
@@ -136,14 +145,10 @@ class Delta:
         return z
 
     def case(self, x, left_fn, right_fn):
-        """Case analysis on sum type."""
-        if not isinstance(x.stream_type, TyPlus):
-            raise TypeError(f"case requires TyPlus type, got {x.stream_type}")
+        left_type = self._fresh_type_var()
+        right_type = self._fresh_type_var()
+        x.stream_type.unify_with(TyPlus(left_type,right_type))
 
-        left_type = x.stream_type.left_type
-        right_type = x.stream_type.right_type
-
-        # Create vars for left and right branches with globally unique names
         left_name = f"case_left_{x.id}"
         left_id = hash(left_name)
         right_name = f"case_right_{x.id}"
@@ -164,8 +169,7 @@ class Delta:
         right_output = right_fn(right_var)
 
         # Type check: both branches must return same type
-        if left_output.stream_type != right_output.stream_type:
-            raise TypeError(f"case branches must return same type, got {left_output.stream_type} and {right_output.stream_type}")
+        left_output.stream_type.unify_with(right_output.stream_type)
 
         output_type = left_output.stream_type
 
@@ -180,8 +184,11 @@ class Delta:
 
         return z
 
-    def nil(self, element_type):
-        """Create empty star (nil) - elaborates to InL(Eps)."""
+    def nil(self, element_type = None):
+        if element_type is None:
+            element_type = self._fresh_type_var()
+
+        # TODO jcutler: make this be a nil operation
         eps = self.eps(BaseType("unit"))
         return self.inl(eps)
 
@@ -257,6 +264,7 @@ class Delta:
         # Skip the first parameter (delta), extract types from the rest
         input_types = []
         for param in params[1:]:  # Skip first param which is 'delta'
+            # TODO jcutler: type inference and generalization!
             if param.annotation == inspect.Parameter.empty:
                 raise TypeError(f"Parameter '{param.name}' missing type annotation")
             input_types.append(param.annotation)

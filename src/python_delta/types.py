@@ -1,90 +1,168 @@
+class UnificationError(BaseException):
+    def __init__(self,ty1,ty2):
+        self.ty1 = ty1
+        self.ty2 = ty2
+
+class OccursCheckFail(BaseException):
+    def __init__(self):
+        pass
+
 class Type:
     def __str__(self):
         return self.__class__.__name__
 
-class BaseType(Type):
-    def __init__(self, name):
-        self.name = name
+    def unify_with(self,other):
+        """ Unify these two types """
+        raise NotImplementedError("Instances must specify unification")
+
+    def occurs_var(self,var):
+        """ Does this type variable occur in this type? """
+        raise NotImplementedError("Instances must specify occurs check")
+
+
+class NullaryType(Type):
+    """Base class for nullary type constructors (BaseType, TyEps)."""
+
+    def __init__(self, name=None):
+        self.name = name if name is not None else self.__class__.__name__
 
     def __str__(self):
         return self.name
 
     def __eq__(self, other):
-        return isinstance(other, BaseType) and self.name == other.name
+        return isinstance(other, self.__class__) and self.name == other.name
 
     def __hash__(self):
-        return hash(("BaseType", self.name))
+        return hash((self.__class__.__name__, self.name))
 
-class TyCat(Type):
-    def __init__(self, left_type, right_type):
-        self.left_type = left_type
-        self.right_type = right_type
+    def occurs_var(self, var):
+        return None
 
-    def __str__(self):
-        return f"TyCat({self.left_type}, {self.right_type})"
+    def unify_with(self, other):
+        if isinstance(other, TypeVar):
+            if other.link is None:
+                self.occurs_var(other)
+                other.link = self
+            else:
+                self.unify_with(other.link)
+        elif isinstance(other, self.__class__) and other.name == self.name:
+            return
+        else:
+            raise UnificationError(self, other)
 
-    def __eq__(self, other):
-        return (isinstance(other, TyCat) and
-                self.left_type == other.left_type and
-                self.right_type == other.right_type)
 
-    def __hash__(self):
-        return hash(("TyCat", self.left_type, self.right_type))
+class UnaryType(Type):
+    """Base class for unary type constructors (TyStar)."""
 
-class TyPar(Type):
-    def __init__(self, left_type, right_type):
-        self.left_type = left_type
-        self.right_type = right_type
-
-    def __str__(self):
-        return f"TyPar({self.left_type}, {self.right_type})"
-
-    def __eq__(self, other):
-        return (isinstance(other, TyPar) and
-                self.left_type == other.left_type and
-                self.right_type == other.right_type)
-
-    def __hash__(self):
-        return hash(("TyPar", self.left_type, self.right_type))
-
-class TyPlus(Type):
-    def __init__(self, left_type, right_type):
-        self.left_type = left_type
-        self.right_type = right_type
-
-    def __str__(self):
-        return f"TyPlus({self.left_type}, {self.right_type})"
-
-    def __eq__(self, other):
-        return (isinstance(other, TyPlus) and
-                self.left_type == other.left_type and
-                self.right_type == other.right_type)
-
-    def __hash__(self):
-        return hash(("TyPlus", self.left_type, self.right_type))
-
-class TyStar(Type):
     def __init__(self, element_type):
         self.element_type = element_type
 
     def __str__(self):
-        return f"TyStar({self.element_type})"
+        return f"{self.__class__.__name__}({self.element_type})"
 
     def __eq__(self, other):
-        return isinstance(other, TyStar) and self.element_type == other.element_type
+        return isinstance(other, self.__class__) and self.element_type == other.element_type
 
     def __hash__(self):
-        return hash(("TyStar", self.element_type))
+        return hash((self.__class__.__name__, self.element_type))
 
-class TyEps(Type):
-    def __init__(self):
-        pass
+    def occurs_var(self, var):
+        self.element_type.occurs_var(var)
+
+    def unify_with(self, other):
+        if isinstance(other, TypeVar):
+            if other.link is None:
+                self.occurs_var(other)
+                other.link = self
+            else:
+                self.unify_with(other.link)
+        elif not isinstance(other, self.__class__):
+            raise UnificationError(self, other)
+        else:
+            self.element_type.unify_with(other.element_type)
+
+
+class BinaryType(Type):
+    """Base class for binary type constructors (TyCat, TyPar, TyPlus)."""
+
+    def __init__(self, left_type, right_type):
+        self.left_type = left_type
+        self.right_type = right_type
 
     def __str__(self):
-        return f"TyEps"
+        return f"{self.__class__.__name__}({self.left_type}, {self.right_type})"
 
     def __eq__(self, other):
-        return isinstance(other, TyEps)
+        return (isinstance(other, self.__class__) and
+                self.left_type == other.left_type and
+                self.right_type == other.right_type)
 
     def __hash__(self):
-        return hash("TyEps")
+        return hash((self.__class__.__name__, self.left_type, self.right_type))
+
+    def occurs_var(self, var):
+        self.left_type.occurs_var(var)
+        self.right_type.occurs_var(var)
+
+    def unify_with(self, other):
+        if isinstance(other, TypeVar):
+            if other.link is None:
+                self.occurs_var(other)
+                other.link = self
+            else:
+                self.unify_with(other.link)
+        elif not isinstance(other, self.__class__):
+            raise UnificationError(self, other)
+        else:
+            self.left_type.unify_with(other.left_type)
+            self.right_type.unify_with(other.right_type)
+
+class TypeVar(Type):
+    next_unif_id = 0
+
+    @staticmethod
+    def fresh_unif_id():
+        TypeVar.next_unif_id += 1
+        return TypeVar.next_unif_id
+    
+    def occurs_var(self,var):
+        if self.link is not None:
+            return self.link.occurs_var(var)
+        elif self.id == var.id:
+            raise OccursCheckFail()
+        else:
+            self.level = min(self.level, var.level)
+            return False
+
+    # A type variable is either (1) a unique ID and a "level", or (2) a reference to another type.
+    def __init__(self, level):
+        self.id = TypeVar.fresh_unif_id()
+        self.level = level
+        self.link = None
+    
+    def unify_with(self,other):
+        if self.link is not None:
+            self.link.unify_with(other)
+        else:
+            other.occurs_var(var=self)  # Raises OccursCheckFail if check fails
+            self.link = other
+
+
+class BaseType(NullaryType):
+    pass
+
+class TyCat(BinaryType):
+    pass
+
+class TyPar(BinaryType):
+    pass
+
+class TyPlus(BinaryType):
+    pass
+
+
+class TyStar(UnaryType):
+    pass
+
+class TyEps(NullaryType):
+    pass
