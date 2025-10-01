@@ -62,3 +62,29 @@ class TyPlus(Type):
 
     def __hash__(self):
         return hash(("TyPlus", self.left_type, self.right_type))
+
+class TyStar(Type):
+    def __init__(self, element_type):
+        self.element_type = element_type
+
+    def __str__(self):
+        return f"TyStar({self.element_type})"
+
+    def __eq__(self, other):
+        return isinstance(other, TyStar) and self.element_type == other.element_type
+
+    def __hash__(self):
+        return hash(("TyStar", self.element_type))
+
+class TyEps(Type):
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return f"TyEps"
+
+    def __eq__(self, other):
+        return isinstance(other, TyEps)
+
+    def __hash__(self):
+        return hash("TyEps")

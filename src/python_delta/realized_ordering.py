@@ -67,14 +67,15 @@ class RealizedOrdering:
         Finds the intersection of predecessors/successors across all vars,
         then adds edges from common predecessors to x and from x to common successors.
         """
-        common_preds = set.intersection(*[self.required.predecessors(var) for var in vars])
-        common_succs = set.intersection(*[self.required.successors(var) for var in vars])
+        if len(vars) > 0:
+          common_preds = set.intersection(*[self.required.predecessors(var) for var in vars])
+          common_succs = set.intersection(*[self.required.successors(var) for var in vars])
 
-        self.required.add_all_edges(common_preds, {x})
+          self.required.add_all_edges(common_preds, {x})
 
-        self.required.add_all_edges({x}, common_succs)
+          self.required.add_all_edges({x}, common_succs)
 
-        self.check_consistency()
+          self.check_consistency()
 
     def __str__(self):
         return f"RealizedOrdering(\n  required={self.required},\n  forbidden={self.forbidden}\n)"
