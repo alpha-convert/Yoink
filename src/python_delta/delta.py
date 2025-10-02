@@ -1,14 +1,14 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.compiled_function import CompiledFunction
 from python_delta.types import Type, BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp
+from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, RecCall
 
 class Delta:
     def __init__(self):
         self.ordering = RealizedOrdering()
         self.nodes = set()
         self.current_level = 1
-    
+
     def _fresh_type_var(self):
         return TypeVar(self.current_level)
 
@@ -193,7 +193,8 @@ class Delta:
         self._register_node(z)
 
         return z
-
+    
+   
     @staticmethod
     def jit(func):
         """
@@ -235,13 +236,40 @@ class Delta:
             if param.annotation == inspect.Parameter.empty:
                 raise TypeError(f"Parameter '{param.name}' missing type annotation")
             input_types.append(param.annotation)
-
+        
         # Create traced delta and symbolic inputs
         traced_delta = Delta()
         input_vars = [traced_delta.var(f"arg{i}", ty) for i, ty in enumerate(input_types)]
 
-        # Trace the function
+        cf = CompiledFunction(traced_delta,input_vars,None,func,input_vars)
+
+        return_type = traced_delta._fresh_type_var()
+
+        for i, name in enumerate(func.__code__.co_freevars):
+            if name == func.__name__:
+                func.__closure__[i].cell_contents = RecHandle(input_types,return_type,traced_delta,cf)
+                break
         outputs = func(traced_delta, *input_vars)
 
-        # Return a compiled function with original function and types for re-tracing
-        return CompiledFunction(traced_delta, input_vars, outputs, func, input_types)
+        cf.outputs = outputs
+
+        return cf
+
+class RecHandle():
+    def __init__(self,input_types,return_type,delta,compiled_function_handle):
+        self.input_types = input_types
+        self.return_type = return_type
+        self.delta = delta
+        self.compiled_function_handle = compiled_function_handle
+
+    def __call__(self,*args):
+        if len(args) != len(self.input_types):
+            raise "FIXME"
+        
+        for arg,type in zip(args,self.input_types):
+            arg.stream_type.unify_with(type)
+        
+        s = RecCall(self.compiled_function_handle,args,self.return_type)
+        self.delta._register_node(s)
+        return s
+    

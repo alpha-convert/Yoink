@@ -17,7 +17,6 @@ class CompiledFunction:
         self.outputs = outputs
         self.original_func = original_func
         self.input_types = input_types
-        self._tracing = False  # Flag to detect recursive calls
 
     def __call__(self, *args):
         """
@@ -33,37 +32,9 @@ class CompiledFunction:
         if isinstance(args[0], type(self.traced_delta)):
             if len(args) != len(self.input_types) + 1:
                 raise ValueError(f"Expected {len(self.input_types) + 1} arguments (delta + {len(self.input_types)} streams), got {len(args)}")
-
-            if self._tracing:
-                # Recursive call detected: create RecCall node instead of inlining
-                delta = args[0]
-                input_streams = args[1:]
-                return self._create_rec_call(delta, input_streams)
-
-            # Normal composition: inline by tracing
-            self._tracing = True
-            try:
-                result = self.original_func(*args)
-            finally:
-                self._tracing = False
-            return result
+            return self.original_func(*args)
         else:
-            # Concrete execution: use pre-compiled graph
             return self.run(*args)
-
-    def _create_rec_call(self, delta, input_streams):
-        """Create a RecCall node for recursive function call."""
-        from python_delta.stream_op import RecCall
-
-        # Get output type from the original traced outputs
-        output_type = self.outputs.stream_type
-
-        # Create RecCall node (ID is computed automatically from structure)
-        rec_call = RecCall(self, input_streams, output_type)
-        delta.nodes.add(rec_call)
-        delta._register_node(rec_call.id, f"rec_{self.original_func.__name__}_{rec_call.id}", rec_call)
-
-        return rec_call
 
     def run(self, *iterators):
         """

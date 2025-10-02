@@ -38,8 +38,7 @@ class StreamOp:
     def reset(self):
         """Reset the stream to its initial state for reuse."""
         raise NotImplementedError("Subclasses must implement reset")
-
-
+    
 class Var(StreamOp):
     """Variable stream operation."""
     def __init__(self, name, stream_type):
@@ -416,7 +415,6 @@ class RecCall(StreamOp):
     def __next__(self):
         """Execute the recursive call and pull from its output."""
         if self.output is None:
-            # First call: execute the compiled function with input streams
             self.output = self.compiled_func.run(*self.input_streams)
         return next(self.output)
 
