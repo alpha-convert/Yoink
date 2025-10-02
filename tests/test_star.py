@@ -91,6 +91,18 @@ def test_starcase_cons():
     assert result[0] == "World"
 
 
+def test_recursive_identity():
+    @Delta.jit
+    def identity(delta,xs : TyStar(STRING_TY)):
+        return delta.starcase(
+            xs,
+            lambda _: delta.nil(),
+            lambda head, tail: delta.cons(head,identity(tail)))
+    
+    out = identity(iter([PlusPuncB(),CatEvA("Hello"),CatPunc()]))
+    result = [x for x in list(out) if x is not None]
+    assert result[0] == "Hello"
+
 # def test_recursive_list_length():
 #     """Test recursive function to compute list length using starcase."""
 #     @Delta.jit

@@ -59,3 +59,40 @@ class CompiledFunction:
 
         # Return the output stream(s)
         return self.outputs
+
+    def to_graphviz(self):
+        """
+        Generate a graphviz DOT representation of the computation graph.
+
+        Returns:
+            str: A DOT format string suitable for rendering with graphviz
+
+        Example:
+            >>> @Delta.jit
+            >>> def concat(delta, x: STRING_TY, y: STRING_TY):
+            ...     return delta.catr(x, y)
+            >>> print(concat.to_graphviz())
+        """
+        from python_delta.util.viz_builder import VizBuilder
+        return VizBuilder(self).to_graphviz()
+
+    def save_graphviz(self, filename):
+        """
+        Save the graphviz DOT representation to a file.
+
+        Args:
+            filename (str): Path to save the DOT file. If it ends with .png, .pdf, or .svg,
+                          will attempt to render using graphviz (if available).
+
+        Returns:
+            str: Path to the saved file
+
+        Example:
+            >>> @Delta.jit
+            >>> def concat(delta, x: STRING_TY, y: STRING_TY):
+            ...     return delta.catr(x, y)
+            >>> concat.save_graphviz('graph.png')  # Requires graphviz installed
+            >>> concat.save_graphviz('graph.dot')  # Just save DOT file
+        """
+        from python_delta.util.viz_builder import VizBuilder
+        return VizBuilder(self).save(filename)
