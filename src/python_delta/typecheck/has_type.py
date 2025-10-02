@@ -8,16 +8,54 @@ Event type rules:
 - ParEvB(x) has type TyPar(s,t) if x has type t
 - PlusPuncA/B have type TyPlus(s,t) for any s,t and TyStar(s) for any s
 - BaseEvent(v) has type Singleton(C) if v is an instance of C
+
+Sequence type rules:
+- A sequence of events has type s if either:
+  (1) the sequence is empty, or
+  (2) the head x has type s, and the remaining sequence has type deriv(x,s)
 """
 
 from python_delta.typecheck.types import Singleton, TyCat, TyPar, TyPlus, TyStar
 
 
 def has_type(event, type):
+    """
+    Check if an event or sequence of events has the given type.
+
+    For sequences: A sequence has type s if either:
+      (1) the sequence is empty, or
+      (2) the head x has type s, and the remaining sequence has type deriv(x,s)
+
+    Args:
+        event: An Event instance or an iterable of Event instances
+        type: A Type instance
+
+    Returns:
+        bool: True if the event/sequence has the given type
+    """
     from python_delta.event import (
         BaseEvent, CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB, Event
     )
+    from collections.abc import Iterable
 
+    # Check if it's an iterable (but not an Event itself)
+    if isinstance(event, Iterable) and not isinstance(event, (Event, str)):
+        from python_delta.typecheck.derivative import derivative
+
+        try:
+            it = iter(event)
+            head = next(it)
+        except StopIteration:
+            return True
+
+        if not has_type(head, type):
+            return False
+
+        deriv_type = derivative(type, head)
+
+        return has_type(it, deriv_type)
+
+    # Single event type checking
     if isinstance(event, CatEvA):
         if not isinstance(type, TyCat):
             return False
