@@ -114,13 +114,7 @@ class PlusPuncB(Event):
 
 
 class BaseEvent(Event):
-    """Wraps arbitrary Python values with runtime class checking."""
-    def __init__(self, value, python_class):
-        """
-        Args:
-            value: The wrapped Python value
-            python_class: Python class to check value against (e.g., str, int)
-        """
+    def __init__(self, value):
         self.value = value
 
     def __repr__(self):
