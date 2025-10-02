@@ -360,7 +360,6 @@ class CaseOp(StreamOp):
 
     @property
     def vars(self):
-        # TODO: delete left var/right var from this...
         return self.input_stream.vars | self.left_branch.vars | self.right_branch.vars
 
     def __next__(self):

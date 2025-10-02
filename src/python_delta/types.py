@@ -81,7 +81,6 @@ class UnaryType(Type):
         else:
             self.element_type.unify_with(other.element_type)
 
-
 class BinaryType(Type):
     """Base class for binary type constructors (TyCat, TyPar, TyPlus)."""
 
@@ -119,6 +118,12 @@ class BinaryType(Type):
 
 class TypeVar(Type):
     next_unif_id = 0
+
+    def __str__(self):
+        if self.link is None:
+            return f"TypeVar({self.id})"
+        else:
+            return f"{self.link}"
 
     @staticmethod
     def fresh_unif_id():

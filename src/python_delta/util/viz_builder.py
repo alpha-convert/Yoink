@@ -102,19 +102,20 @@ class VizBuilder:
         lines.append(f'  "{label}" [label="{display_label}", fillcolor={color}, style="rounded,filled"];')
 
         # Add edges based on node type
-        if hasattr(node, 'input_streams'):  # CatR, ParR, RecCall
-            for i, child in enumerate(node.input_streams):
-                child_label = self._get_node_label(child)
-                lines.append(f'  "{child_label}" -> "{label}" [label="in{i}"];')
-                self._visit_node(child, lines)
-        elif hasattr(node, 'input_stream'):  # CatProj, ParLCoordinator, SumInj, UnsafeCast
+        # Check specific node types first before generic hasattr checks
+        if node_type == 'CaseOp':  # CaseOp has special structure
+            # Input stream
             child_label = self._get_node_label(node.input_stream)
-            lines.append(f'  "{child_label}" -> "{label}";')
+            lines.append(f'  "{child_label}" -> "{label}" [label="input"];')
             self._visit_node(node.input_stream, lines)
-        elif hasattr(node, 'coordinator'):  # ParProj
-            child_label = self._get_node_label(node.coordinator)
-            lines.append(f'  "{child_label}" -> "{label}";')
-            self._visit_node(node.coordinator, lines)
+            # Left branch
+            child_label = self._get_node_label(node.left_branch)
+            lines.append(f'  "{child_label}" -> "{label}" [label="left"];')
+            self._visit_node(node.left_branch, lines)
+            # Right branch
+            child_label = self._get_node_label(node.right_branch)
+            lines.append(f'  "{child_label}" -> "{label}" [label="right"];')
+            self._visit_node(node.right_branch, lines)
         elif hasattr(node, 'head') and hasattr(node, 'tail'):  # Cons
             head_label = self._get_node_label(node.head)
             tail_label = self._get_node_label(node.tail)
@@ -122,19 +123,19 @@ class VizBuilder:
             lines.append(f'  "{tail_label}" -> "{label}" [label="tail"];')
             self._visit_node(node.head, lines)
             self._visit_node(node.tail, lines)
-        elif node_type == 'CaseOp':  # CaseOp has special structure
-            # if hasattr(node, 'input_stream'):
-                child_label = self._get_node_label(node.input_stream)
-                lines.append(f'  "{child_label}" -> "{label}" [label="input"];')
-                self._visit_node(node.input_stream, lines)
-            # if hasattr(node, 'left_branch'):
-                child_label = self._get_node_label(node.left_branch)
-                lines.append(f'  "{child_label}" -> "{label}" [label="left"];')
-                self._visit_node(node.left_branch, lines)
-            # if hasattr(node, 'right_branch'):
-                child_label = self._get_node_label(node.right_branch)
-                lines.append(f'  "{child_label}" -> "{label}" [label="right"];')
-                self._visit_node(node.right_branch, lines)
+        elif hasattr(node, 'input_streams'):  # CatR, ParR, RecCall
+            for i, child in enumerate(node.input_streams):
+                child_label = self._get_node_label(child)
+                lines.append(f'  "{child_label}" -> "{label}" [label="in{i}"];')
+                self._visit_node(child, lines)
+        elif hasattr(node, 'coordinator'):  # ParProj
+            child_label = self._get_node_label(node.coordinator)
+            lines.append(f'  "{child_label}" -> "{label}";')
+            self._visit_node(node.coordinator, lines)
+        elif hasattr(node, 'input_stream'):  # CatProj, ParLCoordinator, SumInj, UnsafeCast
+            child_label = self._get_node_label(node.input_stream)
+            lines.append(f'  "{child_label}" -> "{label}";')
+            self._visit_node(node.input_stream, lines)
 
     def save(self, filename):
         """

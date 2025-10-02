@@ -158,6 +158,8 @@ class Delta:
         star_type = TyStar(element_type)
 
         x.stream_type.unify_with(star_type)
+        # print(x.stream_type)
+        # print(star_type)
 
         x_nil = UnsafeCast(x,TyEps())
         x_cons = UnsafeCast(x,TyCat(element_type, star_type))
