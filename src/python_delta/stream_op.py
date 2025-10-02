@@ -410,7 +410,7 @@ class RecCall(StreamOp):
     def __next__(self):
         """Execute the recursive call and pull from its output."""
         if self.output is None:
-            self.output = self.compiled_func.run(*self.input_streams)
+            self.output = self.dataflow_graph.run(*self.input_streams)
         return next(self.output)
 
     def reset(self):
