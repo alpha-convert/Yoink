@@ -344,13 +344,13 @@ class SumInj(StreamOp):
 
 class CaseOp(StreamOp):
     """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
-    def __init__(self, input_stream, left_branch, right_branch, left_var, right_var, stream_type):
+    def __init__(self, input_stream, left_branch, right_branch, stream_type):
         super().__init__(stream_type)
         self.input_stream = input_stream
         self.left_branch = left_branch  # StreamOp that produces output
         self.right_branch = right_branch  # StreamOp that produces output
-        self.left_var = left_var  # Var node in left branch
-        self.right_var = right_var  # Var node in right branch
+        # self.left_var = left_var  # Var node in left branch
+        # self.right_var = right_var  # Var node in right branch
         self.active_branch = None  # Will be set to left_branch or right_branch after reading tag
         self.tag_read = False
 
@@ -361,7 +361,7 @@ class CaseOp(StreamOp):
     @property
     def vars(self):
         # TODO: delete left var/right var from this...
-        return self.input_stream.vars | self.left_var.vars | self.right_var.vars
+        return self.input_stream.vars | self.left_branch.vars | self.right_branch.vars
 
     def __next__(self):
         """Read tag and route to appropriate branch."""
@@ -373,10 +373,8 @@ class CaseOp(StreamOp):
 
             if isinstance(tag, PlusPuncA):
                 self.active_branch = self.left_branch
-                self.left_var.source = self.input_stream
             elif isinstance(tag, PlusPuncB):
                 self.active_branch = self.right_branch
-                self.right_var.source = self.input_stream
             else:
                 raise RuntimeError(f"Expected PlusPuncA or PlusPuncB tag, got {tag}")
             return None
@@ -387,8 +385,6 @@ class CaseOp(StreamOp):
         """Reset state and recursively reset branches."""
         self.tag_read = False
         self.active_branch = None
-        self.left_var.source = None
-        self.right_var.source = None
         self.input_stream.reset()
         self.left_branch.reset()
         self.right_branch.reset()
@@ -415,7 +411,7 @@ class RecCall(StreamOp):
     def __next__(self):
         """Execute the recursive call and pull from its output."""
         if self.output is None:
-            self.output = self.dataflow_graph.run(*self.input_streams)
+            self.output = self.compiled_func.run(*self.input_streams)
         return next(self.output)
 
     def reset(self):
@@ -425,3 +421,24 @@ class RecCall(StreamOp):
             stream.reset()
 
 
+class UnsafeCast(StreamOp):
+    """Unsafe cast - forwards data from input stream with a different type annotation."""
+    def __init__(self, input_stream, target_type):
+        super().__init__(target_type)
+        self.input_stream = input_stream
+
+    @property
+    def id(self):
+        return hash(("UnsafeCast", self.input_stream.id, str(self.stream_type)))
+
+    @property
+    def vars(self):
+        return self.input_stream.vars
+
+    def __next__(self):
+        """Forward data from input stream without modification."""
+        return next(self.input_stream)
+
+    def reset(self):
+        """Reset input stream."""
+        self.input_stream.reset()

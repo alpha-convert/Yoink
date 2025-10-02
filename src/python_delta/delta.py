@@ -1,7 +1,7 @@
 from python_delta.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.types import Type, BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, RecCall
+from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, RecCall, UnsafeCast
 
 class Delta:
     def __init__(self):
@@ -107,25 +107,22 @@ class Delta:
         right_type = self._fresh_type_var()
         x.stream_type.unify_with(TyPlus(left_type,right_type))
 
-        left_var = Var("case_left", left_type)
-        right_var = Var("case_right", right_type)
+        # Why is this safe/correct?
+        # By the time we're pulling on these, the remainder of x will either be of
+        # the left type or the right type! The initial punctuation will have passed, sending us down
+        # the correct path.
+        x_left = UnsafeCast(x,left_type)
+        x_right = UnsafeCast(x,right_type)
 
-        self.ordering.add_in_place_of(left_var.id, x.vars)
-        self.ordering.add_in_place_of(right_var.id, x.vars)
-
-        self._register_node(left_var)
-        self._register_node(right_var)
-
-        # Trace both branches with the same delta instance
-        left_output = left_fn(left_var)
-        right_output = right_fn(right_var)
+        left_output = left_fn(x_left)
+        right_output = right_fn(x_right)
 
         # Type check: both branches must return same type
         left_output.stream_type.unify_with(right_output.stream_type)
 
         output_type = left_output.stream_type
 
-        z = CaseOp(x, left_output, right_output, left_var, right_var, output_type)
+        z = CaseOp(x, left_output, right_output, output_type)
         self._register_node(z)
 
         return z
@@ -162,17 +159,11 @@ class Delta:
 
         x.stream_type.unify_with(star_type)
 
-        nil_var = Var("starcase_nil", TyEps())
-        cons_var = Var("starcase_cons", TyCat(element_type, star_type))
+        x_nil = UnsafeCast(x,TyEps())
+        x_cons = UnsafeCast(x,TyCat(element_type, star_type))
 
-        self.ordering.add_in_place_of(nil_var.id, x.vars)
-        self.ordering.add_in_place_of(cons_var.id, x.vars)
-
-        self._register_node(nil_var)
-        self._register_node(cons_var)
-
-        head = CatProj(cons_var, element_type, 1)
-        tail = CatProj(cons_var, star_type, 2)
+        head = CatProj(x_cons, element_type, 1)
+        tail = CatProj(x_cons, star_type, 2)
 
         self.ordering.add_ordered(head.id, tail.id)
 
@@ -182,14 +173,14 @@ class Delta:
         self._register_node(head)
         self._register_node(tail)
 
-        nil_output : StreamOp = nil_fn(nil_var)
+        nil_output : StreamOp = nil_fn(x_nil)
         cons_output : StreamOp = cons_fn(head, tail)
 
         nil_output.stream_type.unify_with(other=cons_output.stream_type)
 
         output_type = nil_output.stream_type
 
-        z = CaseOp(x, nil_output, cons_output, nil_var, cons_var, output_type)
+        z = CaseOp(x, nil_output, cons_output, output_type)
         self._register_node(z)
 
         return z
@@ -245,10 +236,12 @@ class Delta:
 
         return_type = traced_delta._fresh_type_var()
 
+        rechandle = RecHandle(input_types, return_type, traced_delta, graph)
         for i, name in enumerate(func.__code__.co_freevars):
             if name == func.__name__:
-                func.__closure__[i].cell_contents = RecHandle(input_types, return_type, traced_delta, graph)
+                func.__closure__[i].cell_contents = rechandle
                 break
+        func.__globals__[func.__name__] = rechandle
         outputs = func(traced_delta, *input_vars)
 
         graph.outputs = outputs
