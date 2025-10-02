@@ -122,27 +122,13 @@ class BaseEvent(Event):
             python_class: Python class to check value against (e.g., str, int)
         """
         self.value = value
-        self.python_class = python_class
-
-        # Validate that value is an instance of the specified class
-        if not isinstance(value, python_class):
-            raise TypeError(f"Expected value of type {python_class.__name__}, got {type(value).__name__}")
 
     def __repr__(self):
-        return f"BaseEvent({self.value}, {self.python_class.__name__})"
+        return f"BaseEvent({self.value})"
 
     def __eq__(self, other):
-        return (isinstance(other, BaseEvent) and
-                self.value == other.value and
-                self.python_class == other.python_class)
+        return isinstance(other, BaseEvent) and self.value == other.value
 
     def has_type(self, type):
-        """
-        BaseEvent has any Singleton with the same python_class.
-
-        For example:
-        - BaseEvent(42, int) has type Singleton(int)
-        - BaseEvent("hello", str) has type Singleton(str)
-        """
         from python_delta.typecheck.types import Singleton
-        return isinstance(type, Singleton) and type.python_class == self.python_class
+        return isinstance(type, Singleton) and isinstance(self.value,type.python_class)

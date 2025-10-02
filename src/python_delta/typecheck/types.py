@@ -151,7 +151,7 @@ class TypeVar(Type):
 
 
 class Singleton(Type):
-    """Singleton type for primitive Python types."""
+    """A stream consisting of exactly one element"""
 
     def __init__(self, python_class):
         self.python_class = python_class
