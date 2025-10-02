@@ -7,6 +7,13 @@ class OccursCheckFail(Exception):
     def __init__(self):
         pass
 
+class NullabilityError(Exception):
+    """Raised when trying to check nullability on non-concrete types."""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(message)
+
+
 class Type:
     def __str__(self):
         return self.__class__.__name__
@@ -18,6 +25,15 @@ class Type:
     def occurs_var(self,var):
         """ Does this type variable occur in this type? """
         raise NotImplementedError("Instances must specify occurs check")
+
+    def nullable(self):
+        """
+        Check if this type is nullable (can produce zero elements).
+
+        Raises:
+            NullabilityError: If called on a type variable or other non-concrete type
+        """
+        raise NotImplementedError("Instances must specify nullability")
 
 
 class NullaryType(Type):
@@ -46,6 +62,10 @@ class NullaryType(Type):
             return
         else:
             raise UnificationError(self, other)
+
+    def nullable(self):
+        """NullaryType subclasses must override this."""
+        raise NotImplementedError(f"{self.__class__.__name__} must implement nullable")
 
 
 class UnaryType(Type):
@@ -77,6 +97,10 @@ class UnaryType(Type):
             raise UnificationError(self, other)
         else:
             self.element_type.unify_with(other.element_type)
+
+    def nullable(self):
+        """UnaryType subclasses must override this."""
+        raise NotImplementedError(f"{self.__class__.__name__} must implement nullable")
 
 class BinaryType(Type):
     """Base class for binary type constructors (TyCat, TyPar, TyPlus)."""
@@ -113,6 +137,10 @@ class BinaryType(Type):
             self.left_type.unify_with(other.left_type)
             self.right_type.unify_with(other.right_type)
 
+    def nullable(self):
+        """BinaryType subclasses must override this."""
+        raise NotImplementedError(f"{self.__class__.__name__} must implement nullable")
+
 class TypeVar(Type):
     next_unif_id = 0
 
@@ -126,7 +154,7 @@ class TypeVar(Type):
     def fresh_unif_id():
         TypeVar.next_unif_id += 1
         return TypeVar.next_unif_id
-    
+
     def occurs_var(self,var):
         if self.link is not None:
             return self.link.occurs_var(var)
@@ -141,13 +169,19 @@ class TypeVar(Type):
         self.id = TypeVar.fresh_unif_id()
         self.level = level
         self.link = None
-    
+
     def unify_with(self,other):
         if self.link is not None:
             self.link.unify_with(other)
         else:
             other.occurs_var(var=self)  # Raises OccursCheckFail if check fails
             self.link = other
+
+    def nullable(self):
+        """Type variables cannot be checked for nullability."""
+        if self.link is not None:
+            return self.link.nullable()
+        raise NullabilityError("only concrete types can be nullable or not nullable")
 
 
 class Singleton(Type):
@@ -180,18 +214,37 @@ class Singleton(Type):
         else:
             raise UnificationError(self, other)
 
+    def nullable(self):
+        """Singleton types are not nullable."""
+        return False
+
 class TyCat(BinaryType):
-    pass
+    """Concatenation type."""
+    def nullable(self):
+        """Cat is not nullable."""
+        return False
+
 
 class TyPar(BinaryType):
-    pass
+    """Parallel composition type."""
+    def nullable(self):
+        """Par is nullable if both its args are nullable."""
+        return self.left_type.nullable() and self.right_type.nullable()
 
 class TyPlus(BinaryType):
-    pass
-
+    """Sum type."""
+    def nullable(self):
+        """Plus is not nullable."""
+        return False
 
 class TyStar(UnaryType):
-    pass
+    """Star type (Kleene star)."""
+    def nullable(self):
+        """Star is not nullable."""
+        return False
 
 class TyEps(NullaryType):
-    pass
+    """Empty stream type."""
+    def nullable(self):
+        """Eps is nullable."""
+        return True
