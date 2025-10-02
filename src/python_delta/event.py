@@ -43,10 +43,7 @@ class CatPunc(Event):
         if not isinstance(type, TyCat):
             return False
 
-        # TODO: Implement nullable check for type.left
-        # For now, CatPunc always has type TyCat(s, t) for any s, t
-        # because we haven't defined what "nullable" means yet
-        return True
+        return type.left_type.nullable()
 
 class ParEvA(Event):
     """Event from left side of parallel composition."""
