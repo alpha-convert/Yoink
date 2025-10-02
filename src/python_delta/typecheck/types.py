@@ -35,6 +35,10 @@ class Type:
         """
         raise NotImplementedError("Instances must specify nullability")
 
+    def derivative(self, event):
+        from python_delta.typecheck.derivative import derivative
+        return derivative(self, event)
+
 
 class NullaryType(Type):
     """Base class for nullary type constructors without parameters."""
