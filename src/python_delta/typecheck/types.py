@@ -21,19 +21,16 @@ class Type:
 
 
 class NullaryType(Type):
-    """Base class for nullary type constructors (BaseType, TyEps)."""
-
-    def __init__(self, name=None):
-        self.name = name if name is not None else self.__class__.__name__
+    """Base class for nullary type constructors without parameters."""
 
     def __str__(self):
-        return self.name
+        return self.__class__.__name__
 
     def __eq__(self, other):
-        return isinstance(other, self.__class__) and self.name == other.name
+        return isinstance(other, self.__class__)
 
     def __hash__(self):
-        return hash((self.__class__.__name__, self.name))
+        return hash(self.__class__.__name__)
 
     def occurs_var(self, var):
         return None
@@ -45,7 +42,7 @@ class NullaryType(Type):
                 other.link = self
             else:
                 self.unify_with(other.link)
-        elif isinstance(other, self.__class__) and other.name == self.name:
+        elif isinstance(other, self.__class__):
             return
         else:
             raise UnificationError(self, other)
@@ -153,8 +150,35 @@ class TypeVar(Type):
             self.link = other
 
 
-class BaseType(NullaryType):
-    pass
+class BaseType(Type):
+    """Base type for primitive Python types."""
+
+    def __init__(self, python_class):
+        self.python_class = python_class
+
+    def __str__(self):
+        return self.python_class.__name__
+
+    def __eq__(self, other):
+        return isinstance(other, BaseType) and self.python_class == other.python_class
+
+    def __hash__(self):
+        return hash(("BaseType", self.python_class))
+
+    def occurs_var(self, var):
+        return None
+
+    def unify_with(self, other):
+        if isinstance(other, TypeVar):
+            if other.link is None:
+                self.occurs_var(other)
+                other.link = self
+            else:
+                self.unify_with(other.link)
+        elif isinstance(other, BaseType) and other.python_class == self.python_class:
+            return
+        else:
+            raise UnificationError(self, other)
 
 class TyCat(BinaryType):
     pass

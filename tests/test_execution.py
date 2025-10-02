@@ -4,7 +4,7 @@ Tests for stream execution semantics.
 import random
 from python_delta.core import Delta, BaseType, CatEvA, CatPunc, TyCat, TyPar, ParEvA, ParEvB
 
-STRING_TY = BaseType("String")
+STRING_TY = BaseType(str)
 
 def test_simple_catr():
     """Test basic concatenation execution."""

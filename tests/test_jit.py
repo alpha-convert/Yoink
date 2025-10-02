@@ -1,7 +1,7 @@
 import pytest
 from python_delta.core import *
 
-STRING_TY = BaseType("String")
+STRING_TY = BaseType(str)
 
 def test_jit_basic():
     @Delta.jit

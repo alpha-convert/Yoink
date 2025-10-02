@@ -2,8 +2,8 @@ import pytest
 from python_delta.core import Delta, BaseType, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc
 
 
-STRING_TY = BaseType("string")
-INT_TY = BaseType("int")
+STRING_TY = BaseType(str)
+INT_TY = BaseType(int)
 
 
 def test_nil():
