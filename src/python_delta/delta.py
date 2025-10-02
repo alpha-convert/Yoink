@@ -1,5 +1,5 @@
 from python_delta.realized_ordering import RealizedOrdering
-from python_delta.compiled_function import CompiledFunction
+from python_delta.dataflow_graph import DataflowGraph
 from python_delta.types import Type, BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
 from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, RecCall
 
@@ -204,7 +204,7 @@ class Delta:
         The traced Delta is passed as the first argument to the function.
         Input types are read from the function's type annotations.
 
-        Returns a CompiledFunction that can be executed by calling it.
+        Returns a DataflowGraph that can be executed by calling it.
 
         Example:
             @Delta.jit
@@ -241,26 +241,26 @@ class Delta:
         traced_delta = Delta()
         input_vars = [traced_delta.var(f"arg{i}", ty) for i, ty in enumerate(input_types)]
 
-        cf = CompiledFunction(traced_delta,input_vars,None,func,input_vars)
+        graph = DataflowGraph(traced_delta, input_vars, None, func, input_vars)
 
         return_type = traced_delta._fresh_type_var()
 
         for i, name in enumerate(func.__code__.co_freevars):
             if name == func.__name__:
-                func.__closure__[i].cell_contents = RecHandle(input_types,return_type,traced_delta,cf)
+                func.__closure__[i].cell_contents = RecHandle(input_types, return_type, traced_delta, graph)
                 break
         outputs = func(traced_delta, *input_vars)
 
-        cf.outputs = outputs
+        graph.outputs = outputs
 
-        return cf
+        return graph
 
 class RecHandle():
-    def __init__(self,input_types,return_type,delta,compiled_function_handle):
+    def __init__(self, input_types, return_type, delta, dataflow_graph):
         self.input_types = input_types
         self.return_type = return_type
         self.delta = delta
-        self.compiled_function_handle = compiled_function_handle
+        self.dataflow_graph = dataflow_graph
 
     def __call__(self,*args):
         if len(args) != len(self.input_types):
@@ -269,7 +269,7 @@ class RecHandle():
         for arg,type in zip(args,self.input_types):
             arg.stream_type.unify_with(type)
         
-        s = RecCall(self.compiled_function_handle,args,self.return_type)
+        s = RecCall(self.dataflow_graph, args, self.return_type)
         self.delta._register_node(s)
         return s
     

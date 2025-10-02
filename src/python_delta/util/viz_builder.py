@@ -1,21 +1,21 @@
 """
-Visualization builder for compiled stream functions.
+Visualization builder for dataflow graphs.
 """
 
 
 class VizBuilder:
     """
-    Builds graphviz visualizations for CompiledFunction computation graphs.
+    Builds graphviz visualizations for DataflowGraph computation graphs.
     """
 
-    def __init__(self, compiled_function):
+    def __init__(self, dataflow_graph):
         """
-        Initialize the VizBuilder with a compiled function.
+        Initialize the VizBuilder with a dataflow graph.
 
         Args:
-            compiled_function: A CompiledFunction instance to visualize
+            dataflow_graph: A DataflowGraph instance to visualize
         """
-        self.compiled_function = compiled_function
+        self.dataflow_graph = dataflow_graph
         self.visited = set()
         self.node_labels = {}
 
@@ -29,25 +29,25 @@ class VizBuilder:
         self.visited = set()
         self.node_labels = {}
 
-        lines = ["digraph CompiledFunction {"]
+        lines = ["digraph DataflowGraph {"]
         lines.append("  rankdir=BT;")  # Bottom to top (inputs at bottom, output at top)
         lines.append("  node [shape=box, style=rounded];")
         lines.append("")
 
         # Start from output node(s)
-        if isinstance(self.compiled_function.outputs, (list, tuple)):
-            for output in self.compiled_function.outputs:
+        if isinstance(self.dataflow_graph.outputs, (list, tuple)):
+            for output in self.dataflow_graph.outputs:
                 self._visit_node(output, lines)
         else:
-            self._visit_node(self.compiled_function.outputs, lines)
+            self._visit_node(self.dataflow_graph.outputs, lines)
 
         # Highlight output node(s)
-        if isinstance(self.compiled_function.outputs, (list, tuple)):
-            for output in self.compiled_function.outputs:
+        if isinstance(self.dataflow_graph.outputs, (list, tuple)):
+            for output in self.dataflow_graph.outputs:
                 output_label = self._get_node_label(output)
                 lines.append(f'  "{output_label}" [peripheries=2];')
         else:
-            output_label = self._get_node_label(self.compiled_function.outputs)
+            output_label = self._get_node_label(self.dataflow_graph.outputs)
             lines.append(f'  "{output_label}" [peripheries=2];')
 
         lines.append("}")

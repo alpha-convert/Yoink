@@ -1,7 +1,7 @@
-class CompiledFunction:
+class DataflowGraph:
     """
-    A compiled stream function that can be executed with concrete iterators
-    or composed with other traced functions.
+    A dataflow graph representing a traced stream function that can be executed
+    with concrete iterators or composed with other traced functions.
     """
     def __init__(self, traced_delta, input_vars, outputs, original_func, input_types):
         """
@@ -38,7 +38,7 @@ class CompiledFunction:
 
     def run(self, *iterators):
         """
-        Execute the compiled function with concrete iterators.
+        Execute the dataflow graph with concrete iterators.
 
         Args:
             *iterators: Concrete iterators to bind to input variables

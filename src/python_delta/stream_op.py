@@ -395,16 +395,16 @@ class CaseOp(StreamOp):
 
 
 class RecCall(StreamOp):
-    """Recursive call - executes a compiled function at runtime with input streams."""
-    def __init__(self, compiled_func, input_streams, stream_type):
+    """Recursive call - executes a dataflow graph at runtime with input streams."""
+    def __init__(self, dataflow_graph, input_streams, stream_type):
         super().__init__(stream_type)
-        self.compiled_func = compiled_func  # CompiledFunction to call
+        self.dataflow_graph = dataflow_graph  # DataflowGraph to call
         self.input_streams = input_streams  # List of input StreamOps
-        self.output = None  # Will be set after calling the function
+        self.output = None  # Will be set after calling the graph
 
     @property
     def id(self):
-        return hash(("RecCall", id(self.compiled_func), tuple(s.id for s in self.input_streams)))
+        return hash(("RecCall", id(self.dataflow_graph), tuple(s.id for s in self.input_streams)))
 
     @property
     def vars(self):
@@ -415,7 +415,7 @@ class RecCall(StreamOp):
     def __next__(self):
         """Execute the recursive call and pull from its output."""
         if self.output is None:
-            self.output = self.compiled_func.run(*self.input_streams)
+            self.output = self.dataflow_graph.run(*self.input_streams)
         return next(self.output)
 
     def reset(self):
