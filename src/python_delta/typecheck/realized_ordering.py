@@ -1,4 +1,4 @@
-from python_delta.partial_order import PartialOrder
+from python_delta.typecheck.partial_order import PartialOrder
 
 class RealizedOrdering:
     """
