@@ -59,6 +59,7 @@ class Var(StreamOp):
 
     def __next__(self):
         """Pull from the source iterator."""
+        print(f"Var({self.name}).__next__")
         if self.source is None:
             raise RuntimeError(f"Var '{self.name}' has no source bound")
         return next(self.source)
@@ -86,6 +87,7 @@ class Eps(StreamOp):
 
     def __next__(self):
         """Always raise StopIteration - empty stream has no elements."""
+        print(f"Eps.__next__")
         raise StopIteration
 
     def reset(self):
@@ -109,6 +111,7 @@ class CatR(StreamOp):
 
     def __next__(self):
         """Pull from first stream (wrapped in CatEvA), then CatPunc, then second stream (unwrapped)."""
+        print(f"CatR.__next__")
         if self.current_state == CatRState.FIRST_STREAM:
             try:
                 val = next(self.input_streams[0])
@@ -152,6 +155,7 @@ class CatProj(StreamOp):
         return f"CatProj{self.position}({self.stream_type})"
 
     def __next__(self):
+        print(f"CatProj{self.position}.__next__")
         event = next(self.input_stream)
 
         if self.position == 1:
@@ -200,6 +204,7 @@ class ParR(StreamOp):
 
     def __next__(self):
         """Non-deterministically choose an input stream and pull from it, wrapping in ParEvA or ParEvB."""
+        print(f"ParR.__next__")
         # Simple alternating strategy (could be random instead)
         choice = self.next_choice
         self.next_choice = 1 - self.next_choice  # Alternate
@@ -305,6 +310,7 @@ class ParProj(StreamOp):
         return f"ParProj{self.position}({self.stream_type})"
 
     def __next__(self):
+        print(f"ParProj{self.position}.__next__")
         return self.coordinator.pull_for_position(self.position)
 
     def reset(self):
@@ -330,6 +336,7 @@ class SumInj(StreamOp):
 
     def __next__(self):
         """Emit tag first (PlusPuncA if position=0, PlusPuncB if position=1), then pull from input stream."""
+        print(f"SumInj{self.position}.__next__")
         if not self.tag_emitted:
             self.tag_emitted = True
             return PlusPuncA() if self.position == 0 else PlusPuncB()
@@ -364,6 +371,7 @@ class CaseOp(StreamOp):
 
     def __next__(self):
         """Read tag and route to appropriate branch."""
+        print(f"CaseOp.__next__")
         if not self.tag_read:
             tag = next(self.input_stream)
             if tag is None:
@@ -409,6 +417,7 @@ class RecCall(StreamOp):
 
     def __next__(self):
         """Execute the recursive call and pull from its output."""
+        print(f"RecCall.__next__")
         if self.output is None:
             self.output = self.dataflow_graph.run(*self.input_streams)
         return next(self.output)
@@ -436,6 +445,7 @@ class UnsafeCast(StreamOp):
 
     def __next__(self):
         """Forward data from input stream without modification."""
+        print(f"UnsafeCast.__next__")
         return next(self.input_stream)
 
     def reset(self):

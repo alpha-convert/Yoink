@@ -99,9 +99,12 @@ def test_recursive_identity():
             lambda _: delta.nil(),
             lambda head, tail: delta.cons(head,identity(tail)))
     
-    out = identity(iter([PlusPuncB(),CatEvA("Hello"),CatPunc()]))
-    result = [x for x in list(out) if x is not None]
-    assert result[0] == "Hello"
+    out = identity(iter([PlusPuncB(),CatEvA("Hello"),CatPunc(),PlusPuncA()]))
+    assert next(out) == None 
+    assert next(out) == PlusPuncB()
+    assert next(out) == CatEvA("Hello")
+    assert next(out) == CatPunc()
+    assert next(out) == PlusPuncA()
 
 # def test_recursive_list_length():
 #     """Test recursive function to compute list length using starcase."""
