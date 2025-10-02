@@ -1,9 +1,9 @@
 import pytest
-from python_delta.core import Delta, BaseType, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc
+from python_delta.core import Delta, Singleton, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc
 
 
-STRING_TY = BaseType(str)
-INT_TY = BaseType(int)
+STRING_TY = Singleton(str)
+INT_TY = Singleton(int)
 
 
 def test_nil():

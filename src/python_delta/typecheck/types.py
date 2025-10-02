@@ -150,8 +150,8 @@ class TypeVar(Type):
             self.link = other
 
 
-class BaseType(Type):
-    """Base type for primitive Python types."""
+class Singleton(Type):
+    """Singleton type for primitive Python types."""
 
     def __init__(self, python_class):
         self.python_class = python_class
@@ -160,10 +160,10 @@ class BaseType(Type):
         return self.python_class.__name__
 
     def __eq__(self, other):
-        return isinstance(other, BaseType) and self.python_class == other.python_class
+        return isinstance(other, Singleton) and self.python_class == other.python_class
 
     def __hash__(self):
-        return hash(("BaseType", self.python_class))
+        return hash(("Singleton", self.python_class))
 
     def occurs_var(self, var):
         return None
@@ -175,7 +175,7 @@ class BaseType(Type):
                 other.link = self
             else:
                 self.unify_with(other.link)
-        elif isinstance(other, BaseType) and other.python_class == self.python_class:
+        elif isinstance(other, Singleton) and other.python_class == self.python_class:
             return
         else:
             raise UnificationError(self, other)

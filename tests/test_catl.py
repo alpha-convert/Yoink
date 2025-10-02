@@ -1,7 +1,7 @@
 import pytest
 from python_delta.core import *
 
-STRING_TY = BaseType(str)
+STRING_TY = Singleton(str)
 
 def test_catl():
     delta = Delta()

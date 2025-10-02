@@ -1,6 +1,6 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
-from python_delta.typecheck.types import Type, BaseType, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
+from python_delta.typecheck.types import Type, Singleton, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
 from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, RecCall, UnsafeCast
 
 class Delta:

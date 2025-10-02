@@ -138,11 +138,11 @@ class BaseEvent(Event):
 
     def has_type(self, type):
         """
-        BaseEvent has any BaseType with the same python_class.
+        BaseEvent has any Singleton with the same python_class.
 
         For example:
-        - BaseEvent(42, int) has type BaseType(int)
-        - BaseEvent("hello", str) has type BaseType(str)
+        - BaseEvent(42, int) has type Singleton(int)
+        - BaseEvent("hello", str) has type Singleton(str)
         """
-        from python_delta.typecheck.types import BaseType
-        return isinstance(type, BaseType) and type.python_class == self.python_class
+        from python_delta.typecheck.types import Singleton
+        return isinstance(type, Singleton) and type.python_class == self.python_class

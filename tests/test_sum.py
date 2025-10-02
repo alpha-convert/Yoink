@@ -1,9 +1,9 @@
 import pytest
-from python_delta.core import Delta, BaseType, TyPlus, PlusPuncA, PlusPuncB
+from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB
 
 
-STRING_TY = BaseType(str)
-INT_TY = BaseType(int)
+STRING_TY = Singleton(str)
+INT_TY = Singleton(int)
 
 
 def test_inl():

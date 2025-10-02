@@ -2,9 +2,9 @@
 Tests for stream execution semantics.
 """
 import random
-from python_delta.core import Delta, BaseType, CatEvA, CatPunc, TyCat, TyPar, ParEvA, ParEvB
+from python_delta.core import Delta, Singleton, CatEvA, CatPunc, TyCat, TyPar, ParEvA, ParEvB
 
-STRING_TY = BaseType(str)
+STRING_TY = Singleton(str)
 
 def test_simple_catr():
     """Test basic concatenation execution."""
