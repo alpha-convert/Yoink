@@ -45,18 +45,20 @@ def test_map_proj1_cons():
 
 @given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=3))
 def test_map_proj1_preserves_types(input_events):
+    output_type = TyStar(INT_TY)
+    input_type = TyStar(TyCat(INT_TY, INT_TY))
     @Delta.jit
-    def f(delta, s: TyStar(TyCat(INT_TY, INT_TY))):
+    def f(delta, s: input_type):
         def proj1(z):
             (x, y) = delta.catl(z)
             return x
         return delta.map(s, proj1)
 
+    assert has_type(input_events,input_type)
     # Run the function with generated input
     output = f(iter(input_events))
     result = [x for x in list(output) if x is not None]
 
     # Check that output has the expected type
-    output_type = TyStar(INT_TY)
     assert has_type(result, output_type), f"Output does not have type {output_type}"
 

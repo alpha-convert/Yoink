@@ -19,8 +19,28 @@ def events_of_type(type, max_depth=5):
         A hypothesis strategy that generates lists of events having the given type
     """
     if max_depth <= 0:
-        # At max depth, only generate epsilon (empty sequence)
-        return st.just([])
+        # At max depth, generate minimal valid sequences
+        # Only truly nullable types (TyEps) can be empty
+        if isinstance(type, TyEps):
+            return st.just([])
+        elif isinstance(type, Singleton):
+            # Non-nullable: must generate at least one event
+            value_strategy = _strategy_for_python_class(type.python_class)
+            return value_strategy.map(lambda v: [BaseEvent(v)])
+        elif isinstance(type, TyCat):
+            # Cat needs minimal left + punc + minimal right
+            # Use max_depth=1 to generate minimal sequences
+            left_events = events_of_type(type.left_type, max_depth=1)
+            right_events = events_of_type(type.right_type, max_depth=1)
+            return st.tuples(left_events, right_events).map(
+                lambda lr: [CatEvA(e) for e in lr[0]] + [CatPunc()] + lr[1]
+            )
+        elif isinstance(type, TyStar):
+            # Star: minimal is nil (empty list)
+            return st.just([PlusPuncA()])
+        else:
+            # For other types, return empty (may be invalid but we're at depth limit)
+            return st.just([])
 
     if isinstance(type, TyEps):
         return st.just([])
