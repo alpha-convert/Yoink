@@ -130,17 +130,86 @@ class CatR(StreamOp):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
 
-class CatProj(StreamOp):
-    """Projection from a TyCat stream."""
-    def __init__(self, input_stream, stream_type, position):
+class CatProjCoordinator(StreamOp):
+    """Coordinator for catl that manages shared state between two CatProj instances."""
+    def __init__(self, input_stream, stream_type):
         super().__init__(stream_type)
         self.input_stream = input_stream
-        self.position = position  # 1 or 2
-        self.seen_punc = False  # For position 2, track if we've seen CatPunc
+        self.seen_punc = False
+        self.input_exhausted = False
 
     @property
     def id(self):
-        return hash(("CatProj", self.input_stream.id, self.position))
+        return hash(("CatProjCoordinator", self.input_stream.id))
+
+    @property
+    def vars(self):
+        return self.input_stream.vars
+
+    def pull_for_position(self, position):
+        """
+        Pull the next event for the given position.
+
+        For position 1: returns unwrapped CatEvA values until CatPunc
+        For position 2: skips CatEvA events until CatPunc is seen, then returns unwrapped tail events
+        """
+        if self.input_exhausted:
+            raise StopIteration
+
+        if position == 1 and self.seen_punc:
+            raise StopIteration
+
+        try:
+            event = next(self.input_stream)
+        except StopIteration:
+            self.input_exhausted = True
+            raise
+
+        if position == 1:
+            # Position 1: return CatEvA values, stop at CatPunc
+            if isinstance(event, CatEvA):
+                return event.value
+            elif isinstance(event, CatPunc):
+                self.seen_punc = True
+                raise StopIteration
+            elif event is None:
+                return None
+            else:
+                # Shouldn't happen in position 1 before punc
+                return None
+        else:
+            # Position 2: skip CatEvA events and CatPunc, return tail events
+            if isinstance(event, CatEvA):
+                return None  # Skip wrapped events
+            elif isinstance(event, CatPunc):
+                self.seen_punc = True
+                return None  # Skip the punc itself
+            elif event is None:
+                return None
+            else:
+                # After CatPunc, return unwrapped tail events
+                return event
+
+    def __next__(self):
+        """Coordinators are not directly iterable."""
+        raise NotImplementedError("CatProjCoordinator should not be iterated directly")
+
+    def reset(self):
+        self.seen_punc = False
+        self.input_exhausted = False
+
+
+class CatProj(StreamOp):
+    """Projection from a TyCat stream."""
+    def __init__(self, coordinator, stream_type, position):
+        assert isinstance(coordinator,CatProjCoordinator)
+        super().__init__(stream_type)
+        self.coordinator = coordinator  # CatProjCoordinator instance
+        self.position = position  # 1 or 2
+
+    @property
+    def id(self):
+        return hash(("CatProj", self.coordinator.id, self.position))
 
     @property
     def vars(self):
@@ -150,33 +219,11 @@ class CatProj(StreamOp):
         return f"CatProj{self.position}({self.stream_type})"
 
     def __next__(self):
-        event = next(self.input_stream)
-
-        if self.position == 1:
-            # Position 1: return CatEvA values, stop at CatPunc
-            if isinstance(event, CatEvA):
-                return event.value
-            elif isinstance(event, CatPunc):
-                raise StopIteration
-            else:
-                return None
-        else:
-            if isinstance(event, CatEvA):
-                return None
-            elif isinstance(event, CatPunc):
-                self.seen_punc = True
-                return None  # Skip the punc itself
-            elif event is None:
-                return None  # Propagate skip without changing state
-            else:
-                # After CatPunc, events are unwrapped
-                # If we see unwrapped value before punc, position 1 must have consumed the punc
-                if not self.seen_punc:
-                    self.seen_punc = True
-                return event  # Return unwrapped value
+        return self.coordinator.pull_for_position(self.position)
 
     def reset(self):
-        self.seen_punc = False
+        """Reset is handled by the coordinator."""
+        pass  # Coordinator manages the state
 
 
 class ParR(StreamOp):
@@ -388,6 +435,41 @@ class CaseOp(StreamOp):
         # in mapping mode,
         # pull from the subgraph's output. the subgraph's input is a catevA-peel of the input.
         # when this raises, we send catpunc, and reset the subgraph's state
+
+
+class SinkThen(StreamOp):
+    """Sink operation - pulls from first stream until exhausted, then switches to second stream."""
+    def __init__(self, first_stream, second_stream, stream_type):
+        super().__init__(stream_type)
+        self.input_streams = [first_stream, second_stream]
+        self.first_exhausted = False
+
+    @property
+    def id(self):
+        return hash(("SinkThen", self.input_streams[0].id, self.input_streams[1].id))
+
+    @property
+    def vars(self):
+        return self.input_streams[0].vars | self.input_streams[1].vars
+
+    def __next__(self):
+        """Pull from first stream until exhausted, then switch to second stream."""
+        if not self.first_exhausted:
+            try:
+                # Pull from first stream and drop the value (sink it)
+                next(self.input_streams[0])
+                return None  # Drop all values from first stream
+            except StopIteration:
+                # First stream exhausted, switch to second
+                self.first_exhausted = True
+                # Fall through to pull from second stream
+
+        # Pull from second stream
+        return next(self.input_streams[1])
+
+    def reset(self):
+        """Reset state."""
+        self.first_exhausted = False
 
 
 class ResetOp(StreamOp):

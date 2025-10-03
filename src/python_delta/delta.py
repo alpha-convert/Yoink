@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, UnsafeCast, ResetOp
+from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp
 
 class Delta:
     def __init__(self):
@@ -51,40 +51,16 @@ class Delta:
         right_type = self._fresh_type_var()
         s.stream_type.unify_with(TyCat(left_type,right_type))
 
-        x = CatProj(s, left_type, 1)
-        y = CatProj(s, right_type, 2)
+        coord = CatProjCoordinator(s, s.stream_type)
+        self._register_node(coord)
+
+        x = CatProj(coord, left_type, 1)
+        y = CatProj(coord, right_type, 2)
 
         # x must come before y
         self.ordering.add_ordered(x.id, y.id)
 
         # Both projections inherit ordering from s.vars
-        self.ordering.add_in_place_of(x.id, s.vars)
-        self.ordering.add_in_place_of(y.id, s.vars)
-
-        self._register_node(x)
-        self._register_node(y)
-        return (x, y)
-
-    def parr(self, s1, s2):
-        self.ordering.add_all_unordered(s1.vars, s2.vars)
-
-        s = ParR(s1, s2, TyPar(s1.stream_type, s2.stream_type))
-        self._register_node(s)
-        return s
-
-    def parl(self, s):
-        left_type = self._fresh_type_var()
-        right_type = self._fresh_type_var()
-        s.stream_type.unify_with(TyPar(left_type,right_type))
-
-        coord = ParLCoordinator(s, s.stream_type)
-        self._register_node(coord)
-
-        x = ParProj(coord, left_type, 1)
-        y = ParProj(coord, right_type, 2)
-
-        self.ordering.add_unordered(x.id, y.id)
-
         self.ordering.add_in_place_of(x.id, s.vars)
         self.ordering.add_in_place_of(y.id, s.vars)
 
@@ -172,8 +148,11 @@ class Delta:
         x_nil = UnsafeCast(x,TyEps())
         x_cons = UnsafeCast(x,TyCat(element_type, star_type))
 
-        head = CatProj(x_cons, element_type, 1)
-        tail = CatProj(x_cons, star_type, 2)
+        coord = CatProjCoordinator(x_cons, TyCat(element_type, star_type))
+        self._register_node(coord)
+
+        head = CatProj(coord, element_type, 1)
+        tail = CatProj(coord, star_type, 2)
 
         self.ordering.add_ordered(head.id, tail.id)
 
@@ -210,13 +189,19 @@ class Delta:
 
         def build_body(reset_node):
             x_cons = UnsafeCast(x,TyCat(input_elt_type, input_star_type))
-            x_head = CatProj(x_cons, input_elt_type, 1)
+            coord = CatProjCoordinator(x_cons,TyCat(input_elt_type, input_star_type))
+            x_head = CatProj(coord, input_elt_type, 1)
+            
             self._register_node(x_cons)
+            self._register_node(coord)
             self._register_node(x_head)
 
             map_output = map_fn(x_head)
 
-            rest_cat = CatR(map_output,reset_node,TyCat(result_elt_type,result_star_type))
+            sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
+            self._register_node(sink_then_reset)
+
+            rest_cat = CatR(map_output,sink_then_reset,TyCat(result_elt_type,result_star_type))
             rest = SumInj(rest_cat,result_star_type,position=1)
             self._register_node(rest_cat)
             self._register_node(rest)

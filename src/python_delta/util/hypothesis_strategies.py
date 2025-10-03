@@ -92,11 +92,11 @@ def events_of_type(type, max_depth=5):
                     # After one element, we have TyCat(elem_type, TyStar(elem_type))
                     # So we need to recursively generate more star events
                     wrapped = [CatEvA(e) for e in elem_events]
-                    return events_of_type(TyStar(type.elem_type), max_depth - 1).map(
+                    return events_of_type(TyStar(type.element_type), max_depth - 1).map(
                         lambda rest: [PlusPuncB()] + wrapped + [CatPunc()] + rest
                     )
 
-                return events_of_type(type.elem_type, max_depth - 1).flatmap(build_cons)
+                return events_of_type(type.element_type, max_depth - 1).flatmap(build_cons)
 
         # Bias towards terminating (nil) as we get deeper
         nil_weight = max(1, max_depth)
