@@ -35,7 +35,7 @@ def test_map_proj1_cons():
             return x
         return delta.map(s,proj1)
 
-    xs = [PlusPuncB(),CatEvA(CatEvA(BaseEvent(0))),CatEvA(CatPunc()),CatEvA(BaseEvent(0)),CatPunc(),PlusPuncA()]
+    xs = [PlusPuncB(),CatEvA(CatEvA(BaseEvent(0))),CatEvA(CatPunc()),CatEvA(BaseEvent(1)),CatPunc(),PlusPuncA()]
     output = f(iter(xs))
     result = [x for x in list(output) if x is not None]
     expected_result = [PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),PlusPuncA()]
@@ -43,7 +43,7 @@ def test_map_proj1_cons():
         assert result[i] == expected_result[i]
 
 
-@given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=3))
+@given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=5))
 def test_map_proj1_preserves_types(input_events):
     output_type = TyStar(INT_TY)
     input_type = TyStar(TyCat(INT_TY, INT_TY))
@@ -52,6 +52,43 @@ def test_map_proj1_preserves_types(input_events):
         def proj1(z):
             (x, y) = delta.catl(z)
             return x
+        return delta.map(s, proj1)
+
+    assert has_type(input_events,input_type)
+    # Run the function with generated input
+    output = f(iter(input_events))
+    result = [x for x in list(output) if x is not None]
+
+    # Check that output has the expected type
+    assert has_type(result, output_type), f"Output does not have type {output_type}"
+
+
+
+def test_map_proj2_cons():
+    @Delta.jit
+    def f(delta,s : TyStar(TyCat(INT_TY,INT_TY))):
+        def proj1(z):
+            (_,y) = delta.catl(z)
+            return y
+        return delta.map(s,proj1)
+
+    xs = [PlusPuncB(),CatEvA(CatEvA(BaseEvent(0))),CatEvA(CatPunc()),CatEvA(BaseEvent(1)),CatPunc(),PlusPuncA()]
+    output = f(iter(xs))
+    result = [x for x in list(output) if x is not None]
+    expected_result = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),PlusPuncA()]
+    for i in range(max(len(expected_result),len(result))):
+        assert result[i] == expected_result[i]
+
+
+@given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=5))
+def test_map_proj2_preserves_types(input_events):
+    output_type = TyStar(INT_TY)
+    input_type = TyStar(TyCat(INT_TY, INT_TY))
+    @Delta.jit
+    def f(delta, s: input_type):
+        def proj1(z):
+            (_, y) = delta.catl(z)
+            return y
         return delta.map(s, proj1)
 
     assert has_type(input_events,input_type)
