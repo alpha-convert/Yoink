@@ -2,7 +2,7 @@
 Tests for stream execution semantics.
 """
 import random
-from python_delta.core import Delta, Singleton, CatEvA, CatPunc, TyCat, TyPar, ParEvA, ParEvB
+from python_delta.core import Delta, Singleton, CatEvA, CatPunc, TyCat
 
 STRING_TY = Singleton(str)
 

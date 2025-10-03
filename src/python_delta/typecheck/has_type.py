@@ -4,8 +4,6 @@ Type checking for events - determines if an event has a given type.
 Event type rules:
 - CatEvA(x) has type TyCat(s,t) if x has type s
 - CatPunc has type TyCat(s,t) if s is nullable
-- ParEvA(x) has type TyPar(s,t) if x has type s
-- ParEvB(x) has type TyPar(s,t) if x has type t
 - PlusPuncA/B have type TyPlus(s,t) for any s,t and TyStar(s) for any s
 - BaseEvent(v) has type Singleton(C) if v is an instance of C
 
@@ -15,7 +13,7 @@ Sequence type rules:
   (2) the head x has type s, and the remaining sequence has type deriv(x,s)
 """
 
-from python_delta.typecheck.types import Singleton, TyCat, TyPar, TyPlus, TyStar
+from python_delta.typecheck.types import Singleton, TyCat, TyPlus, TyStar
 
 
 def has_type(event, type):

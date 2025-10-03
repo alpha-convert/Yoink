@@ -5,7 +5,7 @@ Given a type T and an event e that has type T, the derivative ∂e(T)
 represents what remains of type T after consuming event e.
 """
 
-from python_delta.typecheck.types import Singleton, TyCat, TyPar, TyPlus, TyStar, TyEps
+from python_delta.typecheck.types import Singleton, TyCat, TyPlus, TyStar, TyEps
 from python_delta.event import BaseEvent, CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
 
 
@@ -46,18 +46,6 @@ def derivative(type, event):
             return type.right_type
         else:
             raise DerivativeError(f"Expected CatEvA or CatPunc for TyCat, got {event.__class__.__name__}")
-
-    elif isinstance(type, TyPar):
-        if isinstance(event, ParEvA):
-            # Consumed from left side
-            left_deriv = derivative(type.left_type, event.value)
-            return TyPar(left_deriv, type.right_type)
-        elif isinstance(event, ParEvB):
-            # Consumed from right side
-            right_deriv = derivative(type.right_type, event.value)
-            return TyPar(type.left_type, right_deriv)
-        else:
-            raise DerivativeError(f"Expected ParEvA or ParEvB for TyPar, got {event.__class__.__name__}")
 
     elif isinstance(type, TyPlus):
         if isinstance(event, PlusPuncA):

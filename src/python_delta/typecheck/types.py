@@ -228,13 +228,6 @@ class TyCat(BinaryType):
         """Cat is not nullable."""
         return False
 
-
-class TyPar(BinaryType):
-    """Parallel composition type."""
-    def nullable(self):
-        """Par is nullable if both its args are nullable."""
-        return self.left_type.nullable() and self.right_type.nullable()
-
 class TyPlus(BinaryType):
     """Sum type."""
     def nullable(self):

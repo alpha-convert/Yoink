@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
-from python_delta.typecheck.types import Type, Singleton, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp
+from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
+from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp
 
 class Delta:
     def __init__(self):

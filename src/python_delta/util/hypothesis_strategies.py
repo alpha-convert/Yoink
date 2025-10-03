@@ -4,7 +4,7 @@ Hypothesis strategies for generating random event sequences of a given type.
 
 from hypothesis import strategies as st
 from python_delta.event import BaseEvent, CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
-from python_delta.typecheck.types import Singleton, TyCat, TyPar, TyPlus, TyStar, TyEps
+from python_delta.typecheck.types import Singleton, TyCat, TyPlus, TyStar, TyEps
 
 
 def events_of_type(type, max_depth=5):
@@ -68,23 +68,6 @@ def events_of_type(type, max_depth=5):
         # Generate left events
         left_strategy = events_of_type(type.left_type, max_depth - 1)
         return left_strategy.flatmap(build_cat_sequence)
-
-    elif isinstance(type, TyPar):
-        # Parallel: interleave events from left and right
-        def interleave_par(left_right):
-            left_events, right_events = left_right
-            # Wrap in ParEvA and ParEvB
-            wrapped_left = [ParEvA(e) for e in left_events]
-            wrapped_right = [ParEvB(e) for e in right_events]
-            # Interleave them (simple strategy: all left then all right, or shuffle)
-            return st.sampled_from([
-                wrapped_left + wrapped_right,
-                wrapped_right + wrapped_left,
-            ] + ([st.permutations(wrapped_left + wrapped_right)] if wrapped_left or wrapped_right else []))
-
-        left_strategy = events_of_type(type.left_type, max_depth - 1)
-        right_strategy = events_of_type(type.right_type, max_depth - 1)
-        return st.tuples(left_strategy, right_strategy).flatmap(interleave_par)
 
     elif isinstance(type, TyPlus):
         # Sum type: choose left or right branch
