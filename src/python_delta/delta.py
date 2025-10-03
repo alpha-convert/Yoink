@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPar, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, RecCall, UnsafeCast
+from python_delta.stream_op import StreamOp, Var, Eps, CatR, CatProj, ParR, ParProj, ParLCoordinator, SumInj, CaseOp, UnsafeCast, ResetOp
 
 class Delta:
     def __init__(self):
@@ -14,6 +14,14 @@ class Delta:
 
     def _register_node(self, node):
         self.nodes.add(node)
+
+    def _reset_block(self,f,ty):
+        reset_node = ResetOp(None,ty)
+        nodes_before = self.nodes.copy()
+        res = f(reset_node)
+        reset_node.reset_set = self.nodes - nodes_before
+        self._register_node(reset_node)
+        return res
 
     def var(self, v, var_type=None):
         if var_type is None:
@@ -187,7 +195,39 @@ class Delta:
 
         return z
     
-   
+    def map(self,x,map_fn):
+        input_elt_type = self._fresh_type_var()
+        input_star_type = TyStar(input_elt_type)
+        x.stream_type.unify_with(input_star_type)
+
+        result_elt_type = self._fresh_type_var()
+        result_star_type = TyStar(result_elt_type)
+
+        eps = Eps(TyEps())
+        done_output = SumInj(eps,result_star_type,position=0)
+        self._register_node(eps)
+        self._register_node(done_output)
+
+        def build_body(reset_node):
+            x_cons = UnsafeCast(x,TyCat(input_elt_type, input_star_type))
+            x_head = CatProj(x_cons, input_elt_type, 1)
+            self._register_node(x_cons)
+            self._register_node(x_head)
+
+            map_output = map_fn(x_head)
+
+            rest_cat = CatR(map_output,reset_node,TyCat(result_elt_type,result_star_type))
+            rest = SumInj(rest_cat,result_star_type,position=1)
+            self._register_node(rest_cat)
+            self._register_node(rest)
+
+            z = CaseOp(x, done_output, rest , result_star_type)
+            self._register_node(z)
+            return z
+
+        return self._reset_block(build_body,result_star_type)
+    
+
     @staticmethod
     def jit(func):
         """
@@ -236,35 +276,8 @@ class Delta:
 
         graph = DataflowGraph(traced_delta, input_vars, None, func, input_vars)
 
-        return_type = traced_delta._fresh_type_var()
-
-        rechandle = RecHandle(input_types, return_type, traced_delta, graph)
-        for i, name in enumerate(func.__code__.co_freevars):
-            if name == func.__name__:
-                func.__closure__[i].cell_contents = rechandle
-                break
-        func.__globals__[func.__name__] = rechandle
         outputs = func(traced_delta, *input_vars)
 
         graph.outputs = outputs
 
         return graph
-
-class RecHandle():
-    def __init__(self, input_types, return_type, delta, dataflow_graph):
-        self.input_types = input_types
-        self.return_type = return_type
-        self.delta = delta
-        self.dataflow_graph = dataflow_graph
-
-    def __call__(self,*args):
-        if len(args) != len(self.input_types):
-            raise "FIXME"
-        
-        for arg,type in zip(args,self.input_types):
-            arg.stream_type.unify_with(type)
-        
-        s = RecCall(self.dataflow_graph, args, self.return_type)
-        self.delta._register_node(s)
-        return s
-    

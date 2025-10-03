@@ -87,7 +87,8 @@ class VizBuilder:
             "Nil": "lavender",
             "Cons": "plum",
             "RecCall": "orange",
-            "UnsafeCast": "pink"
+            "UnsafeCast": "pink",
+            "ResetOp": "lightpink"
         }
         color = colors.get(node_type, "white")
 
@@ -103,7 +104,15 @@ class VizBuilder:
 
         # Add edges based on node type
         # Check specific node types first before generic hasattr checks
-        if node_type == 'CaseOp':  # CaseOp has special structure
+        if node_type == 'ResetOp':  # ResetOp has reset_set
+            # Draw dashed back-edges to all nodes in reset_set
+            for reset_node in node.reset_set:
+                child_label = self._get_node_label(reset_node)
+                lines.append(f'  "{label}" -> "{child_label}" [style=dashed, color=red, label="resets"];')
+                # Only visit if not already visited (avoid infinite loops on back-edges)
+                if reset_node.id not in self.visited:
+                    self._visit_node(reset_node, lines)
+        elif node_type == 'CaseOp':  # CaseOp has special structure
             # Input stream
             child_label = self._get_node_label(node.input_stream)
             lines.append(f'  "{child_label}" -> "{label}" [label="input"];')

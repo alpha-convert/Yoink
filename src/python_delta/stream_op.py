@@ -59,7 +59,6 @@ class Var(StreamOp):
 
     def __next__(self):
         """Pull from the source iterator."""
-        print(f"Var({self.name}).__next__")
         if self.source is None:
             raise RuntimeError(f"Var '{self.name}' has no source bound")
         return next(self.source)
@@ -87,7 +86,6 @@ class Eps(StreamOp):
 
     def __next__(self):
         """Always raise StopIteration - empty stream has no elements."""
-        print(f"Eps.__next__")
         raise StopIteration
 
     def reset(self):
@@ -111,7 +109,6 @@ class CatR(StreamOp):
 
     def __next__(self):
         """Pull from first stream (wrapped in CatEvA), then CatPunc, then second stream (unwrapped)."""
-        print(f"CatR.__next__")
         if self.current_state == CatRState.FIRST_STREAM:
             try:
                 val = next(self.input_streams[0])
@@ -132,8 +129,6 @@ class CatR(StreamOp):
     def reset(self):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
-        for stream in self.input_streams:
-            stream.reset()
 
 class CatProj(StreamOp):
     """Projection from a TyCat stream."""
@@ -155,7 +150,6 @@ class CatProj(StreamOp):
         return f"CatProj{self.position}({self.stream_type})"
 
     def __next__(self):
-        print(f"CatProj{self.position}.__next__")
         event = next(self.input_stream)
 
         if self.position == 1:
@@ -182,9 +176,7 @@ class CatProj(StreamOp):
                 return event  # Return unwrapped value
 
     def reset(self):
-        """Reset state and recursively reset input stream."""
         self.seen_punc = False
-        self.input_stream.reset()
 
 
 class ParR(StreamOp):
@@ -204,7 +196,6 @@ class ParR(StreamOp):
 
     def __next__(self):
         """Non-deterministically choose an input stream and pull from it, wrapping in ParEvA or ParEvB."""
-        print(f"ParR.__next__")
         # Simple alternating strategy (could be random instead)
         choice = self.next_choice
         self.next_choice = 1 - self.next_choice  # Alternate
@@ -218,10 +209,7 @@ class ParR(StreamOp):
             return ParEvB(val)
 
     def reset(self):
-        """Reset state and recursively reset input streams."""
         self.next_choice = 0
-        for stream in self.input_streams:
-            stream.reset()
 
 class ParLCoordinator(StreamOp):
     """Coordinator for parl that manages buffering between two ParProj instances."""
@@ -284,11 +272,9 @@ class ParLCoordinator(StreamOp):
         raise NotImplementedError("ParLCoordinator should not be iterated directly")
 
     def reset(self):
-        """Reset coordinator state."""
         self.buffer_1.clear()
         self.buffer_2.clear()
         self.input_exhausted = False
-        self.input_stream.reset()
 
 
 class ParProj(StreamOp):
@@ -310,7 +296,6 @@ class ParProj(StreamOp):
         return f"ParProj{self.position}({self.stream_type})"
 
     def __next__(self):
-        print(f"ParProj{self.position}.__next__")
         return self.coordinator.pull_for_position(self.position)
 
     def reset(self):
@@ -336,7 +321,6 @@ class SumInj(StreamOp):
 
     def __next__(self):
         """Emit tag first (PlusPuncA if position=0, PlusPuncB if position=1), then pull from input stream."""
-        print(f"SumInj{self.position}.__next__")
         if not self.tag_emitted:
             self.tag_emitted = True
             return PlusPuncA() if self.position == 0 else PlusPuncB()
@@ -345,7 +329,6 @@ class SumInj(StreamOp):
     def reset(self):
         """Reset state and recursively reset input stream."""
         self.tag_emitted = False
-        self.input_stream.reset()
 
 
 
@@ -371,7 +354,6 @@ class CaseOp(StreamOp):
 
     def __next__(self):
         """Read tag and route to appropriate branch."""
-        print(f"CaseOp.__next__")
         if not self.tag_read:
             tag = next(self.input_stream)
             if tag is None:
@@ -392,42 +374,42 @@ class CaseOp(StreamOp):
         """Reset state and recursively reset branches."""
         self.tag_read = False
         self.active_branch = None
-        self.input_stream.reset()
-        self.left_branch.reset()
-        self.right_branch.reset()
+
+# class MapOp(StreamOp):
+#     def __init__(self,subgraph,input,stream_type):
+#         super().__init__(stream_type)
+#         self.subgraph = subgraph
+#         self.input = input
+
+#     def __next__(self):
+        # first we pull from the input.
+        # (1) if it's a pluspuncA, we send pluspuncA and stop!
+        # (2) if it's a pluspuncB, we send pluspuncB, and move to "mapping" mode.
+        # in mapping mode,
+        # pull from the subgraph's output. the subgraph's input is a catevA-peel of the input.
+        # when this raises, we send catpunc, and reset the subgraph's state
 
 
-class RecCall(StreamOp):
-    """Recursive call - executes a dataflow graph at runtime with input streams."""
-    def __init__(self, dataflow_graph, input_streams, stream_type):
+class ResetOp(StreamOp):
+    """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
+    def __init__(self, reset_set, stream_type):
         super().__init__(stream_type)
-        self.dataflow_graph = dataflow_graph  # DataflowGraph to call
-        self.input_streams = input_streams  # List of input StreamOps
-        self.output = None  # Will be set after calling the graph
+        self.reset_set = reset_set
 
     @property
     def id(self):
-        return hash(("RecCall", id(self.dataflow_graph), tuple(s.id for s in self.input_streams)))
+        return hash(("ResetOp", *map(lambda n: id(n),self.reset_set)))
 
     @property
     def vars(self):
-        if not self.input_streams:
-            return set()
-        return set().union(*[s.vars for s in self.input_streams])
+        return set()
 
     def __next__(self):
-        """Execute the recursive call and pull from its output."""
-        print(f"RecCall.__next__")
-        if self.output is None:
-            self.output = self.dataflow_graph.run(*self.input_streams)
-        return next(self.output)
+        for node in self.reset_set:
+            node.reset()
 
     def reset(self):
-        """Reset state and recursively reset input streams."""
-        self.output = None
-        for stream in self.input_streams:
-            stream.reset()
-
+        pass
 
 class UnsafeCast(StreamOp):
     """Unsafe cast - forwards data from input stream with a different type annotation."""
@@ -445,9 +427,7 @@ class UnsafeCast(StreamOp):
 
     def __next__(self):
         """Forward data from input stream without modification."""
-        print(f"UnsafeCast.__next__")
         return next(self.input_stream)
 
     def reset(self):
-        """Reset input stream."""
-        self.input_stream.reset()
+        pass
