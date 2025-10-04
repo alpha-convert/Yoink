@@ -212,6 +212,35 @@ class Delta:
 
         return self._reset_block(build_body,result_star_type)
     
+    def concat(self,xs,ys):
+        self.ordering.add_ordered(xs.id, ys.id)
+
+        input_elt_type = self._fresh_type_var()
+        input_star_type = TyStar(input_elt_type)
+        xs.stream_type.unify_with(input_star_type)
+        ys.stream_type.unify_with(input_star_type)
+
+        def build_body(reset_node):
+            xs_cons = UnsafeCast(xs,TyCat(input_elt_type, input_star_type))
+            coord = CatProjCoordinator(xs_cons,TyCat(input_elt_type, input_star_type))
+            xs_head = CatProj(coord, input_elt_type, 1)
+            
+            self._register_node(xs_cons)
+            self._register_node(coord)
+            self._register_node(xs_head)
+
+
+            rest_cat = CatR(xs_head,reset_node,TyCat(input_elt_type,input_star_type))
+            rest = SumInj(rest_cat,input_star_type,position=1)
+            self._register_node(rest_cat)
+            self._register_node(rest)
+
+            z = CaseOp(xs, ys, rest , input_star_type)
+
+            self._register_node(z)
+            return z
+
+        return self._reset_block(build_body,input_star_type)
 
     @staticmethod
     def jit(func):

@@ -130,8 +130,4 @@ def _strategy_for_python_class(python_class):
     elif python_class == float:
         return st.floats(allow_nan=False, allow_infinity=False)
     else:
-        # For unknown classes, try to build them with no args or return None
-        try:
-            return st.just(python_class())
-        except:
-            return st.none()
+        return st.none()
