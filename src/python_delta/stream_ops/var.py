@@ -46,7 +46,7 @@ class Var(StreamOp):
             ast.Try(
                 body=[
                     ast.Assign(
-                        targets=[dst.store],
+                        targets=[dst.lvalue()],
                         value=ast.Call(
                             func=ast.Name(id='next', ctx=ast.Load()),
                             args=[
@@ -70,7 +70,7 @@ class Var(StreamOp):
                         name=None,
                         body=[
                             ast.Assign(
-                                targets=[dst.store],
+                                targets=[dst.lvalue()],
                                 value=ast.Name(id='DONE', ctx=ast.Load())
                             )
                         ]

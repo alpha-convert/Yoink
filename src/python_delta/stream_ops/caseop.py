@@ -70,38 +70,38 @@ class CaseOp(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=tag_read_var.load
+                    operand=tag_read_var.rvalue()
                 ),
                 body=input_stmts + [
                     ast.If(
                         test=ast.Compare(
-                            left=tag_tmp.load,
+                            left=tag_tmp.rvalue(),
                             ops=[ast.Is()],
                             comparators=[ast.Constant(value=None)]
                         ),
                         body=[
                             ast.Assign(
-                                targets=[dst.store],
+                                targets=[dst.lvalue()],
                                 value=ast.Constant(value=None)
                             )
                         ],
                         orelse=[
                             ast.If(
                                 test=ast.Compare(
-                                    left=tag_tmp.load,
+                                    left=tag_tmp.rvalue(),
                                     ops=[ast.Is()],
                                     comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                                 ),
                                 body=[
                                     ast.Assign(
-                                        targets=[dst.store],
+                                        targets=[dst.lvalue()],
                                         value=ast.Name(id='DONE', ctx=ast.Load())
                                     )
                                 ],
                                 orelse=[
                                     # Set tag_read = True
                                     ast.Assign(
-                                        targets=[tag_read_var.store],
+                                        targets=[tag_read_var.lvalue()],
                                         value=ast.Constant(value=True)
                                     ),
                                     # Check tag type and set active_branch
@@ -109,14 +109,14 @@ class CaseOp(StreamOp):
                                         test=ast.Call(
                                             func=ast.Name(id='isinstance', ctx=ast.Load()),
                                             args=[
-                                                tag_tmp.load,
+                                                tag_tmp.rvalue(),
                                                 ast.Name(id='PlusPuncA', ctx=ast.Load())
                                             ],
                                             keywords=[]
                                         ),
                                         body=[
                                             ast.Assign(
-                                                targets=[active_branch_var.store],
+                                                targets=[active_branch_var.lvalue()],
                                                 value=ast.Constant(value=0)
                                             )
                                         ],
@@ -125,14 +125,14 @@ class CaseOp(StreamOp):
                                                 test=ast.Call(
                                                     func=ast.Name(id='isinstance', ctx=ast.Load()),
                                                     args=[
-                                                        tag_tmp.load,
+                                                        tag_tmp.rvalue(),
                                                         ast.Name(id='PlusPuncB', ctx=ast.Load())
                                                     ],
                                                     keywords=[]
                                                 ),
                                                 body=[
                                                     ast.Assign(
-                                                        targets=[active_branch_var.store],
+                                                        targets=[active_branch_var.lvalue()],
                                                         value=ast.Constant(value=1)
                                                     )
                                                 ],
@@ -144,7 +144,7 @@ class CaseOp(StreamOp):
                                                                 ast.JoinedStr(values=[
                                                                     ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
                                                                     ast.FormattedValue(
-                                                                        value=tag_tmp.load,
+                                                                        value=tag_tmp.rvalue(),
                                                                         conversion=-1,
                                                                         format_spec=None
                                                                     )
@@ -160,7 +160,7 @@ class CaseOp(StreamOp):
                                     ),
                                     # Set dst = None
                                     ast.Assign(
-                                        targets=[dst.store],
+                                        targets=[dst.lvalue()],
                                         value=ast.Constant(value=None)
                                     )
                                 ]
@@ -172,7 +172,7 @@ class CaseOp(StreamOp):
                     # Route to appropriate branch
                     ast.If(
                         test=ast.Compare(
-                            left=active_branch_var.load,
+                            left=active_branch_var.rvalue(),
                             ops=[ast.Eq()],
                             comparators=[ast.Constant(value=0)]
                         ),
@@ -198,11 +198,11 @@ class CaseOp(StreamOp):
         active_branch_var = ctx.get_state_var(self, 'active_branch')
         return [
             ast.Assign(
-                targets=[tag_read_var.store],
+                targets=[tag_read_var.lvalue()],
                 value=ast.Constant(value=False)
             ),
             ast.Assign(
-                targets=[active_branch_var.store],
+                targets=[active_branch_var.lvalue()],
                 value=ast.Constant(value=-1)
             )
         ]

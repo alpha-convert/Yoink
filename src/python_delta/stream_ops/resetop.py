@@ -44,7 +44,7 @@ class ResetOp(StreamOp):
         # Set dst = None
         reset_stmts.append(
             ast.Assign(
-                targets=[dst.store],
+                targets=[dst.lvalue()],
                 value=ast.Constant(value=None)
             )
         )

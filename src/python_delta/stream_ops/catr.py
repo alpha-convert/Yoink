@@ -59,24 +59,24 @@ class CatR(StreamOp):
         return [
             ast.If(
                 test=ast.Compare(
-                    left=state_var.load,
+                    left=state_var.rvalue(),
                     ops=[ast.Eq()],
                     comparators=[ast.Constant(value=CatRState.FIRST_STREAM.value)]
                 ),
                 body=s1_stmts + [
                     ast.If(
                         test=ast.Compare(
-                            left=tmp.load,
+                            left=tmp.rvalue(),
                             ops=[ast.Is()],
                             comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                         ),
                         body=[
                             ast.Assign(
-                                targets=[state_var.store],
+                                targets=[state_var.lvalue()],
                                 value=ast.Constant(value=CatRState.SECOND_STREAM.value)
                             ),
                             ast.Assign(
-                                targets=[dst.store],
+                                targets=[dst.lvalue()],
                                 value=ast.Call(
                                     func=ast.Name(id='CatPunc', ctx=ast.Load()),
                                     args=[],
@@ -87,22 +87,22 @@ class CatR(StreamOp):
                         orelse=[
                             ast.If(
                                 test=ast.Compare(
-                                    left=tmp.load,
+                                    left=tmp.rvalue(),
                                     ops=[ast.Is()],
                                     comparators=[ast.Constant(value=None)]
                                 ),
                                 body=[
                                     ast.Assign(
-                                        targets=[dst.store],
+                                        targets=[dst.lvalue()],
                                         value=ast.Constant(value=None)
                                     )
                                 ],
                                 orelse=[
                                     ast.Assign(
-                                        targets=[dst.store],
+                                        targets=[dst.lvalue()],
                                         value=ast.Call(
                                             func=ast.Name(id='CatEvA', ctx=ast.Load()),
-                                            args=[tmp.load],
+                                            args=[tmp.rvalue()],
                                             keywords=[]
                                         )
                                     )
@@ -125,7 +125,7 @@ class CatR(StreamOp):
         state_var = ctx.get_state_var(self, 'state')
         return [
             ast.Assign(
-                targets=[state_var.store],
+                targets=[state_var.lvalue()],
                 value=ast.Constant(value=CatRState.FIRST_STREAM.value)
             )
         ]

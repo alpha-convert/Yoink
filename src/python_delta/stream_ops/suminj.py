@@ -48,15 +48,15 @@ class SumInj(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=tag_var.load
+                    operand=tag_var.rvalue()
                 ),
                 body=[
                     ast.Assign(
-                        targets=[tag_var.store],
+                        targets=[tag_var.lvalue()],
                         value=ast.Constant(value=True)
                     ),
                     ast.Assign(
-                        targets=[dst.store],
+                        targets=[dst.lvalue()],
                         value=ast.Call(
                             func=ast.Name(id=tag_class, ctx=ast.Load()),
                             args=[],
@@ -78,7 +78,7 @@ class SumInj(StreamOp):
         tag_var = ctx.get_state_var(self, 'tag_emitted')
         return [
             ast.Assign(
-                targets=[tag_var.store],
+                targets=[tag_var.lvalue()],
                 value=ast.Constant(value=False)
             )
         ]

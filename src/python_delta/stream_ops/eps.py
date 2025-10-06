@@ -34,7 +34,7 @@ class Eps(StreamOp):
         """Compile to: dst = DONE"""
         return [
             ast.Assign(
-                targets=[dst.store],
+                targets=[dst.lvalue()],
                 value=ast.Name(id='DONE', ctx=ast.Load())
             )
         ]

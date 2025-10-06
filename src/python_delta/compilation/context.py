@@ -7,26 +7,35 @@ from typing import Dict, Set
 
 
 class StateVar:
-    """Wrapper for a state variable with pre-built AST load/store nodes."""
+    """Wrapper for a state variable with pre-built AST rvalue/lvalue nodes."""
 
     def __init__(self, name: str, tmp: bool = False):
         self.name = name
         self.tmp = tmp
 
-        if tmp:
+    def rvalue(self) -> ast.expr:
+        """Get AST node for reading this variable (load context)."""
+        if self.tmp:
             # Temporary variable: just use the name directly
-            self.load = ast.Name(id=name, ctx=ast.Load())
-            self.store = ast.Name(id=name, ctx=ast.Store())
+            return ast.Name(id=self.name, ctx=ast.Load())
         else:
             # State variable: access via self.name
-            self.load = ast.Attribute(
+            return ast.Attribute(
                 value=ast.Name(id='self', ctx=ast.Load()),
-                attr=name,
+                attr=self.name,
                 ctx=ast.Load()
             )
-            self.store = ast.Attribute(
+
+    def lvalue(self) -> ast.expr:
+        """Get AST node for writing to this variable (store context)."""
+        if self.tmp:
+            # Temporary variable: just use the name directly
+            return ast.Name(id=self.name, ctx=ast.Store())
+        else:
+            # State variable: access via self.name
+            return ast.Attribute(
                 value=ast.Name(id='self', ctx=ast.Load()),
-                attr=name,
+                attr=self.name,
                 ctx=ast.Store()
             )
 
