@@ -3,7 +3,6 @@ from enum import Enum
 
 
 class Done:
-    """Sentinel value indicating a stream is exhausted."""
     _instance = None
 
     def __new__(cls):
@@ -15,15 +14,13 @@ class Done:
         return "Done"
 
 
-# Singleton instance
 DONE = Done()
 
 
 class CatRState(Enum):
     """State machine for CatR operation."""
     FIRST_STREAM = 0   # Pulling from first stream (wrapped in CatEvA)
-    EMIT_PUNC = 1      # Emit CatPunc separator
-    SECOND_STREAM = 2  # Pulling from second stream (unwrapped)
+    SECOND_STREAM = 1  # Pulling from second stream (unwrapped)
 
 
 class StreamOp:
@@ -45,7 +42,6 @@ class StreamOp:
         return f"{self.__class__.__name__}({self.stream_type})"
 
     def __iter__(self):
-        """Make StreamOp iterable."""
         return self
 
     def _pull(self):
@@ -69,11 +65,10 @@ class StreamOp:
         raise NotImplementedError("Subclasses must implement reset")
     
 class Var(StreamOp):
-    """Variable stream operation."""
     def __init__(self, name, stream_type):
         super().__init__(stream_type)
         self.name = name
-        self.source = None  # Will be bound during .run()
+        self.source = None
 
     @property
     def id(self):
@@ -96,12 +91,10 @@ class Var(StreamOp):
             return DONE
 
     def reset(self):
-        """Var has no internal state to reset."""
         pass
 
 
 class Eps(StreamOp):
-    """Empty stream - immediately raises StopIteration."""
     def __init__(self, stream_type):
         super().__init__(stream_type)
 
@@ -117,15 +110,12 @@ class Eps(StreamOp):
         return f"Eps({self.stream_type})"
 
     def _pull(self):
-        """Always return DONE - empty stream has no elements."""
         return DONE
 
     def reset(self):
-        """Eps has no internal state to reset."""
         pass
 
 class CatR(StreamOp):
-    """Concatenation (right) - ordered composition."""
     def __init__(self, s1, s2, stream_type):
         super().__init__(stream_type)
         self.input_streams = [s1, s2]
@@ -144,18 +134,13 @@ class CatR(StreamOp):
         if self.current_state == CatRState.FIRST_STREAM:
             val = self.input_streams[0]._pull()
             if val is DONE:
-                self.current_state = CatRState.EMIT_PUNC
+                self.current_state = CatRState.SECOND_STREAM
                 return CatPunc()
             if val is None:
                 return None
             return CatEvA(val)
-        elif self.current_state == CatRState.EMIT_PUNC:
-            self.current_state = CatRState.SECOND_STREAM
-            val = self.input_streams[1]._pull()
-            return val  # Unwrapped (including None skips and DONE)
-        else:  # CatRState.SECOND_STREAM
-            val = self.input_streams[1]._pull()
-            return val  # Unwrapped (including None skips and DONE)
+        else:
+            return self.input_streams[1]._pull()
 
     def reset(self):
         """Reset state and recursively reset input streams."""
