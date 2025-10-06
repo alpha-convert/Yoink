@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from python_delta.compilation import CompilationContext
-from python_delta.stream_op import DONE, CatRState
+from python_delta.stream_ops import DONE, CatRState
 from python_delta.event import CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
 
 
@@ -110,11 +110,6 @@ class DataflowGraph:
         Compile the StreamOp graph into a single flat iterator class.
 
         Returns the compiled class (not an instance).
-
-        Example:
-            CompiledIter = my_func.compile()
-            instance = CompiledIter(iter([1,2]), iter([3,4]))
-            result = list(instance)
         """
         ctx = CompilationContext()
 
