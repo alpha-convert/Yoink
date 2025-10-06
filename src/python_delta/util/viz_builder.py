@@ -118,13 +118,13 @@ class VizBuilder:
             lines.append(f'  "{child_label}" -> "{label}" [label="input"];')
             self._visit_node(node.input_stream, lines)
             # Left branch
-            child_label = self._get_node_label(node.left_branch)
+            child_label = self._get_node_label(node.branches[0])
             lines.append(f'  "{child_label}" -> "{label}" [label="left"];')
-            self._visit_node(node.left_branch, lines)
+            self._visit_node(node.branches[0], lines)
             # Right branch
-            child_label = self._get_node_label(node.right_branch)
+            child_label = self._get_node_label(node.branches[1])
             lines.append(f'  "{child_label}" -> "{label}" [label="right"];')
-            self._visit_node(node.right_branch, lines)
+            self._visit_node(node.branches[1], lines)
         elif hasattr(node, 'head') and hasattr(node, 'tail'):  # Cons
             head_label = self._get_node_label(node.head)
             tail_label = self._get_node_label(node.tail)

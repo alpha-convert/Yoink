@@ -140,17 +140,17 @@ def test_compile_sum_case():
     assert interp_right[1] == BaseEvent("asdf")
 
 
-# def test_compile_map_identity():
-#     """Test map with identity function."""
-#     @Delta.jit
-#     def map_id(delta, s: TyStar(INT_TY)):
-#         return delta.map(s, lambda x: x)
+def test_compile_map_identity():
+    """Test map with identity function."""
+    @Delta.jit
+    def map_id(delta, s: TyStar(INT_TY)):
+        return delta.map(s, lambda x: x)
 
-#     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
+    xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
 
-#     interp, compiled = run_both(map_id, xs)
+    interp, compiled = run_both(map_id, xs)
 
-#     assert interp == compiled == xs
+    assert interp == compiled == xs
 
 
 # def test_compile_concat_strings():

@@ -198,6 +198,8 @@ class Delta:
 
             map_output = map_fn(x_head)
 
+            map_output.stream_type.unify_with(result_elt_type)
+
             sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
             self._register_node(sink_then_reset)
 
