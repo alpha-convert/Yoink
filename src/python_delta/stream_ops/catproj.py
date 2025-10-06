@@ -124,7 +124,7 @@ class CatProj(StreamOp):
             # Position 0: extract CatEvA values until CatPunc
             return [
                 ast.If(
-                    test=input_exhausted_var.attr_load,
+                    test=input_exhausted_var.load,
                     body=[
                         ast.Assign(
                             targets=[dst.store],
@@ -133,7 +133,7 @@ class CatProj(StreamOp):
                     ],
                     orelse=[
                         ast.If(
-                            test=seen_punc_var.attr_load,
+                            test=seen_punc_var.load,
                             body=[
                                 ast.Assign(
                                     targets=[dst.store],
@@ -149,7 +149,7 @@ class CatProj(StreamOp):
                                     ),
                                     body=[
                                         ast.Assign(
-                                            targets=[input_exhausted_var.attr_store],
+                                            targets=[input_exhausted_var.store],
                                             value=ast.Constant(value=True)
                                         ),
                                         ast.Assign(
@@ -189,7 +189,7 @@ class CatProj(StreamOp):
                                                     ),
                                                     body=[
                                                         ast.Assign(
-                                                            targets=[seen_punc_var.attr_store],
+                                                            targets=[seen_punc_var.store],
                                                             value=ast.Constant(value=True)
                                                         ),
                                                         ast.Assign(
@@ -217,7 +217,7 @@ class CatProj(StreamOp):
             # Position 1: skip CatEvA and CatPunc, return tail events
             return [
                 ast.If(
-                    test=input_exhausted_var.attr_load,
+                    test=input_exhausted_var.load,
                     body=[
                         ast.Assign(
                             targets=[dst.store],
@@ -233,7 +233,7 @@ class CatProj(StreamOp):
                             ),
                             body=[
                                 ast.Assign(
-                                    targets=[input_exhausted_var.attr_store],
+                                    targets=[input_exhausted_var.store],
                                     value=ast.Constant(value=True)
                                 ),
                                 ast.Assign(
@@ -269,7 +269,7 @@ class CatProj(StreamOp):
                                             ),
                                             body=[
                                                 ast.Assign(
-                                                    targets=[seen_punc_var.attr_store],
+                                                    targets=[seen_punc_var.store],
                                                     value=ast.Constant(value=True)
                                                 ),
                                                 ast.Assign(
@@ -325,11 +325,11 @@ class CatProj(StreamOp):
         input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
         return [
             ast.Assign(
-                targets=[seen_punc_var.attr_store],
+                targets=[seen_punc_var.store],
                 value=ast.Constant(value=False)
             ),
             ast.Assign(
-                targets=[input_exhausted_var.attr_store],
+                targets=[input_exhausted_var.store],
                 value=ast.Constant(value=False)
             )
         ]

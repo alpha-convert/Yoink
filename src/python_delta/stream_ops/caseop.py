@@ -70,7 +70,7 @@ class CaseOp(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=tag_read_var.attr_load
+                    operand=tag_read_var.load
                 ),
                 body=input_stmts + [
                     ast.If(
@@ -101,7 +101,7 @@ class CaseOp(StreamOp):
                                 orelse=[
                                     # Set tag_read = True
                                     ast.Assign(
-                                        targets=[tag_read_var.attr_store],
+                                        targets=[tag_read_var.store],
                                         value=ast.Constant(value=True)
                                     ),
                                     # Check tag type and set active_branch
@@ -116,7 +116,7 @@ class CaseOp(StreamOp):
                                         ),
                                         body=[
                                             ast.Assign(
-                                                targets=[active_branch_var.attr_store],
+                                                targets=[active_branch_var.store],
                                                 value=ast.Constant(value=0)
                                             )
                                         ],
@@ -132,7 +132,7 @@ class CaseOp(StreamOp):
                                                 ),
                                                 body=[
                                                     ast.Assign(
-                                                        targets=[active_branch_var.attr_store],
+                                                        targets=[active_branch_var.store],
                                                         value=ast.Constant(value=1)
                                                     )
                                                 ],
@@ -172,7 +172,7 @@ class CaseOp(StreamOp):
                     # Route to appropriate branch
                     ast.If(
                         test=ast.Compare(
-                            left=active_branch_var.attr_load,
+                            left=active_branch_var.load,
                             ops=[ast.Eq()],
                             comparators=[ast.Constant(value=0)]
                         ),
@@ -198,11 +198,11 @@ class CaseOp(StreamOp):
         active_branch_var = ctx.get_state_var(self, 'active_branch')
         return [
             ast.Assign(
-                targets=[tag_read_var.attr_store],
+                targets=[tag_read_var.store],
                 value=ast.Constant(value=False)
             ),
             ast.Assign(
-                targets=[active_branch_var.attr_store],
+                targets=[active_branch_var.store],
                 value=ast.Constant(value=-1)
             )
         ]

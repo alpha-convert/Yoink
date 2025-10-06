@@ -55,7 +55,7 @@ class SinkThen(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=exhausted_var.attr_load
+                    operand=exhausted_var.load
                 ),
                 body=s1_stmts + [
                     ast.If(
@@ -66,7 +66,7 @@ class SinkThen(StreamOp):
                         ),
                         body=[
                             ast.Assign(
-                                targets=[exhausted_var.attr_store],
+                                targets=[exhausted_var.store],
                                 value=ast.Constant(value=True)
                             )
                         ] + s2_stmts,
@@ -92,7 +92,7 @@ class SinkThen(StreamOp):
         exhausted_var = ctx.get_state_var(self, 'first_exhausted')
         return [
             ast.Assign(
-                targets=[exhausted_var.attr_store],
+                targets=[exhausted_var.store],
                 value=ast.Constant(value=False)
             )
         ]

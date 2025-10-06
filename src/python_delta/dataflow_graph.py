@@ -122,7 +122,7 @@ class DataflowGraph:
             raise NotImplementedError("Compilation of tuple outputs not yet supported")
 
         # Compile the output node (this will recursively compile all dependencies)
-        result_var = StateVar('result')
+        result_var = StateVar('result', tmp=True)
         output_stmts = self.outputs._compile_stmts(ctx, result_var)
 
         # Generate the class AST

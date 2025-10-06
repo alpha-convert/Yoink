@@ -9,20 +9,26 @@ from typing import Dict, Set
 class StateVar:
     """Wrapper for a state variable with pre-built AST load/store nodes."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, tmp: bool = False):
         self.name = name
-        self.load = ast.Name(id=name, ctx=ast.Load())
-        self.store = ast.Name(id=name, ctx=ast.Store())
-        self.attr_load = ast.Attribute(
-            value=ast.Name(id='self', ctx=ast.Load()),
-            attr=name,
-            ctx=ast.Load()
-        )
-        self.attr_store = ast.Attribute(
-            value=ast.Name(id='self', ctx=ast.Load()),
-            attr=name,
-            ctx=ast.Store()
-        )
+        self.tmp = tmp
+
+        if tmp:
+            # Temporary variable: just use the name directly
+            self.load = ast.Name(id=name, ctx=ast.Load())
+            self.store = ast.Name(id=name, ctx=ast.Store())
+        else:
+            # State variable: access via self.name
+            self.load = ast.Attribute(
+                value=ast.Name(id='self', ctx=ast.Load()),
+                attr=name,
+                ctx=ast.Load()
+            )
+            self.store = ast.Attribute(
+                value=ast.Name(id='self', ctx=ast.Load()),
+                attr=name,
+                ctx=ast.Store()
+            )
 
     def __str__(self):
         return self.name
@@ -38,7 +44,6 @@ class CompilationContext:
         self.state_vars: Dict[int, Dict[str, StateVar]] = {}  # node.id -> {var_name: StateVar}
         self.type_counters: Dict[str, int] = {}  # StreamOp class name -> counter
         # TODO jcutler: ?? why do we have a map of dsts here, they should be passed down in the call stack
-        self.child_dsts: Dict[int, StateVar] = {}  # node.id -> destination StateVar
         self.var_to_input_idx: Dict[int, int] = {}  # Var.id -> input array index
         self.temp_counter: int = 0
         self.compiled_nodes: Set[int] = set()  # Track which nodes are compiled
@@ -79,13 +84,7 @@ class CompilationContext:
     def get_state_var(self, node, var_name: str) -> StateVar:
         return self.state_vars[node.id][var_name]
 
-    def set_child_dst(self, node, dst: StateVar):
-        self.child_dsts[node.id] = dst
-
-    def get_child_dst(self, node) -> StateVar:
-        return self.child_dsts[node.id]
-
     def allocate_temp(self) -> StateVar:
         name = f'tmp_{self.temp_counter}'
         self.temp_counter += 1
-        return StateVar(name)
+        return StateVar(name, tmp=True)

@@ -59,7 +59,7 @@ class CatR(StreamOp):
         return [
             ast.If(
                 test=ast.Compare(
-                    left=state_var.attr_load,
+                    left=state_var.load,
                     ops=[ast.Eq()],
                     comparators=[ast.Constant(value=CatRState.FIRST_STREAM.value)]
                 ),
@@ -72,7 +72,7 @@ class CatR(StreamOp):
                         ),
                         body=[
                             ast.Assign(
-                                targets=[state_var.attr_store],
+                                targets=[state_var.store],
                                 value=ast.Constant(value=CatRState.SECOND_STREAM.value)
                             ),
                             ast.Assign(
@@ -125,7 +125,7 @@ class CatR(StreamOp):
         state_var = ctx.get_state_var(self, 'state')
         return [
             ast.Assign(
-                targets=[state_var.attr_store],
+                targets=[state_var.store],
                 value=ast.Constant(value=CatRState.FIRST_STREAM.value)
             )
         ]
