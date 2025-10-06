@@ -54,8 +54,8 @@ class Delta:
         coord = CatProjCoordinator(s, s.stream_type)
         self._register_node(coord)
 
-        x = CatProj(coord, left_type, 1)
-        y = CatProj(coord, right_type, 2)
+        x = CatProj(coord, left_type, 0)
+        y = CatProj(coord, right_type, 1)
 
         # x must come before y
         self.ordering.add_ordered(x.id, y.id)
@@ -151,8 +151,8 @@ class Delta:
         coord = CatProjCoordinator(x_cons, TyCat(element_type, star_type))
         self._register_node(coord)
 
-        head = CatProj(coord, element_type, 1)
-        tail = CatProj(coord, star_type, 2)
+        head = CatProj(coord, element_type, 0)
+        tail = CatProj(coord, star_type, 1)
 
         self.ordering.add_ordered(head.id, tail.id)
 
@@ -190,7 +190,7 @@ class Delta:
         def build_body(reset_node):
             x_cons = UnsafeCast(x,TyCat(input_elt_type, input_star_type))
             coord = CatProjCoordinator(x_cons,TyCat(input_elt_type, input_star_type))
-            x_head = CatProj(coord, input_elt_type, 1)
+            x_head = CatProj(coord, input_elt_type, 0)
             
             self._register_node(x_cons)
             self._register_node(coord)
@@ -223,7 +223,7 @@ class Delta:
         def build_body(reset_node):
             xs_cons = UnsafeCast(xs,TyCat(input_elt_type, input_star_type))
             coord = CatProjCoordinator(xs_cons,TyCat(input_elt_type, input_star_type))
-            xs_head = CatProj(coord, input_elt_type, 1)
+            xs_head = CatProj(coord, input_elt_type, 0)
             
             self._register_node(xs_cons)
             self._register_node(coord)

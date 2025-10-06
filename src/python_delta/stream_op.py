@@ -166,13 +166,13 @@ class CatProjCoordinator(StreamOp):
         """
         Pull the next event for the given position.
 
-        For position 1: returns unwrapped CatEvA values until CatPunc
-        For position 2: skips CatEvA events until CatPunc is seen, then returns unwrapped tail events
+        For position 0: returns unwrapped CatEvA values until CatPunc
+        For position 1: skips CatEvA events until CatPunc is seen, then returns unwrapped tail events
         """
         if self.input_exhausted:
             return DONE
 
-        if position == 1 and self.seen_punc:
+        if position == 0 and self.seen_punc:
             return DONE
 
         event = self.input_stream._pull()
@@ -180,8 +180,8 @@ class CatProjCoordinator(StreamOp):
             self.input_exhausted = True
             return DONE
 
-        if position == 1:
-            # Position 1: return CatEvA values, stop at CatPunc
+        if position == 0:
+            # Position 0: return CatEvA values, stop at CatPunc
             if isinstance(event, CatEvA):
                 return event.value
             elif isinstance(event, CatPunc):
@@ -190,10 +190,10 @@ class CatProjCoordinator(StreamOp):
             elif event is None:
                 return None
             else:
-                # Shouldn't happen in position 1 before punc
+                # Shouldn't happen in position 0 before punc
                 return None
         else:
-            # Position 2: skip CatEvA events and CatPunc, return tail events
+            # Position 1: skip CatEvA events and CatPunc, return tail events
             if isinstance(event, CatEvA):
                 return None  # Skip wrapped events
             elif isinstance(event, CatPunc):
@@ -220,7 +220,7 @@ class CatProj(StreamOp):
         assert isinstance(coordinator,CatProjCoordinator)
         super().__init__(stream_type)
         self.coordinator = coordinator  # CatProjCoordinator instance
-        self.position = position  # 1 or 2
+        self.position = position  # 0 or 1
 
     @property
     def id(self):
