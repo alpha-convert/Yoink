@@ -1,3 +1,11 @@
+from __future__ import annotations
+
+import ast
+from python_delta.compilation import CompilationContext
+from python_delta.stream_op import DONE, CatRState
+from python_delta.event import CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
+
+
 class DataflowGraph:
     """
     A dataflow graph representing a traced stream function that can be executed
@@ -96,3 +104,193 @@ class DataflowGraph:
         """
         from python_delta.util.viz_builder import VizBuilder
         return VizBuilder(self).save(filename)
+
+    def compile(self) -> type:
+        """
+        Compile the StreamOp graph into a single flat iterator class.
+
+        Returns the compiled class (not an instance).
+
+        Example:
+            CompiledIter = my_func.compile()
+            instance = CompiledIter(iter([1,2]), iter([3,4]))
+            result = list(instance)
+        """
+        ctx = CompilationContext()
+
+        # Map input vars to their indices
+        ctx.var_to_input_idx = {var.id: i for i, var in enumerate(self.input_vars)}
+
+        # Handle tuple outputs (e.g., from catl which returns (x, y))
+        # For now, only compile single outputs
+        if isinstance(self.outputs, tuple):
+            raise NotImplementedError("Compilation of tuple outputs not yet supported")
+
+        # Compile the output node (this will recursively compile all dependencies)
+        output_stmts = self.outputs._compile_stmts(ctx, 'result')
+
+        # Generate the class AST
+        class_ast = self._generate_class_ast(ctx, output_stmts)
+
+        # Compile to bytecode and execute
+        module_ast = ast.Module(body=[class_ast], type_ignores=[])
+        ast.fix_missing_locations(module_ast)
+
+        code = compile(module_ast, '<generated>', 'exec')
+
+        # Execute in namespace with event types and DONE
+        namespace = {
+            'DONE': DONE,
+            'CatEvA': CatEvA,
+            'CatPunc': CatPunc,
+            'ParEvA': ParEvA,
+            'ParEvB': ParEvB,
+            'PlusPuncA': PlusPuncA,
+            'PlusPuncB': PlusPuncB,
+            'CatRState': CatRState,
+        }
+        exec(code, namespace)
+
+        return namespace['FlattenedIterator']
+
+    def _generate_class_ast(self, ctx: CompilationContext, output_stmts: list) -> ast.ClassDef:
+        """Generate the complete FlattenedIterator class."""
+        return ast.ClassDef(
+            name='FlattenedIterator',
+            bases=[],
+            keywords=[],
+            body=[
+                self._generate_init(ctx),
+                self._generate_iter(),
+                self._generate_next(ctx, output_stmts),
+                self._generate_reset(ctx),
+            ],
+            decorator_list=[],
+        )
+
+    def _generate_init(self, ctx: CompilationContext) -> ast.FunctionDef:
+        """Generate __init__ method with state initialization."""
+        body = [
+            # self.inputs = list(input_iterators)
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr='inputs',
+                    ctx=ast.Store()
+                )],
+                value=ast.Call(
+                    func=ast.Name(id='list', ctx=ast.Load()),
+                    args=[ast.Name(id='input_iterators', ctx=ast.Load())],
+                    keywords=[]
+                )
+            )
+        ]
+
+        # Add state initializers from all nodes
+        for node in self.traced_delta.nodes:
+            for var_name, initial_value in node._get_state_initializers(ctx):
+                body.append(
+                    ast.Assign(
+                        targets=[ast.Attribute(
+                            value=ast.Name(id='self', ctx=ast.Load()),
+                            attr=var_name,
+                            ctx=ast.Store()
+                        )],
+                        value=ast.Constant(value=initial_value)
+                    )
+                )
+
+        return ast.FunctionDef(
+            name='__init__',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=ast.arg(arg='input_iterators', annotation=None),
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=body,
+            decorator_list=[],
+            returns=None,
+        )
+
+    def _generate_iter(self) -> ast.FunctionDef:
+        """Generate __iter__ method."""
+        return ast.FunctionDef(
+            name='__iter__',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=[ast.Return(value=ast.Name(id='self', ctx=ast.Load()))],
+            decorator_list=[],
+            returns=None,
+        )
+
+    def _generate_next(self, ctx: CompilationContext, output_stmts: list) -> ast.FunctionDef:
+        """Generate __next__ method."""
+        body = output_stmts + [
+            ast.If(
+                test=ast.Compare(
+                    left=ast.Name(id='result', ctx=ast.Load()),
+                    ops=[ast.Is()],
+                    comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                ),
+                body=[ast.Raise(exc=ast.Call(
+                    func=ast.Name(id='StopIteration', ctx=ast.Load()),
+                    args=[],
+                    keywords=[]
+                ), cause=None)],
+                orelse=[]
+            ),
+            ast.Return(value=ast.Name(id='result', ctx=ast.Load()))
+        ]
+
+        return ast.FunctionDef(
+            name='__next__',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=body,
+            decorator_list=[],
+            returns=None,
+        )
+
+    def _generate_reset(self, ctx: CompilationContext) -> ast.FunctionDef:
+        """Generate reset method."""
+        body = []
+
+        for node in self.traced_delta.nodes:
+            body.extend(node._get_reset_stmts(ctx))
+
+        if not body:
+            body = [ast.Pass()]
+
+        return ast.FunctionDef(
+            name='reset',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=body,
+            decorator_list=[],
+            returns=None,
+        )

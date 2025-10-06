@@ -1,5 +1,10 @@
+from __future__ import annotations
+
 from python_delta.event import CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
+from python_delta.compilation import CompilationContext
 from enum import Enum
+from typing import List
+import ast
 
 
 class Done:
@@ -63,6 +68,56 @@ class StreamOp:
     def reset(self):
         """Reset the stream to its initial state for reuse."""
         raise NotImplementedError("Subclasses must implement reset")
+
+    def _compile_stmts(self, ctx: 'CompilationContext', dst: str) -> List[ast.stmt]:
+        """
+        Compile this node's _pull() logic to AST statements.
+
+        Args:
+            ctx: Compilation context with state allocation and child destinations
+            dst: Name of destination variable to write result into
+
+        Returns:
+            List of AST statements that compute the pull and assign to dst
+
+        The generated statements must:
+        1. Execute the pull logic for this operation
+        2. Assign the result to the variable named by `dst`
+        3. The result must be a value, None (skip), or DONE (exhausted)
+
+        Must be implemented by all subclasses.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts")
+
+    def _get_state_initializers(self, ctx: 'CompilationContext') -> List[tuple]:
+        """
+        Return list of (state_var_name, initial_value) for __init__.
+
+        Default: empty list (stateless nodes like Var, Eps, UnsafeCast).
+        Override for stateful nodes (CatR, SumInj, CaseOp, etc.).
+
+        Args:
+            ctx: Compilation context
+
+        Returns:
+            List of (state_var_name, initial_value) tuples
+        """
+        return []
+
+    def _get_reset_stmts(self, ctx: 'CompilationContext') -> List[ast.stmt]:
+        """
+        Return list of AST statements to reset this node's state.
+
+        Default: empty list (stateless nodes).
+        Override for stateful nodes.
+
+        Args:
+            ctx: Compilation context
+
+        Returns:
+            List of AST assignment statements to reset state variables
+        """
+        return []
     
 class Var(StreamOp):
     def __init__(self, name, stream_type):
@@ -93,6 +148,49 @@ class Var(StreamOp):
     def reset(self):
         pass
 
+    def _compile_stmts(self, ctx: 'CompilationContext', dst: str) -> List[ast.stmt]:
+        """Compile to: try: dst = next(self.inputs[idx]) except StopIteration: dst = DONE"""
+        input_idx = ctx.var_to_input_idx[self.id]
+
+        return [
+            ast.Try(
+                body=[
+                    ast.Assign(
+                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(id='next', ctx=ast.Load()),
+                            args=[
+                                ast.Subscript(
+                                    value=ast.Attribute(
+                                        value=ast.Name(id='self', ctx=ast.Load()),
+                                        attr='inputs',
+                                        ctx=ast.Load()
+                                    ),
+                                    slice=ast.Constant(value=input_idx),
+                                    ctx=ast.Load()
+                                )
+                            ],
+                            keywords=[]
+                        )
+                    )
+                ],
+                handlers=[
+                    ast.ExceptHandler(
+                        type=ast.Name(id='StopIteration', ctx=ast.Load()),
+                        name=None,
+                        body=[
+                            ast.Assign(
+                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                value=ast.Name(id='DONE', ctx=ast.Load())
+                            )
+                        ]
+                    )
+                ],
+                orelse=[],
+                finalbody=[]
+            )
+        ]
+
 
 class Eps(StreamOp):
     def __init__(self, stream_type):
@@ -114,6 +212,16 @@ class Eps(StreamOp):
 
     def reset(self):
         pass
+
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Compile to: dst = DONE"""
+        return [
+            ast.Assign(
+                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                value=ast.Name(id='DONE', ctx=ast.Load())
+            )
+        ]
+
 
 class CatR(StreamOp):
     def __init__(self, s1, s2, stream_type):
@@ -145,6 +253,103 @@ class CatR(StreamOp):
     def reset(self):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
+
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Compile CatR state machine to if/else with nested conditionals."""
+        state_var = ctx.allocate_state(self, 'state')
+        tmp = ctx.allocate_temp()
+
+        # Compile children
+        s1_stmts = self.input_streams[0]._compile_stmts(ctx, tmp)
+        s2_stmts = self.input_streams[1]._compile_stmts(ctx, dst)
+
+        # Build the state machine: if state == FIRST_STREAM: ... else: ...
+        return [
+            ast.If(
+                test=ast.Compare(
+                    left=ast.Attribute(
+                        value=ast.Name(id='self', ctx=ast.Load()),
+                        attr=state_var,
+                        ctx=ast.Load()
+                    ),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Constant(value=CatRState.FIRST_STREAM.value)]
+                ),
+                body=s1_stmts + [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ast.Name(id=tmp, ctx=ast.Load()),
+                            ops=[ast.Is()],
+                            comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                        ),
+                        body=[
+                            ast.Assign(
+                                targets=[ast.Attribute(
+                                    value=ast.Name(id='self', ctx=ast.Load()),
+                                    attr=state_var,
+                                    ctx=ast.Store()
+                                )],
+                                value=ast.Constant(value=CatRState.SECOND_STREAM.value)
+                            ),
+                            ast.Assign(
+                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                value=ast.Call(
+                                    func=ast.Name(id='CatPunc', ctx=ast.Load()),
+                                    args=[],
+                                    keywords=[]
+                                )
+                            )
+                        ],
+                        orelse=[
+                            ast.If(
+                                test=ast.Compare(
+                                    left=ast.Name(id=tmp, ctx=ast.Load()),
+                                    ops=[ast.Is()],
+                                    comparators=[ast.Constant(value=None)]
+                                ),
+                                body=[
+                                    ast.Assign(
+                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        value=ast.Constant(value=None)
+                                    )
+                                ],
+                                orelse=[
+                                    ast.Assign(
+                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        value=ast.Call(
+                                            func=ast.Name(id='CatEvA', ctx=ast.Load()),
+                                            args=[ast.Name(id=tmp, ctx=ast.Load())],
+                                            keywords=[]
+                                        )
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ],
+                orelse=s2_stmts
+            )
+        ]
+
+    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+        """Initialize state to FIRST_STREAM."""
+        state_var = ctx.get_state_var(self, 'state')
+        return [(state_var, CatRState.FIRST_STREAM.value)]
+
+    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+        """Reset state to FIRST_STREAM."""
+        state_var = ctx.get_state_var(self, 'state')
+        return [
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=state_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=CatRState.FIRST_STREAM.value)
+            )
+        ]
+
 
 class CatProjCoordinator(StreamOp):
     """Coordinator for catl that manages shared state between two CatProj instances."""
@@ -240,6 +445,272 @@ class CatProj(StreamOp):
         """Reset is handled by the coordinator."""
         pass  # Coordinator manages the state
 
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Inline coordinator logic with event filtering based on position."""
+        coord = self.coordinator
+        coord_id = coord.id
+
+        # Allocate state for coordinator (shared between positions)
+        if coord_id not in ctx.state_vars:
+            seen_punc_var = ctx.allocate_state(coord, 'seen_punc')
+            input_exhausted_var = ctx.allocate_state(coord, 'input_exhausted')
+        else:
+            seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
+            input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
+
+        event_tmp = ctx.allocate_temp()
+        input_stmts = coord.input_stream._compile_stmts(ctx, event_tmp)
+
+        if self.position == 0:
+            # Position 0: extract CatEvA values until CatPunc
+            return [
+                ast.If(
+                    test=ast.Attribute(
+                        value=ast.Name(id='self', ctx=ast.Load()),
+                        attr=input_exhausted_var,
+                        ctx=ast.Load()
+                    ),
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                            value=ast.Name(id='DONE', ctx=ast.Load())
+                        )
+                    ],
+                    orelse=[
+                        ast.If(
+                            test=ast.Attribute(
+                                value=ast.Name(id='self', ctx=ast.Load()),
+                                attr=seen_punc_var,
+                                ctx=ast.Load()
+                            ),
+                            body=[
+                                ast.Assign(
+                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                    value=ast.Name(id='DONE', ctx=ast.Load())
+                                )
+                            ],
+                            orelse=input_stmts + [
+                                ast.If(
+                                    test=ast.Compare(
+                                        left=ast.Name(id=event_tmp, ctx=ast.Load()),
+                                        ops=[ast.Is()],
+                                        comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                                    ),
+                                    body=[
+                                        ast.Assign(
+                                            targets=[ast.Attribute(
+                                                value=ast.Name(id='self', ctx=ast.Load()),
+                                                attr=input_exhausted_var,
+                                                ctx=ast.Store()
+                                            )],
+                                            value=ast.Constant(value=True)
+                                        ),
+                                        ast.Assign(
+                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                            value=ast.Name(id='DONE', ctx=ast.Load())
+                                        )
+                                    ],
+                                    orelse=[
+                                        ast.If(
+                                            test=ast.Call(
+                                                func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                                args=[
+                                                    ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                    ast.Name(id='CatEvA', ctx=ast.Load())
+                                                ],
+                                                keywords=[]
+                                            ),
+                                            body=[
+                                                ast.Assign(
+                                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                    value=ast.Attribute(
+                                                        value=ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                        attr='value',
+                                                        ctx=ast.Load()
+                                                    )
+                                                )
+                                            ],
+                                            orelse=[
+                                                ast.If(
+                                                    test=ast.Call(
+                                                        func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                                        args=[
+                                                            ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                            ast.Name(id='CatPunc', ctx=ast.Load())
+                                                        ],
+                                                        keywords=[]
+                                                    ),
+                                                    body=[
+                                                        ast.Assign(
+                                                            targets=[ast.Attribute(
+                                                                value=ast.Name(id='self', ctx=ast.Load()),
+                                                                attr=seen_punc_var,
+                                                                ctx=ast.Store()
+                                                            )],
+                                                            value=ast.Constant(value=True)
+                                                        ),
+                                                        ast.Assign(
+                                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                            value=ast.Name(id='DONE', ctx=ast.Load())
+                                                        )
+                                                    ],
+                                                    orelse=[
+                                                        ast.Assign(
+                                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                            value=ast.Constant(value=None)
+                                                        )
+                                                    ]
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+        else:  # position == 1
+            # Position 1: skip CatEvA and CatPunc, return tail events
+            return [
+                ast.If(
+                    test=ast.Attribute(
+                        value=ast.Name(id='self', ctx=ast.Load()),
+                        attr=input_exhausted_var,
+                        ctx=ast.Load()
+                    ),
+                    body=[
+                        ast.Assign(
+                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                            value=ast.Name(id='DONE', ctx=ast.Load())
+                        )
+                    ],
+                    orelse=input_stmts + [
+                        ast.If(
+                            test=ast.Compare(
+                                left=ast.Name(id=event_tmp, ctx=ast.Load()),
+                                ops=[ast.Is()],
+                                comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                            ),
+                            body=[
+                                ast.Assign(
+                                    targets=[ast.Attribute(
+                                        value=ast.Name(id='self', ctx=ast.Load()),
+                                        attr=input_exhausted_var,
+                                        ctx=ast.Store()
+                                    )],
+                                    value=ast.Constant(value=True)
+                                ),
+                                ast.Assign(
+                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                    value=ast.Name(id='DONE', ctx=ast.Load())
+                                )
+                            ],
+                            orelse=[
+                                ast.If(
+                                    test=ast.Call(
+                                        func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                        args=[
+                                            ast.Name(id=event_tmp, ctx=ast.Load()),
+                                            ast.Name(id='CatEvA', ctx=ast.Load())
+                                        ],
+                                        keywords=[]
+                                    ),
+                                    body=[
+                                        ast.Assign(
+                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                            value=ast.Constant(value=None)
+                                        )
+                                    ],
+                                    orelse=[
+                                        ast.If(
+                                            test=ast.Call(
+                                                func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                                args=[
+                                                    ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                    ast.Name(id='CatPunc', ctx=ast.Load())
+                                                ],
+                                                keywords=[]
+                                            ),
+                                            body=[
+                                                ast.Assign(
+                                                    targets=[ast.Attribute(
+                                                        value=ast.Name(id='self', ctx=ast.Load()),
+                                                        attr=seen_punc_var,
+                                                        ctx=ast.Store()
+                                                    )],
+                                                    value=ast.Constant(value=True)
+                                                ),
+                                                ast.Assign(
+                                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                    value=ast.Constant(value=None)
+                                                )
+                                            ],
+                                            orelse=[
+                                                ast.Assign(
+                                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                    value=ast.Name(id=event_tmp, ctx=ast.Load())
+                                                )
+                                            ]
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+
+    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+        """State is managed by coordinator, initialized once."""
+        coord = self.coordinator
+
+        # Only initialize coordinator state once, even though multiple CatProj use it
+        if coord.id in ctx.state_vars:
+            # Check if we haven't already returned these initializers
+            init_marker = f'coord_init_{coord.id}'
+            if init_marker not in ctx.compiled_nodes:
+                ctx.compiled_nodes.add(init_marker)
+                seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
+                input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
+                return [
+                    (seen_punc_var, False),
+                    (input_exhausted_var, False)
+                ]
+
+        return []
+
+    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+        """Reset coordinator state (only generate once for first CatProj)."""
+        coord = self.coordinator
+        if coord.id not in ctx.state_vars:
+            # This shouldn't happen if _get_state_initializers was called
+            return []
+
+        # Only reset if this is the first CatProj we're processing
+        # Actually, both CatProj instances will try to reset, which is fine
+        # since they reset the same state variables
+        seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
+        input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
+        return [
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=seen_punc_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=False)
+            ),
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=input_exhausted_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=False)
+            )
+        ]
+
 
 class SumInj(StreamOp):
     """Sum injection - emits PlusPuncA (position=0) or PlusPuncB (position=1) tag followed by input stream values."""
@@ -268,6 +739,63 @@ class SumInj(StreamOp):
         """Reset state and recursively reset input stream."""
         self.tag_emitted = False
 
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Compile tag emission then delegation."""
+        tag_var = ctx.allocate_state(self, 'tag_emitted')
+        input_stmts = self.input_stream._compile_stmts(ctx, dst)
+
+        tag_class = 'PlusPuncA' if self.position == 0 else 'PlusPuncB'
+
+        return [
+            ast.If(
+                test=ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Attribute(
+                        value=ast.Name(id='self', ctx=ast.Load()),
+                        attr=tag_var,
+                        ctx=ast.Load()
+                    )
+                ),
+                body=[
+                    ast.Assign(
+                        targets=[ast.Attribute(
+                            value=ast.Name(id='self', ctx=ast.Load()),
+                            attr=tag_var,
+                            ctx=ast.Store()
+                        )],
+                        value=ast.Constant(value=True)
+                    ),
+                    ast.Assign(
+                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                        value=ast.Call(
+                            func=ast.Name(id=tag_class, ctx=ast.Load()),
+                            args=[],
+                            keywords=[]
+                        )
+                    )
+                ],
+                orelse=input_stmts
+            )
+        ]
+
+    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+        """Initialize tag_emitted to False."""
+        tag_var = ctx.get_state_var(self, 'tag_emitted')
+        return [(tag_var, False)]
+
+    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+        """Reset tag_emitted to False."""
+        tag_var = ctx.get_state_var(self, 'tag_emitted')
+        return [
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=tag_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=False)
+            )
+        ]
 
 
 class CaseOp(StreamOp):
@@ -314,6 +842,188 @@ class CaseOp(StreamOp):
         self.tag_read = False
         self.active_branch = None
 
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Compile tag reading and branch routing."""
+        tag_read_var = ctx.allocate_state(self, 'tag_read')
+        active_branch_var = ctx.allocate_state(self, 'active_branch')
+
+        tag_tmp = ctx.allocate_temp()
+        input_stmts = self.input_stream._compile_stmts(ctx, tag_tmp)
+
+        branch0_stmts = self.branches[0]._compile_stmts(ctx, dst)
+        branch1_stmts = self.branches[1]._compile_stmts(ctx, dst)
+
+        # Build nested if/elif structure for tag reading
+        return [
+            ast.If(
+                test=ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Attribute(
+                        value=ast.Name(id='self', ctx=ast.Load()),
+                        attr=tag_read_var,
+                        ctx=ast.Load()
+                    )
+                ),
+                body=input_stmts + [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ast.Name(id=tag_tmp, ctx=ast.Load()),
+                            ops=[ast.Is()],
+                            comparators=[ast.Constant(value=None)]
+                        ),
+                        body=[
+                            ast.Assign(
+                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                value=ast.Constant(value=None)
+                            )
+                        ],
+                        orelse=[
+                            ast.If(
+                                test=ast.Compare(
+                                    left=ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                    ops=[ast.Is()],
+                                    comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                                ),
+                                body=[
+                                    ast.Assign(
+                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        value=ast.Name(id='DONE', ctx=ast.Load())
+                                    )
+                                ],
+                                orelse=[
+                                    # Set tag_read = True
+                                    ast.Assign(
+                                        targets=[ast.Attribute(
+                                            value=ast.Name(id='self', ctx=ast.Load()),
+                                            attr=tag_read_var,
+                                            ctx=ast.Store()
+                                        )],
+                                        value=ast.Constant(value=True)
+                                    ),
+                                    # Check tag type and set active_branch
+                                    ast.If(
+                                        test=ast.Call(
+                                            func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                            args=[
+                                                ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                                ast.Name(id='PlusPuncA', ctx=ast.Load())
+                                            ],
+                                            keywords=[]
+                                        ),
+                                        body=[
+                                            ast.Assign(
+                                                targets=[ast.Attribute(
+                                                    value=ast.Name(id='self', ctx=ast.Load()),
+                                                    attr=active_branch_var,
+                                                    ctx=ast.Store()
+                                                )],
+                                                value=ast.Constant(value=0)
+                                            )
+                                        ],
+                                        orelse=[
+                                            ast.If(
+                                                test=ast.Call(
+                                                    func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                                    args=[
+                                                        ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                                        ast.Name(id='PlusPuncB', ctx=ast.Load())
+                                                    ],
+                                                    keywords=[]
+                                                ),
+                                                body=[
+                                                    ast.Assign(
+                                                        targets=[ast.Attribute(
+                                                            value=ast.Name(id='self', ctx=ast.Load()),
+                                                            attr=active_branch_var,
+                                                            ctx=ast.Store()
+                                                        )],
+                                                        value=ast.Constant(value=1)
+                                                    )
+                                                ],
+                                                orelse=[
+                                                    ast.Raise(
+                                                        exc=ast.Call(
+                                                            func=ast.Name(id='RuntimeError', ctx=ast.Load()),
+                                                            args=[
+                                                                ast.JoinedStr(values=[
+                                                                    ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
+                                                                    ast.FormattedValue(
+                                                                        value=ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                                                        conversion=-1,
+                                                                        format_spec=None
+                                                                    )
+                                                                ])
+                                                            ],
+                                                            keywords=[]
+                                                        ),
+                                                        cause=None
+                                                    )
+                                                ]
+                                            )
+                                        ]
+                                    ),
+                                    # Set dst = None
+                                    ast.Assign(
+                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        value=ast.Constant(value=None)
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+                ],
+                orelse=[
+                    # Route to appropriate branch
+                    ast.If(
+                        test=ast.Compare(
+                            left=ast.Attribute(
+                                value=ast.Name(id='self', ctx=ast.Load()),
+                                attr=active_branch_var,
+                                ctx=ast.Load()
+                            ),
+                            ops=[ast.Eq()],
+                            comparators=[ast.Constant(value=0)]
+                        ),
+                        body=branch0_stmts,
+                        orelse=branch1_stmts
+                    )
+                ]
+            )
+        ]
+
+    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+        """Initialize tag_read and active_branch."""
+        tag_read_var = ctx.get_state_var(self, 'tag_read')
+        active_branch_var = ctx.get_state_var(self, 'active_branch')
+        return [
+            (tag_read_var, False),
+            (active_branch_var, -1)
+        ]
+
+    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+        """Reset tag_read and active_branch."""
+        tag_read_var = ctx.get_state_var(self, 'tag_read')
+        active_branch_var = ctx.get_state_var(self, 'active_branch')
+        return [
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=tag_read_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=False)
+            ),
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=active_branch_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=-1)
+            )
+        ]
+
+
 class SinkThen(StreamOp):
     """Sink operation - pulls from first stream until exhausted, then switches to second stream."""
     def __init__(self, first_stream, second_stream, stream_type):
@@ -348,6 +1058,73 @@ class SinkThen(StreamOp):
         """Reset state."""
         self.first_exhausted = False
 
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Compile exhaust-first-then-second logic."""
+        exhausted_var = ctx.allocate_state(self, 'first_exhausted')
+
+        val_tmp = ctx.allocate_temp()
+        s1_stmts = self.input_streams[0]._compile_stmts(ctx, val_tmp)
+        s2_stmts = self.input_streams[1]._compile_stmts(ctx, dst)
+
+        return [
+            ast.If(
+                test=ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=ast.Attribute(
+                        value=ast.Name(id='self', ctx=ast.Load()),
+                        attr=exhausted_var,
+                        ctx=ast.Load()
+                    )
+                ),
+                body=s1_stmts + [
+                    ast.If(
+                        test=ast.Compare(
+                            left=ast.Name(id=val_tmp, ctx=ast.Load()),
+                            ops=[ast.Is()],
+                            comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                        ),
+                        body=[
+                            ast.Assign(
+                                targets=[ast.Attribute(
+                                    value=ast.Name(id='self', ctx=ast.Load()),
+                                    attr=exhausted_var,
+                                    ctx=ast.Store()
+                                )],
+                                value=ast.Constant(value=True)
+                            )
+                        ] + s2_stmts,
+                        orelse=[
+                            ast.Assign(
+                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                value=ast.Constant(value=None)
+                            )
+                        ]
+                    )
+                ],
+                orelse=s2_stmts
+            )
+        ]
+
+    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+        """Initialize first_exhausted to False."""
+        exhausted_var = ctx.get_state_var(self, 'first_exhausted')
+        return [(exhausted_var, False)]
+
+    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+        """Reset first_exhausted to False."""
+        exhausted_var = ctx.get_state_var(self, 'first_exhausted')
+        return [
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr=exhausted_var,
+                    ctx=ast.Store()
+                )],
+                value=ast.Constant(value=False)
+            )
+        ]
+
+
 
 class ResetOp(StreamOp):
     """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
@@ -371,6 +1148,27 @@ class ResetOp(StreamOp):
     def reset(self):
         pass
 
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Compile reset calls on all nodes in reset_set."""
+        reset_stmts = []
+
+        # Generate reset statements for each node in the reset set
+        # In compiled code, nodes don't exist as separate objects - their state is flattened
+        # So we need to inline the reset logic from each node's _get_reset_stmts
+        for node in self.reset_set:
+            reset_stmts.extend(node._get_reset_stmts(ctx))
+
+        # Set dst = None
+        reset_stmts.append(
+            ast.Assign(
+                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                value=ast.Constant(value=None)
+            )
+        )
+
+        return reset_stmts
+
+
 class UnsafeCast(StreamOp):
     """Unsafe cast - forwards data from input stream with a different type annotation."""
     def __init__(self, input_stream, target_type):
@@ -391,3 +1189,7 @@ class UnsafeCast(StreamOp):
 
     def reset(self):
         pass
+
+    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+        """Passthrough - just compile child to same destination."""
+        return self.input_stream._compile_stmts(ctx, dst)
