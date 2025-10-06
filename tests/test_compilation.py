@@ -153,63 +153,63 @@ def test_compile_map_identity():
     assert interp == compiled == xs
 
 
-# def test_compile_concat_strings():
-#     """Test concat operation (multiple catr calls)."""
-#     @Delta.jit
-#     def concat_three(delta, x: STRING_TY, y: STRING_TY, z: STRING_TY):
-#         xy = delta.catr(x, y)
-#         return delta.catr(xy, z)
+def test_compile_concat_strings():
+    """Test concat operation (multiple catr calls)."""
+    @Delta.jit
+    def concat_three(delta, x: INT_TY, y: INT_TY, z: INT_TY):
+        xy = delta.catr(x, y)
+        return delta.catr(xy, z)
 
-#     xs = [BaseEvent(1)]
-#     ys = [BaseEvent(2)]
-#     zs = [BaseEvent(3)]
+    xs = [BaseEvent(1)]
+    ys = [BaseEvent(2)]
+    zs = [BaseEvent(3)]
 
-#     interp, compiled = run_both(concat_three, xs, ys, zs)
-#     assert interp[0] == CatEvA(CatEvA(BaseEvent(1)))
-#     assert interp[1] == CatEvA(CatPunc())
-#     assert interp[2] == CatEvA(BaseEvent(2))
-#     assert interp[3] == CatPunc()
-#     assert interp[4] == BaseEvent(3)
+    interp, compiled = run_both(concat_three, xs, ys, zs)
+    assert interp[0] == CatEvA(CatEvA(BaseEvent(1)))
+    assert interp[1] == CatEvA(CatPunc())
+    assert interp[2] == CatEvA(BaseEvent(2))
+    assert interp[3] == CatPunc()
+    assert interp[4] == BaseEvent(3)
 
-#     assert interp == compiled
-
-
-# # Hypothesis-based property tests
-
-# @given(events_of_type(STRING_TY, max_depth=5))
-# @settings(max_examples=20)
-# def test_compile_var_preserves_output(input_events):
-#     """Property test: var passthrough produces same results compiled vs interpreted."""
-#     @Delta.jit
-#     def passthrough(delta, x: STRING_TY):
-#         return x
-
-#     assert has_type(input_events, STRING_TY)
-
-#     interp, compiled = run_both(passthrough, input_events)
-
-#     assert interp == compiled
-#     assert has_type(interp, STRING_TY)
+    assert interp == compiled
 
 
-# @given(
-#     events_of_type(STRING_TY, max_depth=5),
-#     events_of_type(STRING_TY, max_depth=5)
-# )
-# @settings(max_examples=20)
-# def test_compile_catr_preserves_output(xs, ys):
-#     """Property test: catr produces same results compiled vs interpreted."""
-#     @Delta.jit
-#     def concat(delta, x: STRING_TY, y: STRING_TY):
-#         return delta.catr(x, y)
+# Hypothesis-based property tests
 
-#     assert has_type(xs, STRING_TY)
-#     assert has_type(ys, STRING_TY)
+@given(events_of_type(STRING_TY, max_depth=5))
+@settings(max_examples=20)
+def test_compile_var_preserves_output(input_events):
+    """Property test: var passthrough produces same results compiled vs interpreted."""
+    @Delta.jit
+    def passthrough(delta, x: STRING_TY):
+        return x
 
-#     interp, compiled = run_both(concat, xs, ys)
+    assert has_type(input_events, STRING_TY)
 
-#     assert interp == compiled
-#     assert has_type(interp, TyCat(STRING_TY, STRING_TY))
+    interp, compiled = run_both(passthrough, input_events)
+
+    assert interp == compiled
+    assert has_type(interp, STRING_TY)
+
+
+@given(
+    events_of_type(STRING_TY, max_depth=5),
+    events_of_type(STRING_TY, max_depth=5)
+)
+@settings(max_examples=20)
+def test_compile_catr_preserves_output(xs, ys):
+    """Property test: catr produces same results compiled vs interpreted."""
+    @Delta.jit
+    def concat(delta, x: STRING_TY, y: STRING_TY):
+        return delta.catr(x, y)
+
+    assert has_type(xs, STRING_TY)
+    assert has_type(ys, STRING_TY)
+
+    interp, compiled = run_both(concat, xs, ys)
+
+    assert interp == compiled
+    assert has_type(interp, TyCat(STRING_TY, STRING_TY))
 
 
 # # @given(events_of_type(TyCat(STRING_TY, STRING_TY), max_depth=5))
@@ -227,68 +227,65 @@ def test_compile_map_identity():
 # #     assert interp == compiled
 
 
-# @given(events_of_type(STRING_TY, max_depth=5))
-# @settings(max_examples=20)
-# def test_compile_inl_preserves_output(input_events):
-#     """Property test: inl produces same results compiled vs interpreted."""
-#     @Delta.jit
-#     def inl_test(delta, x: STRING_TY):
-#         return delta.inl(x)
+@given(events_of_type(STRING_TY, max_depth=5))
+@settings(max_examples=20)
+def test_compile_inl_preserves_output(input_events):
+    """Property test: inl produces same results compiled vs interpreted."""
+    @Delta.jit
+    def inl_test(delta, x: STRING_TY):
+        return delta.inl(x)
 
-#     assert has_type(input_events, STRING_TY)
+    assert has_type(input_events, STRING_TY)
 
-#     interp, compiled = run_both(inl_test, input_events)
+    interp, compiled = run_both(inl_test, input_events)
 
-#     assert interp == compiled
-#     assert has_type(interp, TyPlus(STRING_TY, STRING_TY))
-
-
-# @given(events_of_type(TyPlus(STRING_TY, STRING_TY), max_depth=5))
-# @settings(max_examples=20)
-# def test_compile_case_preserves_output(input_events):
-#     """Property test: case produces same results compiled vs interpreted."""
-#     @Delta.jit
-#     def case_id(delta, x: TyPlus(STRING_TY, STRING_TY)):
-#         return delta.case(x, lambda l: l, lambda r: r)
-
-#     assert has_type(input_events, TyPlus(STRING_TY, STRING_TY))
-
-#     interp, compiled = run_both(case_id, input_events)
-
-#     assert interp == compiled
-#     assert has_type(interp, STRING_TY)
+    assert interp == compiled
+    assert has_type(interp, TyPlus(STRING_TY, STRING_TY))
 
 
-# @given(events_of_type(TyStar(INT_TY), max_depth=5))
-# @settings(max_examples=20)
-# def test_compile_map_identity_preserves_output(input_events):
-#     """Property test: map with identity produces same results compiled vs interpreted."""
-#     @Delta.jit
-#     def map_id(delta, s: TyStar(INT_TY)):
-#         return delta.map(s, lambda x: x)
+@given(events_of_type(TyPlus(STRING_TY, STRING_TY), max_depth=5))
+@settings(max_examples=20)
+def test_compile_case_preserves_output(input_events):
+    """Property test: case produces same results compiled vs interpreted."""
+    @Delta.jit
+    def case_id(delta, x: TyPlus(STRING_TY, STRING_TY)):
+        return delta.case(x, lambda l: l, lambda r: r)
 
-#     assert has_type(input_events, TyStar(INT_TY))
+    assert has_type(input_events, TyPlus(STRING_TY, STRING_TY))
 
-#     interp, compiled = run_both(map_id, input_events)
+    interp, compiled = run_both(case_id, input_events)
 
-#     assert interp == compiled
-#     assert has_type(interp, TyStar(INT_TY))
+    assert interp == compiled
+    assert has_type(interp, STRING_TY)
 
 
-# @given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=5))
-# @settings(max_examples=20)
-# def test_compile_map_proj1_preserves_output(input_events):
-#     """Property test: map with projection produces same results compiled vs interpreted."""
-#     @Delta.jit
-#     def map_proj1(delta, s: TyStar(TyCat(INT_TY, INT_TY))):
-#         def proj1(z):
-#             (x, _) = delta.catl(z)
-#             return x
-#         return delta.map(s, proj1)
+@given(events_of_type(TyStar(INT_TY), max_depth=5))
+@settings(max_examples=20)
+def test_compile_map_identity_preserves_output(input_events):
+    """Property test: map with identity produces same results compiled vs interpreted."""
+    @Delta.jit
+    def map_id(delta, s: TyStar(INT_TY)):
+        return delta.map(s, lambda x: x)
 
-#     assert has_type(input_events, TyStar(TyCat(INT_TY, INT_TY)))
+    assert has_type(input_events, TyStar(INT_TY))
 
-#     interp, compiled = run_both(map_proj1, input_events)
+    interp, compiled = run_both(map_id, input_events)
 
-#     assert interp == compiled
-#     assert has_type(interp, TyStar(INT_TY))
+    assert interp == compiled
+    assert has_type(interp, TyStar(INT_TY))
+
+
+@given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=5))
+@settings(max_examples=20)
+def test_compile_map_proj1_preserves_output(input_events):
+    """Property test: map with projection produces same results compiled vs interpreted."""
+    @Delta.jit
+    def map_proj1(delta, s: TyStar(TyCat(INT_TY, INT_TY))):
+        def proj1(z):
+            (x, _) = delta.catl(z)
+            return x
+        return delta.map(s, proj1)
+
+    assert has_type(input_events, TyStar(TyCat(INT_TY, INT_TY)))
+
+    interp, compiled = run_both(map_proj1, input_events)

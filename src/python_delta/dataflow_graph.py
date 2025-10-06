@@ -149,6 +149,39 @@ class DataflowGraph:
 
         return namespace['FlattenedIterator']
 
+    def get_code(self) -> str:
+        """
+        Get the compiled Python code for this dataflow graph as a string.
+
+        Returns:
+            str: The generated Python code
+        """
+        ctx = CompilationContext()
+
+        # Map input vars to their indices
+        ctx.var_to_input_idx = {var.id: i for i, var in enumerate(self.input_vars)}
+
+        # Handle tuple outputs (e.g., from catl which returns (x, y))
+        if isinstance(self.outputs, tuple):
+            raise NotImplementedError("Compilation of tuple outputs not yet supported")
+
+        # Compile the output node (this will recursively compile all dependencies)
+        result_var = StateVar('result', tmp=True)
+        output_stmts = self.outputs._compile_stmts(ctx, result_var)
+
+        # Generate the class AST
+        class_ast = self._generate_class_ast(ctx, output_stmts)
+
+        # Generate module AST
+        module_ast = ast.Module(body=[class_ast], type_ignores=[])
+        ast.fix_missing_locations(module_ast)
+
+        # Unparse to Python code
+        return ast.unparse(module_ast)
+
+    def print_code(self):
+        print(self.get_code())
+
     def _generate_class_ast(self, ctx: CompilationContext, output_stmts: list) -> ast.ClassDef:
         """Generate the complete FlattenedIterator class."""
         return ast.ClassDef(
