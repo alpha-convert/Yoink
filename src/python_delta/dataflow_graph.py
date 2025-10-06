@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from python_delta.compilation import CompilationContext
+from python_delta.compilation import CompilationContext, StateVar
 from python_delta.stream_ops import DONE, CatRState
 from python_delta.event import CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
 
@@ -122,7 +122,8 @@ class DataflowGraph:
             raise NotImplementedError("Compilation of tuple outputs not yet supported")
 
         # Compile the output node (this will recursively compile all dependencies)
-        output_stmts = self.outputs._compile_stmts(ctx, 'result')
+        result_var = StateVar('result')
+        output_stmts = self.outputs._compile_stmts(ctx, result_var)
 
         # Generate the class AST
         class_ast = self._generate_class_ast(ctx, output_stmts)

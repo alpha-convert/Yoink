@@ -6,6 +6,7 @@ from typing import List
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
+from python_delta.compilation import StateVar
 
 
 class SinkThen(StreamOp):
@@ -42,7 +43,7 @@ class SinkThen(StreamOp):
         """Reset state."""
         self.first_exhausted = False
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile exhaust-first-then-second logic."""
         exhausted_var = ctx.allocate_state(self, 'first_exhausted')
 
@@ -54,32 +55,24 @@ class SinkThen(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr=exhausted_var,
-                        ctx=ast.Load()
-                    )
+                    operand=exhausted_var.attr_load
                 ),
                 body=s1_stmts + [
                     ast.If(
                         test=ast.Compare(
-                            left=ast.Name(id=val_tmp, ctx=ast.Load()),
+                            left=val_tmp.load,
                             ops=[ast.Is()],
                             comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                         ),
                         body=[
                             ast.Assign(
-                                targets=[ast.Attribute(
-                                    value=ast.Name(id='self', ctx=ast.Load()),
-                                    attr=exhausted_var,
-                                    ctx=ast.Store()
-                                )],
+                                targets=[exhausted_var.attr_store],
                                 value=ast.Constant(value=True)
                             )
                         ] + s2_stmts,
                         orelse=[
                             ast.Assign(
-                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                targets=[dst.store],
                                 value=ast.Constant(value=None)
                             )
                         ]
@@ -89,21 +82,17 @@ class SinkThen(StreamOp):
             )
         ]
 
-    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+    def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize first_exhausted to False."""
         exhausted_var = ctx.get_state_var(self, 'first_exhausted')
-        return [(exhausted_var, False)]
+        return [(exhausted_var.name, False)]
 
-    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset first_exhausted to False."""
         exhausted_var = ctx.get_state_var(self, 'first_exhausted')
         return [
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=exhausted_var,
-                    ctx=ast.Store()
-                )],
+                targets=[exhausted_var.attr_store],
                 value=ast.Constant(value=False)
             )
         ]

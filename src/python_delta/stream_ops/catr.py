@@ -8,6 +8,7 @@ from enum import Enum
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import CatEvA, CatPunc
+from python_delta.compilation import StateVar
 
 class CatRState(Enum):
     """State machine for CatR operation."""
@@ -45,7 +46,7 @@ class CatR(StreamOp):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile CatR state machine to if/else with nested conditionals."""
         state_var = ctx.allocate_state(self, 'state')
         tmp = ctx.allocate_temp()
@@ -58,32 +59,24 @@ class CatR(StreamOp):
         return [
             ast.If(
                 test=ast.Compare(
-                    left=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr=state_var,
-                        ctx=ast.Load()
-                    ),
+                    left=state_var.attr_load,
                     ops=[ast.Eq()],
                     comparators=[ast.Constant(value=CatRState.FIRST_STREAM.value)]
                 ),
                 body=s1_stmts + [
                     ast.If(
                         test=ast.Compare(
-                            left=ast.Name(id=tmp, ctx=ast.Load()),
+                            left=tmp.load,
                             ops=[ast.Is()],
                             comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                         ),
                         body=[
                             ast.Assign(
-                                targets=[ast.Attribute(
-                                    value=ast.Name(id='self', ctx=ast.Load()),
-                                    attr=state_var,
-                                    ctx=ast.Store()
-                                )],
+                                targets=[state_var.attr_store],
                                 value=ast.Constant(value=CatRState.SECOND_STREAM.value)
                             ),
                             ast.Assign(
-                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                targets=[dst.store],
                                 value=ast.Call(
                                     func=ast.Name(id='CatPunc', ctx=ast.Load()),
                                     args=[],
@@ -94,22 +87,22 @@ class CatR(StreamOp):
                         orelse=[
                             ast.If(
                                 test=ast.Compare(
-                                    left=ast.Name(id=tmp, ctx=ast.Load()),
+                                    left=tmp.load,
                                     ops=[ast.Is()],
                                     comparators=[ast.Constant(value=None)]
                                 ),
                                 body=[
                                     ast.Assign(
-                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        targets=[dst.store],
                                         value=ast.Constant(value=None)
                                     )
                                 ],
                                 orelse=[
                                     ast.Assign(
-                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        targets=[dst.store],
                                         value=ast.Call(
                                             func=ast.Name(id='CatEvA', ctx=ast.Load()),
-                                            args=[ast.Name(id=tmp, ctx=ast.Load())],
+                                            args=[tmp.load],
                                             keywords=[]
                                         )
                                     )
@@ -122,21 +115,17 @@ class CatR(StreamOp):
             )
         ]
 
-    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+    def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize state to FIRST_STREAM."""
         state_var = ctx.get_state_var(self, 'state')
-        return [(state_var, CatRState.FIRST_STREAM.value)]
+        return [(state_var.name, CatRState.FIRST_STREAM.value)]
 
-    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset state to FIRST_STREAM."""
         state_var = ctx.get_state_var(self, 'state')
         return [
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=state_var,
-                    ctx=ast.Store()
-                )],
+                targets=[state_var.attr_store],
                 value=ast.Constant(value=CatRState.FIRST_STREAM.value)
             )
         ]

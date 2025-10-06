@@ -6,6 +6,8 @@ from typing import List
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
+from python_delta.compilation import StateVar
+
 
 class UnsafeCast(StreamOp):
     """Unsafe cast - forwards data from input stream with a different type annotation."""
@@ -28,6 +30,6 @@ class UnsafeCast(StreamOp):
     def reset(self):
         pass
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Passthrough - just compile child to same destination."""
         return self.input_stream._compile_stmts(ctx, dst)

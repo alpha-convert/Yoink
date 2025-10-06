@@ -7,6 +7,8 @@ import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import CatEvA, CatPunc, PlusPuncA, PlusPuncB
+from python_delta.compilation import StateVar
+
 
 class CatProjCoordinator(StreamOp):
     """Coordinator for catl that manages shared state between two CatProj instances."""
@@ -102,7 +104,7 @@ class CatProj(StreamOp):
         """Reset is handled by the coordinator."""
         pass  # Coordinator manages the state
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Inline coordinator logic with event filtering based on position."""
         coord = self.coordinator
         coord_id = coord.id
@@ -122,48 +124,36 @@ class CatProj(StreamOp):
             # Position 0: extract CatEvA values until CatPunc
             return [
                 ast.If(
-                    test=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr=input_exhausted_var,
-                        ctx=ast.Load()
-                    ),
+                    test=input_exhausted_var.attr_load,
                     body=[
                         ast.Assign(
-                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                            targets=[dst.store],
                             value=ast.Name(id='DONE', ctx=ast.Load())
                         )
                     ],
                     orelse=[
                         ast.If(
-                            test=ast.Attribute(
-                                value=ast.Name(id='self', ctx=ast.Load()),
-                                attr=seen_punc_var,
-                                ctx=ast.Load()
-                            ),
+                            test=seen_punc_var.attr_load,
                             body=[
                                 ast.Assign(
-                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                    targets=[dst.store],
                                     value=ast.Name(id='DONE', ctx=ast.Load())
                                 )
                             ],
                             orelse=input_stmts + [
                                 ast.If(
                                     test=ast.Compare(
-                                        left=ast.Name(id=event_tmp, ctx=ast.Load()),
+                                        left=event_tmp.load,
                                         ops=[ast.Is()],
                                         comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                                     ),
                                     body=[
                                         ast.Assign(
-                                            targets=[ast.Attribute(
-                                                value=ast.Name(id='self', ctx=ast.Load()),
-                                                attr=input_exhausted_var,
-                                                ctx=ast.Store()
-                                            )],
+                                            targets=[input_exhausted_var.attr_store],
                                             value=ast.Constant(value=True)
                                         ),
                                         ast.Assign(
-                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                            targets=[dst.store],
                                             value=ast.Name(id='DONE', ctx=ast.Load())
                                         )
                                     ],
@@ -172,16 +162,16 @@ class CatProj(StreamOp):
                                             test=ast.Call(
                                                 func=ast.Name(id='isinstance', ctx=ast.Load()),
                                                 args=[
-                                                    ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                    event_tmp.load,
                                                     ast.Name(id='CatEvA', ctx=ast.Load())
                                                 ],
                                                 keywords=[]
                                             ),
                                             body=[
                                                 ast.Assign(
-                                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                    targets=[dst.store],
                                                     value=ast.Attribute(
-                                                        value=ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                        value=event_tmp.load,
                                                         attr='value',
                                                         ctx=ast.Load()
                                                     )
@@ -192,28 +182,24 @@ class CatProj(StreamOp):
                                                     test=ast.Call(
                                                         func=ast.Name(id='isinstance', ctx=ast.Load()),
                                                         args=[
-                                                            ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                            event_tmp.load,
                                                             ast.Name(id='CatPunc', ctx=ast.Load())
                                                         ],
                                                         keywords=[]
                                                     ),
                                                     body=[
                                                         ast.Assign(
-                                                            targets=[ast.Attribute(
-                                                                value=ast.Name(id='self', ctx=ast.Load()),
-                                                                attr=seen_punc_var,
-                                                                ctx=ast.Store()
-                                                            )],
+                                                            targets=[seen_punc_var.attr_store],
                                                             value=ast.Constant(value=True)
                                                         ),
                                                         ast.Assign(
-                                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                            targets=[dst.store],
                                                             value=ast.Name(id='DONE', ctx=ast.Load())
                                                         )
                                                     ],
                                                     orelse=[
                                                         ast.Assign(
-                                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                            targets=[dst.store],
                                                             value=ast.Constant(value=None)
                                                         )
                                                     ]
@@ -231,35 +217,27 @@ class CatProj(StreamOp):
             # Position 1: skip CatEvA and CatPunc, return tail events
             return [
                 ast.If(
-                    test=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr=input_exhausted_var,
-                        ctx=ast.Load()
-                    ),
+                    test=input_exhausted_var.attr_load,
                     body=[
                         ast.Assign(
-                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                            targets=[dst.store],
                             value=ast.Name(id='DONE', ctx=ast.Load())
                         )
                     ],
                     orelse=input_stmts + [
                         ast.If(
                             test=ast.Compare(
-                                left=ast.Name(id=event_tmp, ctx=ast.Load()),
+                                left=event_tmp.load,
                                 ops=[ast.Is()],
                                 comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                             ),
                             body=[
                                 ast.Assign(
-                                    targets=[ast.Attribute(
-                                        value=ast.Name(id='self', ctx=ast.Load()),
-                                        attr=input_exhausted_var,
-                                        ctx=ast.Store()
-                                    )],
+                                    targets=[input_exhausted_var.attr_store],
                                     value=ast.Constant(value=True)
                                 ),
                                 ast.Assign(
-                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                    targets=[dst.store],
                                     value=ast.Name(id='DONE', ctx=ast.Load())
                                 )
                             ],
@@ -268,14 +246,14 @@ class CatProj(StreamOp):
                                     test=ast.Call(
                                         func=ast.Name(id='isinstance', ctx=ast.Load()),
                                         args=[
-                                            ast.Name(id=event_tmp, ctx=ast.Load()),
+                                            event_tmp.load,
                                             ast.Name(id='CatEvA', ctx=ast.Load())
                                         ],
                                         keywords=[]
                                     ),
                                     body=[
                                         ast.Assign(
-                                            targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                            targets=[dst.store],
                                             value=ast.Constant(value=None)
                                         )
                                     ],
@@ -284,29 +262,25 @@ class CatProj(StreamOp):
                                             test=ast.Call(
                                                 func=ast.Name(id='isinstance', ctx=ast.Load()),
                                                 args=[
-                                                    ast.Name(id=event_tmp, ctx=ast.Load()),
+                                                    event_tmp.load,
                                                     ast.Name(id='CatPunc', ctx=ast.Load())
                                                 ],
                                                 keywords=[]
                                             ),
                                             body=[
                                                 ast.Assign(
-                                                    targets=[ast.Attribute(
-                                                        value=ast.Name(id='self', ctx=ast.Load()),
-                                                        attr=seen_punc_var,
-                                                        ctx=ast.Store()
-                                                    )],
+                                                    targets=[seen_punc_var.attr_store],
                                                     value=ast.Constant(value=True)
                                                 ),
                                                 ast.Assign(
-                                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                                    targets=[dst.store],
                                                     value=ast.Constant(value=None)
                                                 )
                                             ],
                                             orelse=[
                                                 ast.Assign(
-                                                    targets=[ast.Name(id=dst, ctx=ast.Store())],
-                                                    value=ast.Name(id=event_tmp, ctx=ast.Load())
+                                                    targets=[dst.store],
+                                                    value=event_tmp.load
                                                 )
                                             ]
                                         )
@@ -318,7 +292,7 @@ class CatProj(StreamOp):
                 )
             ]
 
-    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+    def _get_state_initializers(self, ctx) -> List[tuple]:
         """State is managed by coordinator, initialized once."""
         coord = self.coordinator
 
@@ -331,13 +305,13 @@ class CatProj(StreamOp):
                 seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
                 input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
                 return [
-                    (seen_punc_var, False),
-                    (input_exhausted_var, False)
+                    (seen_punc_var.name, False),
+                    (input_exhausted_var.name, False)
                 ]
 
         return []
 
-    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset coordinator state (only generate once for first CatProj)."""
         coord = self.coordinator
         if coord.id not in ctx.state_vars:
@@ -351,19 +325,11 @@ class CatProj(StreamOp):
         input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
         return [
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=seen_punc_var,
-                    ctx=ast.Store()
-                )],
+                targets=[seen_punc_var.attr_store],
                 value=ast.Constant(value=False)
             ),
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=input_exhausted_var,
-                    ctx=ast.Store()
-                )],
+                targets=[input_exhausted_var.attr_store],
                 value=ast.Constant(value=False)
             )
         ]

@@ -6,6 +6,7 @@ from typing import List
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
+from python_delta.compilation import StateVar
 
 
 class ResetOp(StreamOp):
@@ -30,20 +31,20 @@ class ResetOp(StreamOp):
     def reset(self):
         pass
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile reset calls on all nodes in reset_set."""
         reset_stmts = []
 
         # Generate reset statements for each node in the reset set
         # In compiled code, nodes don't exist as separate objects - their state is flattened
-        # So we need to inline the reset logic from each node's _get_reset_stmts
+        # So we need to inline the reset logic from each node's_get_reset_stmts
         for node in self.reset_set:
             reset_stmts.extend(node._get_reset_stmts(ctx))
 
         # Set dst = None
         reset_stmts.append(
             ast.Assign(
-                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                targets=[dst.store],
                 value=ast.Constant(value=None)
             )
         )

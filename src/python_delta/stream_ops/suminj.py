@@ -7,6 +7,7 @@ import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import PlusPuncA, PlusPuncB
+from python_delta.compilation import StateVar
 
 
 class SumInj(StreamOp):
@@ -36,7 +37,7 @@ class SumInj(StreamOp):
         """Reset state and recursively reset input stream."""
         self.tag_emitted = False
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile tag emission then delegation."""
         tag_var = ctx.allocate_state(self, 'tag_emitted')
         input_stmts = self.input_stream._compile_stmts(ctx, dst)
@@ -47,23 +48,15 @@ class SumInj(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr=tag_var,
-                        ctx=ast.Load()
-                    )
+                    operand=tag_var.attr_load
                 ),
                 body=[
                     ast.Assign(
-                        targets=[ast.Attribute(
-                            value=ast.Name(id='self', ctx=ast.Load()),
-                            attr=tag_var,
-                            ctx=ast.Store()
-                        )],
+                        targets=[tag_var.attr_store],
                         value=ast.Constant(value=True)
                     ),
                     ast.Assign(
-                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                        targets=[dst.store],
                         value=ast.Call(
                             func=ast.Name(id=tag_class, ctx=ast.Load()),
                             args=[],
@@ -75,21 +68,17 @@ class SumInj(StreamOp):
             )
         ]
 
-    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+    def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize tag_emitted to False."""
         tag_var = ctx.get_state_var(self, 'tag_emitted')
-        return [(tag_var, False)]
+        return [(tag_var.name, False)]
 
-    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset tag_emitted to False."""
         tag_var = ctx.get_state_var(self, 'tag_emitted')
         return [
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=tag_var,
-                    ctx=ast.Store()
-                )],
+                targets=[tag_var.attr_store],
                 value=ast.Constant(value=False)
             )
         ]

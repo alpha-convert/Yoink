@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from python_delta.compilation import StateVar
+
+
 class Done:
     _instance = None
 
@@ -52,7 +58,7 @@ class StreamOp:
         """Reset stream to initial state. Subclasses should override if stateful."""
         pass
 
-    def _compile_stmts(self, ctx, dst: str):
+    def _compile_stmts(self, ctx, dst: StateVar):
         raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts")
 
     def _get_state_initializers(self, ctx):

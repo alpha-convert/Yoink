@@ -6,6 +6,7 @@ from typing import List
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
+from python_delta.compilation import StateVar
 
 
 class Var(StreamOp):
@@ -37,7 +38,7 @@ class Var(StreamOp):
     def reset(self):
         pass
 
-    def _compile_stmts(self, ctx: 'CompilationContext', dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx: 'CompilationContext', dst: StateVar) -> List[ast.stmt]:
         """Compile to: try: dst = next(self.inputs[idx]) except StopIteration: dst = DONE"""
         input_idx = ctx.var_to_input_idx[self.id]
 
@@ -45,7 +46,7 @@ class Var(StreamOp):
             ast.Try(
                 body=[
                     ast.Assign(
-                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                        targets=[dst.store],
                         value=ast.Call(
                             func=ast.Name(id='next', ctx=ast.Load()),
                             args=[
@@ -69,7 +70,7 @@ class Var(StreamOp):
                         name=None,
                         body=[
                             ast.Assign(
-                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                targets=[dst.store],
                                 value=ast.Name(id='DONE', ctx=ast.Load())
                             )
                         ]

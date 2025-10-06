@@ -7,6 +7,8 @@ import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import PlusPuncA, PlusPuncB
+from python_delta.compilation import StateVar
+
 
 class CaseOp(StreamOp):
     """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
@@ -52,7 +54,7 @@ class CaseOp(StreamOp):
         self.tag_read = False
         self.active_branch = None
 
-    def _compile_stmts(self, ctx: CompilationContext, dst: str) -> List[ast.stmt]:
+    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile tag reading and branch routing."""
         tag_read_var = ctx.allocate_state(self, 'tag_read')
         active_branch_var = ctx.allocate_state(self, 'active_branch')
@@ -68,46 +70,38 @@ class CaseOp(StreamOp):
             ast.If(
                 test=ast.UnaryOp(
                     op=ast.Not(),
-                    operand=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr=tag_read_var,
-                        ctx=ast.Load()
-                    )
+                    operand=tag_read_var.attr_load
                 ),
                 body=input_stmts + [
                     ast.If(
                         test=ast.Compare(
-                            left=ast.Name(id=tag_tmp, ctx=ast.Load()),
+                            left=tag_tmp.load,
                             ops=[ast.Is()],
                             comparators=[ast.Constant(value=None)]
                         ),
                         body=[
                             ast.Assign(
-                                targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                targets=[dst.store],
                                 value=ast.Constant(value=None)
                             )
                         ],
                         orelse=[
                             ast.If(
                                 test=ast.Compare(
-                                    left=ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                    left=tag_tmp.load,
                                     ops=[ast.Is()],
                                     comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                                 ),
                                 body=[
                                     ast.Assign(
-                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        targets=[dst.store],
                                         value=ast.Name(id='DONE', ctx=ast.Load())
                                     )
                                 ],
                                 orelse=[
                                     # Set tag_read = True
                                     ast.Assign(
-                                        targets=[ast.Attribute(
-                                            value=ast.Name(id='self', ctx=ast.Load()),
-                                            attr=tag_read_var,
-                                            ctx=ast.Store()
-                                        )],
+                                        targets=[tag_read_var.attr_store],
                                         value=ast.Constant(value=True)
                                     ),
                                     # Check tag type and set active_branch
@@ -115,18 +109,14 @@ class CaseOp(StreamOp):
                                         test=ast.Call(
                                             func=ast.Name(id='isinstance', ctx=ast.Load()),
                                             args=[
-                                                ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                                tag_tmp.load,
                                                 ast.Name(id='PlusPuncA', ctx=ast.Load())
                                             ],
                                             keywords=[]
                                         ),
                                         body=[
                                             ast.Assign(
-                                                targets=[ast.Attribute(
-                                                    value=ast.Name(id='self', ctx=ast.Load()),
-                                                    attr=active_branch_var,
-                                                    ctx=ast.Store()
-                                                )],
+                                                targets=[active_branch_var.attr_store],
                                                 value=ast.Constant(value=0)
                                             )
                                         ],
@@ -135,18 +125,14 @@ class CaseOp(StreamOp):
                                                 test=ast.Call(
                                                     func=ast.Name(id='isinstance', ctx=ast.Load()),
                                                     args=[
-                                                        ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                                        tag_tmp.load,
                                                         ast.Name(id='PlusPuncB', ctx=ast.Load())
                                                     ],
                                                     keywords=[]
                                                 ),
                                                 body=[
                                                     ast.Assign(
-                                                        targets=[ast.Attribute(
-                                                            value=ast.Name(id='self', ctx=ast.Load()),
-                                                            attr=active_branch_var,
-                                                            ctx=ast.Store()
-                                                        )],
+                                                        targets=[active_branch_var.attr_store],
                                                         value=ast.Constant(value=1)
                                                     )
                                                 ],
@@ -158,7 +144,7 @@ class CaseOp(StreamOp):
                                                                 ast.JoinedStr(values=[
                                                                     ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
                                                                     ast.FormattedValue(
-                                                                        value=ast.Name(id=tag_tmp, ctx=ast.Load()),
+                                                                        value=tag_tmp.load,
                                                                         conversion=-1,
                                                                         format_spec=None
                                                                     )
@@ -174,7 +160,7 @@ class CaseOp(StreamOp):
                                     ),
                                     # Set dst = None
                                     ast.Assign(
-                                        targets=[ast.Name(id=dst, ctx=ast.Store())],
+                                        targets=[dst.store],
                                         value=ast.Constant(value=None)
                                     )
                                 ]
@@ -186,11 +172,7 @@ class CaseOp(StreamOp):
                     # Route to appropriate branch
                     ast.If(
                         test=ast.Compare(
-                            left=ast.Attribute(
-                                value=ast.Name(id='self', ctx=ast.Load()),
-                                attr=active_branch_var,
-                                ctx=ast.Load()
-                            ),
+                            left=active_branch_var.attr_load,
                             ops=[ast.Eq()],
                             comparators=[ast.Constant(value=0)]
                         ),
@@ -201,34 +183,26 @@ class CaseOp(StreamOp):
             )
         ]
 
-    def _get_state_initializers(self, ctx: CompilationContext) -> List[tuple]:
+    def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize tag_read and active_branch."""
         tag_read_var = ctx.get_state_var(self, 'tag_read')
         active_branch_var = ctx.get_state_var(self, 'active_branch')
         return [
-            (tag_read_var, False),
-            (active_branch_var, -1)
+            (tag_read_var.name, False),
+            (active_branch_var.name, -1)
         ]
 
-    def _get_reset_stmts(self, ctx: CompilationContext) -> List[ast.stmt]:
+    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset tag_read and active_branch."""
         tag_read_var = ctx.get_state_var(self, 'tag_read')
         active_branch_var = ctx.get_state_var(self, 'active_branch')
         return [
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=tag_read_var,
-                    ctx=ast.Store()
-                )],
+                targets=[tag_read_var.attr_store],
                 value=ast.Constant(value=False)
             ),
             ast.Assign(
-                targets=[ast.Attribute(
-                    value=ast.Name(id='self', ctx=ast.Load()),
-                    attr=active_branch_var,
-                    ctx=ast.Store()
-                )],
+                targets=[active_branch_var.attr_store],
                 value=ast.Constant(value=-1)
             )
         ]
