@@ -288,7 +288,7 @@ class Delta:
         traced_delta = Delta()
         input_vars = [traced_delta.var(f"arg{i}", ty) for i, ty in enumerate(input_types)]
 
-        graph = DataflowGraph(traced_delta, input_vars, None, func, input_vars)
+        graph = DataflowGraph(traced_delta, input_vars, None, func, input_types)
 
         outputs = func(traced_delta, *input_vars)
 

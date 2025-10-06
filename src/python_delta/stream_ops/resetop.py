@@ -35,9 +35,6 @@ class ResetOp(StreamOp):
         """Compile reset calls on all nodes in reset_set."""
         reset_stmts = []
 
-        # Generate reset statements for each node in the reset set
-        # In compiled code, nodes don't exist as separate objects - their state is flattened
-        # So we need to inline the reset logic from each node's_get_reset_stmts
         for node in self.reset_set:
             reset_stmts.extend(node._get_reset_stmts(ctx))
 

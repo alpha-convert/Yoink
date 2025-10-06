@@ -195,7 +195,7 @@ class Singleton(Type):
         self.python_class = python_class
 
     def __str__(self):
-        return self.python_class.__name__
+        return f"Singleton({self.python_class.__name__})"
 
     def __eq__(self, other):
         return isinstance(other, Singleton) and self.python_class == other.python_class

@@ -52,7 +52,6 @@ class CompilationContext:
     def __init__(self):
         self.state_vars: Dict[int, Dict[str, StateVar]] = {}  # node.id -> {var_name: StateVar}
         self.type_counters: Dict[str, int] = {}  # StreamOp class name -> counter
-        # TODO jcutler: ?? why do we have a map of dsts here, they should be passed down in the call stack
         self.var_to_input_idx: Dict[int, int] = {}  # Var.id -> input array index
         self.temp_counter: int = 0
         self.compiled_nodes: Set[int] = set()  # Track which nodes are compiled

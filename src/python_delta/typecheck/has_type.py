@@ -54,6 +54,16 @@ def has_type(event, type):
         return has_type(it, deriv_type)
 
     # Single event type checking
+
+    # Handle type variables by following the link
+    from python_delta.typecheck.types import TypeVar
+    if isinstance(type, TypeVar):
+        if type.link is not None:
+            return has_type(event, type.link)
+        else:
+            # Uninstantiated type variable - cannot determine if event has this type
+            return False
+
     if isinstance(event, CatEvA):
         if not isinstance(type, TyCat):
             return False
