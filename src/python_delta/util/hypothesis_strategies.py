@@ -24,7 +24,6 @@ def events_of_type(type, max_depth=5):
         if isinstance(type, TyEps):
             return st.just([])
         elif isinstance(type, Singleton):
-            # Non-nullable: must generate at least one event
             value_strategy = _strategy_for_python_class(type.python_class)
             return value_strategy.map(lambda v: [BaseEvent(v)])
         elif isinstance(type, TyCat):
@@ -112,15 +111,6 @@ def events_of_type(type, max_depth=5):
 
 
 def _strategy_for_python_class(python_class):
-    """
-    Generate a hypothesis strategy for values of a given Python class.
-
-    Args:
-        python_class: A Python class (e.g., int, str, bool)
-
-    Returns:
-        A hypothesis strategy that generates values of that class
-    """
     if python_class == int:
         return st.integers()
     elif python_class == str:

@@ -152,7 +152,7 @@ class TypeVar(Type):
         if self.link is None:
             return f"TypeVar({self.id})"
         else:
-            return f"{self.link}"
+            return f"TypeVar(link={self.link})"
 
     @staticmethod
     def fresh_unif_id():
@@ -178,8 +178,11 @@ class TypeVar(Type):
         if self.link is not None:
             self.link.unify_with(other)
         else:
-            other.occurs_var(var=self)  # Raises OccursCheckFail if check fails
-            self.link = other
+            if isinstance(other, TypeVar) and self.id == other.id:
+                return 
+            else:
+                other.occurs_var(var=self)
+                self.link = other
 
     def nullable(self):
         """Type variables cannot be checked for nullability."""

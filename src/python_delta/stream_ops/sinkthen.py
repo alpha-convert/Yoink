@@ -22,7 +22,10 @@ class SinkThen(StreamOp):
 
     @property
     def vars(self):
-        return self.input_streams[0].vars | self.input_streams[1].vars
+        # NOTE jcutler: i'm having this NOT depend on the first stream... it
+        # just sinks it, presumably after somebody else has already used it.
+        # THis could bite me, but it's helpful for the moment.
+        return self.input_streams[1].vars
 
     def _pull(self):
         """Pull from first stream until exhausted, then switch to second stream."""

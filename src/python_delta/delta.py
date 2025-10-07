@@ -16,7 +16,7 @@ class Delta:
         self.nodes.add(node)
 
     def _reset_block(self,f,ty):
-        reset_node = ResetOp(None,ty)
+        reset_node = ResetOp(set(),ty)
         nodes_before = self.nodes.copy()
         res = f(reset_node)
         reset_node.reset_set = self.nodes - nodes_before
@@ -133,6 +133,7 @@ class Delta:
 
         cat = CatR(head, tail, TyCat(element_type, star_type))
         s = SumInj(cat, star_type, position=1)
+        self._register_node(cat)
         self._register_node(s)
         return s
 
@@ -182,35 +183,15 @@ class Delta:
         result_elt_type = self._fresh_type_var()
         result_star_type = TyStar(result_elt_type)
 
-        eps = Eps(TyEps())
-        done_output = SumInj(eps,result_star_type,position=0)
-        self._register_node(eps)
-        self._register_node(done_output)
-
         def build_body(reset_node):
-            x_cons = UnsafeCast(x,TyCat(input_elt_type, input_star_type))
-            coord = CatProjCoordinator(x_cons,TyCat(input_elt_type, input_star_type))
-            x_head = CatProj(coord, input_elt_type, 0)
-            
-            self._register_node(x_cons)
-            self._register_node(coord)
-            self._register_node(x_head)
+            def map_cons_case(x_head,x_tail):
+                map_output = map_fn(x_head)
+                map_output.stream_type.unify_with(result_elt_type)
+                sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
+                self._register_node(sink_then_reset)
+                return self.cons(map_output,sink_then_reset)
 
-            map_output = map_fn(x_head)
-
-            map_output.stream_type.unify_with(result_elt_type)
-
-            sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
-            self._register_node(sink_then_reset)
-
-            rest_cat = CatR(map_output,sink_then_reset,TyCat(result_elt_type,result_star_type))
-            rest = SumInj(rest_cat,result_star_type,position=1)
-            self._register_node(rest_cat)
-            self._register_node(rest)
-
-            z = CaseOp(x, done_output, rest , result_star_type)
-            self._register_node(z)
-            return z
+            return self.starcase(x,lambda _ : self.nil(), map_cons_case)
 
         return self._reset_block(build_body,result_star_type)
     
@@ -243,6 +224,26 @@ class Delta:
             return z
 
         return self._reset_block(build_body,input_star_type)
+    
+    def concat_map(self,x,map_fn):
+        input_elt_type = self._fresh_type_var()
+        input_star_type = TyStar(input_elt_type)
+        x.stream_type.unify_with(input_star_type)
+
+        result_elt_type = self._fresh_type_var()
+        result_star_type = TyStar(result_elt_type)
+
+        def build_body(reset_node):
+            def map_cons_case(x_head,x_tail):
+                map_output = map_fn(x_head)
+                map_output.stream_type.unify_with(result_star_type)
+                sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
+                self._register_node(sink_then_reset)
+                return self.concat(map_output,sink_then_reset)
+
+            return self.starcase(x,lambda _ : self.nil(element_type=result_elt_type), map_cons_case)
+
+        return self._reset_block(build_body,result_star_type)
 
     @staticmethod
     def jit(func):

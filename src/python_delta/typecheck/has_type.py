@@ -46,9 +46,7 @@ def has_type(event, type):
         except StopIteration:
             return True
 
-        print(f"Checking if {head} has type {type}")
         res = has_type(head, type)
-        print(f"(it was {res})")
         if not res:
             return False
         
