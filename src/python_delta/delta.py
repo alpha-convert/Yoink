@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp
+from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp
 
 class Delta:
     def __init__(self):
@@ -33,6 +33,13 @@ class Delta:
     def eps(self):
         """Create an empty stream that immediately raises StopIteration."""
         s = Eps(TyEps())
+        self._register_node(s)
+        return s
+
+    def singleton(self, value):
+        # TODO: we should have a helper that auto-promotes base type values
+        # passed into delta methods...
+        s = SingletonOp(value, Singleton(type(value)))
         self._register_node(s)
         return s
 
