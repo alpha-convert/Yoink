@@ -43,24 +43,15 @@ class SingletonOp(StreamOp):
             ast.If(
                 test=exhausted_var.rvalue(),
                 body=[
-                    ast.Assign(
-                        targets=[dst.lvalue()],
-                        value=ast.Name(id='DONE', ctx=ast.Load())
-                    )
+                    dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                 ],
                 orelse=[
-                    ast.Assign(
-                        targets=[exhausted_var.lvalue()],
-                        value=ast.Constant(value=True)
-                    ),
-                    ast.Assign(
-                        targets=[dst.lvalue()],
-                        value=ast.Call(
-                            func=ast.Name(id='BaseEvent', ctx=ast.Load()),
-                            args=[ast.Constant(value=self.value)],
-                            keywords=[]
-                        )
-                    )
+                    exhausted_var.assign(ast.Constant(value=True)),
+                    dst.assign(ast.Call(
+                        func=ast.Name(id='BaseEvent', ctx=ast.Load()),
+                        args=[ast.Constant(value=self.value)],
+                        keywords=[]
+                    ))
                 ]
             )
         ]
@@ -74,8 +65,5 @@ class SingletonOp(StreamOp):
         """Reset exhausted to False."""
         exhausted_var = ctx.state_var(self, 'exhausted')
         return [
-            ast.Assign(
-                targets=[exhausted_var.lvalue()],
-                value=ast.Constant(value=False)
-            )
+            exhausted_var.assign(ast.Constant(value=False))
         ]

@@ -51,18 +51,12 @@ class SumInj(StreamOp):
                     operand=tag_var.rvalue()
                 ),
                 body=[
-                    ast.Assign(
-                        targets=[tag_var.lvalue()],
-                        value=ast.Constant(value=True)
-                    ),
-                    ast.Assign(
-                        targets=[dst.lvalue()],
-                        value=ast.Call(
-                            func=ast.Name(id=tag_class, ctx=ast.Load()),
-                            args=[],
-                            keywords=[]
-                        )
-                    )
+                    tag_var.assign(ast.Constant(value=True)),
+                    dst.assign(ast.Call(
+                        func=ast.Name(id=tag_class, ctx=ast.Load()),
+                        args=[],
+                        keywords=[]
+                    ))
                 ],
                 orelse=input_stmts
             )
@@ -77,8 +71,5 @@ class SumInj(StreamOp):
         """Reset tag_emitted to False."""
         tag_var = ctx.state_var(self, 'tag_emitted')
         return [
-            ast.Assign(
-                targets=[tag_var.lvalue()],
-                value=ast.Constant(value=False)
-            )
+            tag_var.assign(ast.Constant(value=False))
         ]

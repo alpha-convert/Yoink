@@ -80,10 +80,7 @@ class CaseOp(StreamOp):
                             comparators=[ast.Constant(value=None)]
                         ),
                         body=[
-                            ast.Assign(
-                                targets=[dst.lvalue()],
-                                value=ast.Constant(value=None)
-                            )
+                            dst.assign(ast.Constant(value=None))
                         ],
                         orelse=[
                             ast.If(
@@ -93,17 +90,11 @@ class CaseOp(StreamOp):
                                     comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                                 ),
                                 body=[
-                                    ast.Assign(
-                                        targets=[dst.lvalue()],
-                                        value=ast.Name(id='DONE', ctx=ast.Load())
-                                    )
+                                    dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                                 ],
                                 orelse=[
                                     # Set tag_read = True
-                                    ast.Assign(
-                                        targets=[tag_read_var.lvalue()],
-                                        value=ast.Constant(value=True)
-                                    ),
+                                    tag_read_var.assign(ast.Constant(value=True)),
                                     # Check tag type and set active_branch
                                     ast.If(
                                         test=ast.Call(
@@ -115,10 +106,7 @@ class CaseOp(StreamOp):
                                             keywords=[]
                                         ),
                                         body=[
-                                            ast.Assign(
-                                                targets=[active_branch_var.lvalue()],
-                                                value=ast.Constant(value=0)
-                                            )
+                                            active_branch_var.assign(ast.Constant(value=0))
                                         ],
                                         orelse=[
                                             ast.If(
@@ -131,10 +119,7 @@ class CaseOp(StreamOp):
                                                     keywords=[]
                                                 ),
                                                 body=[
-                                                    ast.Assign(
-                                                        targets=[active_branch_var.lvalue()],
-                                                        value=ast.Constant(value=1)
-                                                    )
+                                                    active_branch_var.assign(ast.Constant(value=1))
                                                 ],
                                                 orelse=[
                                                     ast.Raise(
@@ -159,10 +144,7 @@ class CaseOp(StreamOp):
                                         ]
                                     ),
                                     # Set dst = None
-                                    ast.Assign(
-                                        targets=[dst.lvalue()],
-                                        value=ast.Constant(value=None)
-                                    )
+                                    dst.assign(ast.Constant(value=None))
                                 ]
                             )
                         ]
@@ -197,13 +179,7 @@ class CaseOp(StreamOp):
         tag_read_var = ctx.state_var(self, 'tag_read')
         active_branch_var = ctx.state_var(self, 'active_branch')
         return [
-            ast.Assign(
-                targets=[tag_read_var.lvalue()],
-                value=ast.Constant(value=False)
-            ),
-            ast.Assign(
-                targets=[active_branch_var.lvalue()],
-                value=ast.Constant(value=-1)
-            )
+            tag_read_var.assign(ast.Constant(value=False)),
+            active_branch_var.assign(ast.Constant(value=-1))
         ]
 

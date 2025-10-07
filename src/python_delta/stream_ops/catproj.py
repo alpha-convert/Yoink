@@ -126,19 +126,13 @@ class CatProj(StreamOp):
                 ast.If(
                     test=input_exhausted_var.rvalue(),
                     body=[
-                        ast.Assign(
-                            targets=[dst.lvalue()],
-                            value=ast.Name(id='DONE', ctx=ast.Load())
-                        )
+                        dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                     ],
                     orelse=[
                         ast.If(
                             test=seen_punc_var.rvalue(),
                             body=[
-                                ast.Assign(
-                                    targets=[dst.lvalue()],
-                                    value=ast.Name(id='DONE', ctx=ast.Load())
-                                )
+                                dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                             ],
                             orelse=input_stmts + [
                                 ast.If(
@@ -148,14 +142,8 @@ class CatProj(StreamOp):
                                         comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                                     ),
                                     body=[
-                                        ast.Assign(
-                                            targets=[input_exhausted_var.lvalue()],
-                                            value=ast.Constant(value=True)
-                                        ),
-                                        ast.Assign(
-                                            targets=[dst.lvalue()],
-                                            value=ast.Name(id='DONE', ctx=ast.Load())
-                                        )
+                                        input_exhausted_var.assign(ast.Constant(value=True)),
+                                        dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                                     ],
                                     orelse=[
                                         ast.If(
@@ -168,14 +156,11 @@ class CatProj(StreamOp):
                                                 keywords=[]
                                             ),
                                             body=[
-                                                ast.Assign(
-                                                    targets=[dst.lvalue()],
-                                                    value=ast.Attribute(
-                                                        value=event_tmp.rvalue(),
-                                                        attr='value',
-                                                        ctx=ast.Load()
-                                                    )
-                                                )
+                                                dst.assign(ast.Attribute(
+                                                    value=event_tmp.rvalue(),
+                                                    attr='value',
+                                                    ctx=ast.Load()
+                                                ))
                                             ],
                                             orelse=[
                                                 ast.If(
@@ -188,20 +173,11 @@ class CatProj(StreamOp):
                                                         keywords=[]
                                                     ),
                                                     body=[
-                                                        ast.Assign(
-                                                            targets=[seen_punc_var.lvalue()],
-                                                            value=ast.Constant(value=True)
-                                                        ),
-                                                        ast.Assign(
-                                                            targets=[dst.lvalue()],
-                                                            value=ast.Name(id='DONE', ctx=ast.Load())
-                                                        )
+                                                        seen_punc_var.assign(ast.Constant(value=True)),
+                                                        dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                                                     ],
                                                     orelse=[
-                                                        ast.Assign(
-                                                            targets=[dst.lvalue()],
-                                                            value=ast.Constant(value=None)
-                                                        )
+                                                        dst.assign(ast.Constant(value=None))
                                                     ]
                                                 )
                                             ]
@@ -219,10 +195,7 @@ class CatProj(StreamOp):
                 ast.If(
                     test=input_exhausted_var.rvalue(),
                     body=[
-                        ast.Assign(
-                            targets=[dst.lvalue()],
-                            value=ast.Name(id='DONE', ctx=ast.Load())
-                        )
+                        dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                     ],
                     orelse=input_stmts + [
                         ast.If(
@@ -232,14 +205,8 @@ class CatProj(StreamOp):
                                 comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                             ),
                             body=[
-                                ast.Assign(
-                                    targets=[input_exhausted_var.lvalue()],
-                                    value=ast.Constant(value=True)
-                                ),
-                                ast.Assign(
-                                    targets=[dst.lvalue()],
-                                    value=ast.Name(id='DONE', ctx=ast.Load())
-                                )
+                                input_exhausted_var.assign(ast.Constant(value=True)),
+                                dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                             ],
                             orelse=[
                                 ast.If(
@@ -252,10 +219,7 @@ class CatProj(StreamOp):
                                         keywords=[]
                                     ),
                                     body=[
-                                        ast.Assign(
-                                            targets=[dst.lvalue()],
-                                            value=ast.Constant(value=None)
-                                        )
+                                        dst.assign(ast.Constant(value=None))
                                     ],
                                     orelse=[
                                         ast.If(
@@ -268,20 +232,11 @@ class CatProj(StreamOp):
                                                 keywords=[]
                                             ),
                                             body=[
-                                                ast.Assign(
-                                                    targets=[seen_punc_var.lvalue()],
-                                                    value=ast.Constant(value=True)
-                                                ),
-                                                ast.Assign(
-                                                    targets=[dst.lvalue()],
-                                                    value=ast.Constant(value=None)
-                                                )
+                                                seen_punc_var.assign(ast.Constant(value=True)),
+                                                dst.assign(ast.Constant(value=None))
                                             ],
                                             orelse=[
-                                                ast.Assign(
-                                                    targets=[dst.lvalue()],
-                                                    value=event_tmp.rvalue()
-                                                )
+                                                dst.assign(event_tmp.rvalue())
                                             ]
                                         )
                                     ]
@@ -324,12 +279,6 @@ class CatProj(StreamOp):
         seen_punc_var = ctx.state_var(coord, 'seen_punc')
         input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
         return [
-            ast.Assign(
-                targets=[seen_punc_var.lvalue()],
-                value=ast.Constant(value=False)
-            ),
-            ast.Assign(
-                targets=[input_exhausted_var.lvalue()],
-                value=ast.Constant(value=False)
-            )
+            seen_punc_var.assign(ast.Constant(value=False)),
+            input_exhausted_var.assign(ast.Constant(value=False))
         ]

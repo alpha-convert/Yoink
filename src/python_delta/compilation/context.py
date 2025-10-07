@@ -39,6 +39,12 @@ class StateVar:
                 ctx=ast.Store()
             )
 
+    def assign(self, value: ast.expr) -> ast.Assign:
+        return ast.Assign(
+            targets=[self.lvalue()],
+            value=value
+        )
+
     def __str__(self):
         return self.name
 
