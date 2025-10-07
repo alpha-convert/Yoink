@@ -105,10 +105,10 @@ class Delta:
         x_left = UnsafeCast(x,left_type)
         x_right = UnsafeCast(x,right_type)
 
+        # TODO jcutler: does this do all of the order-checking requried here? Unclear...
         left_output = left_fn(x_left)
         right_output = right_fn(x_right)
 
-        # Type check: both branches must return same type
         left_output.stream_type.unify_with(right_output.stream_type)
 
         output_type = left_output.stream_type
