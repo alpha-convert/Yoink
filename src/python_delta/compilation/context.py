@@ -56,20 +56,7 @@ class CompilationContext:
         self.temp_counter: int = 0
         self.compiled_nodes: Set[int] = set()  # Track which nodes are compiled
 
-    def allocate_state(self, node, var_name: str) -> StateVar:
-        """
-        Allocate a unique state variable for this node.
-        Idempotent: returns same StateVar if called multiple times for same node+var_name.
-
-        Example: catr_0_state, suminj_1_tag_emitted
-
-        Args:
-            node: StreamOp node to allocate state for
-            var_name: Logical name of the state variable (e.g., 'state', 'tag_emitted')
-
-        Returns:
-            StateVar with pre-built load/store AST nodes
-        """
+    def state_var(self, node, var_name: str) -> StateVar:
         if node.id in self.state_vars and var_name in self.state_vars[node.id]:
             return self.state_vars[node.id][var_name]
 
@@ -88,9 +75,6 @@ class CompilationContext:
         self.state_vars[node.id][var_name] = state_var
 
         return state_var
-
-    def get_state_var(self, node, var_name: str) -> StateVar:
-        return self.state_vars[node.id][var_name]
 
     def allocate_temp(self) -> StateVar:
         name = f'tmp_{self.temp_counter}'

@@ -56,8 +56,8 @@ class CaseOp(StreamOp):
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile tag reading and branch routing."""
-        tag_read_var = ctx.allocate_state(self, 'tag_read')
-        active_branch_var = ctx.allocate_state(self, 'active_branch')
+        tag_read_var = ctx.state_var(self, 'tag_read')
+        active_branch_var = ctx.state_var(self, 'active_branch')
 
         tag_tmp = ctx.allocate_temp()
         input_stmts = self.input_stream._compile_stmts(ctx, tag_tmp)
@@ -185,8 +185,8 @@ class CaseOp(StreamOp):
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize tag_read and active_branch."""
-        tag_read_var = ctx.get_state_var(self, 'tag_read')
-        active_branch_var = ctx.get_state_var(self, 'active_branch')
+        tag_read_var = ctx.state_var(self, 'tag_read')
+        active_branch_var = ctx.state_var(self, 'active_branch')
         return [
             (tag_read_var.name, False),
             (active_branch_var.name, -1)
@@ -194,8 +194,8 @@ class CaseOp(StreamOp):
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset tag_read and active_branch."""
-        tag_read_var = ctx.get_state_var(self, 'tag_read')
-        active_branch_var = ctx.get_state_var(self, 'active_branch')
+        tag_read_var = ctx.state_var(self, 'tag_read')
+        active_branch_var = ctx.state_var(self, 'active_branch')
         return [
             ast.Assign(
                 targets=[tag_read_var.lvalue()],

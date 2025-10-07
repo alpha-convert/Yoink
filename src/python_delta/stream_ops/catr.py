@@ -48,7 +48,7 @@ class CatR(StreamOp):
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile CatR state machine to if/else with nested conditionals."""
-        state_var = ctx.allocate_state(self, 'state')
+        state_var = ctx.state_var(self, 'state')
         tmp = ctx.allocate_temp()
 
         # Compile children
@@ -117,12 +117,12 @@ class CatR(StreamOp):
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize state to FIRST_STREAM."""
-        state_var = ctx.get_state_var(self, 'state')
+        state_var = ctx.state_var(self, 'state')
         return [(state_var.name, CatRState.FIRST_STREAM.value)]
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset state to FIRST_STREAM."""
-        state_var = ctx.get_state_var(self, 'state')
+        state_var = ctx.state_var(self, "state")
         return [
             ast.Assign(
                 targets=[state_var.lvalue()],

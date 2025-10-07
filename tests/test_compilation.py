@@ -77,29 +77,6 @@ def test_compile_catr_simple():
     run_both(concat, xs, ys)
 
 
-# def test_compile_catl_simple():
-    # """Test left concatenation (projection)."""
-    # @Delta.jit
-    # def catl_test(delta, x: TyCat(STRING_TY, STRING_TY)):
-    #     return delta.catl(x)
-
-    # xs = [
-    #     CatEvA(PlusPuncB()),
-    #     CatEvA(CatEvA(BaseEvent(1))),
-    #     CatEvA(CatPunc()),
-    #     CatEvA(PlusPuncA()),
-    #     CatPunc(),
-    #     PlusPuncB(),
-    #     CatEvA(BaseEvent(2)),
-    #     CatPunc(),
-    #     PlusPuncA()
-    # ]
-
-    # interp, compiled = run_both(catl_test, xs)
-
-    # assert interp == compiled
-
-
 def test_compile_sum_inl():
     """Test sum injection left."""
     @Delta.jit
@@ -289,3 +266,26 @@ def test_compile_map_proj1_preserves_output(input_events):
     assert has_type(input_events, TyStar(TyCat(INT_TY, INT_TY)))
 
     interp, compiled = run_both(map_proj1, input_events)
+
+
+@given(events_of_type(TyStar(INT_TY), max_depth=5))
+@settings(max_examples=20)
+def test_compile_concatmap_inj(input_events):
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.concat_map(s,lambda x : delta.cons(x,delta.nil()))
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    interp, compiled = run_both(f, input_events)
+
+@given(events_of_type(TyStar(INT_TY), max_depth=5))
+@settings(max_examples=20)
+def test_compile_concatmap_one_cons(input_events):
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.concat_map(s,lambda x : delta.cons(delta.singleton(1),delta.cons(x,delta.nil())))
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    interp, compiled = run_both(f, input_events)

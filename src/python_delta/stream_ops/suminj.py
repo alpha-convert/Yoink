@@ -39,7 +39,7 @@ class SumInj(StreamOp):
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile tag emission then delegation."""
-        tag_var = ctx.allocate_state(self, 'tag_emitted')
+        tag_var = ctx.state_var(self, 'tag_emitted')
         input_stmts = self.input_stream._compile_stmts(ctx, dst)
 
         tag_class = 'PlusPuncA' if self.position == 0 else 'PlusPuncB'
@@ -70,12 +70,12 @@ class SumInj(StreamOp):
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize tag_emitted to False."""
-        tag_var = ctx.get_state_var(self, 'tag_emitted')
+        tag_var = ctx.state_var(self, 'tag_emitted')
         return [(tag_var.name, False)]
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset tag_emitted to False."""
-        tag_var = ctx.get_state_var(self, 'tag_emitted')
+        tag_var = ctx.state_var(self, 'tag_emitted')
         return [
             ast.Assign(
                 targets=[tag_var.lvalue()],

@@ -135,8 +135,10 @@ class DataflowGraph:
         code = compile(module_ast, '<generated>', 'exec')
 
         # Execute in namespace with event types and DONE
+        from python_delta.event import BaseEvent
         namespace = {
             'DONE': DONE,
+            'BaseEvent': BaseEvent,
             'CatEvA': CatEvA,
             'CatPunc': CatPunc,
             'ParEvA': ParEvA,

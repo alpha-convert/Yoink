@@ -127,20 +127,12 @@ class Delta:
         return s
 
     def cons(self, head, tail):
-        """Cons operation - builds InR(CatR(head, tail)) directly."""
         element_type = self._fresh_type_var()
         star_type = TyStar(element_type)
         head.stream_type.unify_with(element_type)
         tail.stream_type.unify_with(star_type)
 
-        if head.vars.intersection(tail.vars):
-            raise ValueError("Illegal cons, overlapping vars between head and tail")
-
-        self.ordering.add_all_ordered(head.vars, tail.vars)
-
-        cat = CatR(head, tail, TyCat(element_type, star_type))
-        s = SumInj(cat, star_type, position=1)
-        self._register_node(cat)
+        s = SumInj(self.catr(head,tail), star_type, position=1)
         self._register_node(s)
         return s
 

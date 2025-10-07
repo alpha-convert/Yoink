@@ -36,31 +36,46 @@ class SingletonOp(StreamOp):
         self.exhausted = False
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Compile to: if not exhausted: dst = value; exhausted = True else: dst = DONE"""
-        exhausted_var = ctx.get_state_var(self, "exhausted")
-        from python_delta.event import BaseEvent
+        """Emit value once, then DONE."""
+        exhausted_var = ctx.state_var(self, 'exhausted')
 
         return [
             ast.If(
-                test=ast.UnaryOp(op=ast.Not(), operand=exhausted_var.to_ast()),
+                test=exhausted_var.rvalue(),
                 body=[
-                    dst.assign(ast.Call(
-                        func=ast.Name(id='BaseEvent', ctx=ast.Load()),
-                        args=[ast.Constant(value=self.value)],
-                        keywords=[]
-                    )),
-                    exhausted_var.assign(ast.Constant(value=True))
+                    ast.Assign(
+                        targets=[dst.lvalue()],
+                        value=ast.Name(id='DONE', ctx=ast.Load())
+                    )
                 ],
                 orelse=[
-                    dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+                    ast.Assign(
+                        targets=[exhausted_var.lvalue()],
+                        value=ast.Constant(value=True)
+                    ),
+                    ast.Assign(
+                        targets=[dst.lvalue()],
+                        value=ast.Call(
+                            func=ast.Name(id='BaseEvent', ctx=ast.Load()),
+                            args=[ast.Constant(value=self.value)],
+                            keywords=[]
+                        )
+                    )
                 ]
             )
         ]
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
-        exhausted_var = ctx.get_state_var(self, "exhausted")
-        return [(exhausted_var, ast.Constant(value=False))]
+        """Initialize exhausted to False."""
+        exhausted_var = ctx.state_var(self, 'exhausted')
+        return [(exhausted_var.name, False)]
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        exhausted_var = ctx.get_state_var(self, "exhausted")
-        return [exhausted_var.assign(ast.Constant(value=False))]
+        """Reset exhausted to False."""
+        exhausted_var = ctx.state_var(self, 'exhausted')
+        return [
+            ast.Assign(
+                targets=[exhausted_var.lvalue()],
+                value=ast.Constant(value=False)
+            )
+        ]

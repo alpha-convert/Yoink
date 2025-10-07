@@ -111,11 +111,11 @@ class CatProj(StreamOp):
 
         # Allocate state for coordinator (shared between positions)
         if coord_id not in ctx.state_vars:
-            seen_punc_var = ctx.allocate_state(coord, 'seen_punc')
-            input_exhausted_var = ctx.allocate_state(coord, 'input_exhausted')
+            seen_punc_var = ctx.state_var(coord, 'seen_punc')
+            input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
         else:
-            seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
-            input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
+            seen_punc_var = ctx.state_var(coord, 'seen_punc')
+            input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
 
         event_tmp = ctx.allocate_temp()
         input_stmts = coord.input_stream._compile_stmts(ctx, event_tmp)
@@ -302,8 +302,8 @@ class CatProj(StreamOp):
             init_marker = f'coord_init_{coord.id}'
             if init_marker not in ctx.compiled_nodes:
                 ctx.compiled_nodes.add(init_marker)
-                seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
-                input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
+                seen_punc_var = ctx.state_var(coord, 'seen_punc')
+                input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
                 return [
                     (seen_punc_var.name, False),
                     (input_exhausted_var.name, False)
@@ -321,8 +321,8 @@ class CatProj(StreamOp):
         # Only reset if this is the first CatProj we're processing
         # Actually, both CatProj instances will try to reset, which is fine
         # since they reset the same state variables
-        seen_punc_var = ctx.get_state_var(coord, 'seen_punc')
-        input_exhausted_var = ctx.get_state_var(coord, 'input_exhausted')
+        seen_punc_var = ctx.state_var(coord, 'seen_punc')
+        input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
         return [
             ast.Assign(
                 targets=[seen_punc_var.lvalue()],

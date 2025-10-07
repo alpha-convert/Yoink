@@ -48,7 +48,7 @@ class SinkThen(StreamOp):
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         """Compile exhaust-first-then-second logic."""
-        exhausted_var = ctx.allocate_state(self, 'first_exhausted')
+        exhausted_var = ctx.state_var(self, 'first_exhausted')
 
         val_tmp = ctx.allocate_temp()
         s1_stmts = self.input_streams[0]._compile_stmts(ctx, val_tmp)
@@ -87,12 +87,12 @@ class SinkThen(StreamOp):
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize first_exhausted to False."""
-        exhausted_var = ctx.get_state_var(self, 'first_exhausted')
+        exhausted_var = ctx.state_var(self, 'first_exhausted')
         return [(exhausted_var.name, False)]
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset first_exhausted to False."""
-        exhausted_var = ctx.get_state_var(self, 'first_exhausted')
+        exhausted_var = ctx.state_var(self, 'first_exhausted')
         return [
             ast.Assign(
                 targets=[exhausted_var.lvalue()],
