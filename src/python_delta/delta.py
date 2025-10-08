@@ -211,11 +211,12 @@ class Delta:
             self._register_node(coord)
             self._register_node(xs_head)
 
-
-            rest_cat = CatR(xs_head,reset_node,TyCat(input_elt_type,input_star_type))
-            rest = SumInj(rest_cat,input_star_type,position=1)
-            self._register_node(rest_cat)
-            self._register_node(rest)
+            # TODO: turn this into a cons, fix the occurs check bug.
+            # rest_cat = CatR(xs_head,reset_node,TyCat(input_elt_type,input_star_type))
+            # rest = SumInj(rest_cat,input_star_type,position=1)
+            # self._register_node(rest_cat)
+            # self._register_node(rest)
+            rest = self.cons(xs_head,reset_node)
 
             z = CaseOp(xs, ys, rest , input_star_type)
 

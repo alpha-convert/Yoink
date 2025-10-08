@@ -178,8 +178,14 @@ class TypeVar(Type):
         if self.link is not None:
             self.link.unify_with(other)
         else:
-            if isinstance(other, TypeVar) and self.id == other.id:
-                return 
+            if isinstance(other, TypeVar):
+                if other.link is None:
+                    if self.id == other.id:
+                        return
+                    else:
+                        self.link = other
+                else:
+                    self.unify_with(other.link)
             else:
                 other.occurs_var(var=self)
                 self.link = other
