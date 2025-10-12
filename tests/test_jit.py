@@ -67,3 +67,10 @@ def test_jit_composition():
     assert result[0] == CatEvA("hello")
     assert result[1] == CatPunc()
     assert result[2] == "world"
+
+# def test_jit_wait():
+#     @Delta.jit
+#     def wait(delta, x: STRING_TY):
+#         x = delta.wait(x)
+#         delta.singleton(x + 1)
+

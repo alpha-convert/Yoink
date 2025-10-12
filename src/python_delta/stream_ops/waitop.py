@@ -8,18 +8,7 @@ from python_delta.compilation import StateVar
 from python_delta.typecheck.types import TyEps, TyCat, TyPlus, TyStar, Singleton
 from python_delta.event import BaseEvent, CatEvA, CatPunc, PlusPuncA, PlusPuncB
 
-# A WaitBuffer is determined by its type.
-# A waitbuffer of singleton type is just a value of the underlying python class of the singleton type.
-# A waitbuffer of type TyCat(s,t) is a pair of waitbuffers of type s and t
-# A waitbuffer of type TyPlus(s,t) is either a waitbuffer of type s, or a waitbuffer of type t
-# A waitbuffer of type TyEps contains no data.
-
-# Waitbuffers define a functional operation poke_event : (x : s) -> waitbuffer(s) -> waitbuffer(derivative_x s)
-# This should be implemented imperatively -- a waitbuffer also includes a cursor that points to the next base value expected to arrive.
-
 class WaitBuffer:
-    """Abstract base class for wait buffers. Each subclass handles a specific type constructor."""
-
     def __init__(self, stream_type):
         self.stream_type = stream_type
 
@@ -62,8 +51,6 @@ class SingletonWaitBuffer(WaitBuffer):
 
 
 class EpsWaitBuffer(WaitBuffer):
-    """Wait buffer for epsilon type - contains no data."""
-
     def __init__(self, stream_type):
         super().__init__(stream_type)
 
@@ -78,8 +65,6 @@ class EpsWaitBuffer(WaitBuffer):
 
 
 class CatWaitBuffer(WaitBuffer):
-    """Wait buffer for concatenation type - pair of wait buffers."""
-
     def __init__(self, stream_type):
         super().__init__(stream_type)
         self.left_buffer = make_buffer(stream_type.left_type)
@@ -107,8 +92,6 @@ class CatWaitBuffer(WaitBuffer):
 
 
 class PlusWaitBuffer(WaitBuffer):
-    """Wait buffer for sum type - tagged union of wait buffers."""
-
     def __init__(self, stream_type):
         super().__init__(stream_type)
         self.tag = None
@@ -116,11 +99,9 @@ class PlusWaitBuffer(WaitBuffer):
 
     def poke_event(self, event):
         if isinstance(event, PlusPuncA):
-            # Commit to left branch
             self.tag = 'left'
             self.buffer = make_buffer(self.stream_type.left_type)
         elif isinstance(event, PlusPuncB):
-            # Commit to right branch
             self.tag = 'right'
             self.buffer = make_buffer(self.stream_type.right_type)
         else:
@@ -137,8 +118,6 @@ class PlusWaitBuffer(WaitBuffer):
 
 
 class StarWaitBuffer(WaitBuffer):
-    """Wait buffer for star type - list of element buffers."""
-
     def __init__(self, stream_type):
         super().__init__(stream_type)
         self.elements = []

@@ -221,11 +221,42 @@ class Delta:
             return self.starcase(x,lambda _ : self.nil(element_type=result_elt_type), map_cons_case)
 
         return self._reset_block(build_body,result_star_type)
-    
-    # def wait(self,x):
-    #     waitop = WaitOp(x)
-    #     self._register_node(waitop)
-    #     return WaitHandle(waitop)
+
+    def zip_with(self,xs,ys,fn):
+        xs_elt_type = self._fresh_type_var()
+        xs_type = TyStar(xs_elt_type)
+        xs.stream_type.unify_with(xs_type)
+
+        ys_elt_type = self._fresh_type_var()
+        ys_type = TyStar(ys_elt_type)
+        ys.stream_type.unify_with(ys_type)
+
+
+        result_elt_type = self._fresh_type_var()
+        result_star_type = TyStar(result_elt_type)
+
+        def build_body(reset_node):
+            def outer_case_cons(x_head,x_tail):
+                def inner_case_cons(y_head,y_tail):
+                    z_output = fn(x_head,y_head)
+                    z_output.stream_type.unify_with(result_elt_type)
+                    y_sink = SinkThen(y_head,reset_node,result_star_type)
+                    x_sink = SinkThen(x_head,y_sink,result_star_type)
+
+                    self._register_node(x_sink)
+                    self._register_node(y_sink)
+                    return self.cons(z_output,x_sink)
+
+                return self.starcase(ys, lambda _ : self.nil(), inner_case_cons)
+
+            return self.starcase(xs,lambda _ : self.nil(), outer_case_cons)
+
+        return self._reset_block(build_body,result_star_type)
+
+    def wait(self,x):
+        waitop = WaitOp(x)
+        self._register_node(waitop)
+        return WaitHandle(waitop)
     
     @staticmethod
     def jit(func):

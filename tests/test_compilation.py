@@ -289,3 +289,21 @@ def test_compile_concatmap_one_cons(input_events):
     assert has_type(input_events, TyStar(INT_TY))
 
     interp, compiled = run_both(f, input_events)
+
+
+def test_compile_zip_with_catr():
+    """Test zip_with with CatR function - pairs elements together."""
+    @Delta.jit
+    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
+          PlusPuncA()]
+    ys = [PlusPuncB(), CatEvA(BaseEvent(10)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(20)), CatPunc(),
+          PlusPuncA()]
+
+    interp, compiled = run_both(zip_pair, xs, ys)
+    assert interp == compiled
+    assert has_type(interp, TyStar(TyCat(INT_TY, INT_TY)))
