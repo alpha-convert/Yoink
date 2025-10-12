@@ -11,6 +11,7 @@ from python_delta.stream_ops.sinkthen import SinkThen
 from python_delta.stream_ops.resetop import ResetOp
 from python_delta.stream_ops.unsafecast import UnsafeCast
 from python_delta.stream_ops.singletonop import SingletonOp
+from python_delta.stream_ops.waitop import WaitOp, WaitBuffer
 
 __all__ = [
     'DONE',
@@ -28,4 +29,6 @@ __all__ = [
     'ResetOp',
     'UnsafeCast',
     'SingletonOp',
+    'WaitOp',
+    'WaitBuffer',
 ]
