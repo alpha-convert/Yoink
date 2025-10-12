@@ -39,6 +39,8 @@ class Delta:
     def singleton(self, value):
         # TODO: we should have a helper that auto-promotes base type values
         # passed into delta methods...
+        # I.e. if you write delta.catr(3,x), it should do delta.catr(delta.singleton(3),x)
+        # TODO: this should also handle WaitHandles: if you pass it a waithandle, it becomes the 
         s = SingletonOp(value, Singleton(type(value)))
         self._register_node(s)
         return s
@@ -304,7 +306,7 @@ class Delta:
         traced_delta = Delta()
         input_vars = [traced_delta.var(f"arg{i}", ty) for i, ty in enumerate(input_types)]
 
-        graph = DataflowGraph(traced_delta, input_vars, None, func, input_types)
+        graph = DataflowGraph(traced_delta.nodes, input_vars, None, func, input_types)
 
         outputs = func(traced_delta, *input_vars)
 

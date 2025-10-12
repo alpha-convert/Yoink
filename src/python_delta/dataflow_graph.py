@@ -11,16 +11,16 @@ class DataflowGraph:
     A dataflow graph representing a traced stream function that can be executed
     with concrete iterators or composed with other traced functions.
     """
-    def __init__(self, traced_delta, input_vars, outputs, original_func, input_types):
+    def __init__(self, nodes, input_vars, outputs, original_func, input_types):
         """
         Args:
-            traced_delta: The Delta instance containing the traced computation graph
+            nodes: The traced computation graph
             input_vars: List of Var nodes representing function inputs
             outputs: The output StreamOp(s) from the traced function
             original_func: The original untraced function
             input_types: List of input types for the function
         """
-        self.traced_delta = traced_delta
+        self.nodes = nodes
         self.input_vars = input_vars
         self.outputs = outputs
         self.original_func = original_func
@@ -36,8 +36,9 @@ class DataflowGraph:
         if len(args) == 0:
             return self.run(*args)
 
-        # Check if first arg is a Delta instance (tracing context)
-        if isinstance(args[0], type(self.traced_delta)):
+        from python_delta.delta import Delta
+        # Check if first arg is a Delta instance
+        if isinstance(args[0], Delta):
             if len(args) != len(self.input_types) + 1:
                 raise ValueError(f"Expected {len(self.input_types) + 1} arguments (delta + {len(self.input_types)} streams), got {len(args)}")
             return self.original_func(*args)
@@ -58,7 +59,7 @@ class DataflowGraph:
             raise ValueError(f"Expected {len(self.input_vars)} iterators, got {len(iterators)}")
 
         # Reset all nodes to initial state
-        for node in self.traced_delta.nodes:
+        for node in self.nodes:
             node.reset()
 
         # Bind concrete iterators to Var sources
@@ -218,7 +219,7 @@ class DataflowGraph:
         ]
 
         # Add state initializers from all nodes
-        for node in self.traced_delta.nodes:
+        for node in self.nodes:
             for var_name, initial_value in node._get_state_initializers(ctx):
                 body.append(
                     ast.Assign(
@@ -304,7 +305,7 @@ class DataflowGraph:
         """Generate reset method."""
         body = []
 
-        for node in self.traced_delta.nodes:
+        for node in self.nodes:
             body.extend(node._get_reset_stmts(ctx))
 
         if not body:
