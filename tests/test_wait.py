@@ -88,3 +88,28 @@ def test_map_plus_one():
     result = [x for x in list(output) if x is not None]
 
     assert result == [PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncA()]
+
+def test_zip_with_sum():
+    @Delta.jit
+    def zip_fst(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return delta.zip_with(xs, ys, lambda x, y: delta.emit(delta.wait(x) + delta.wait(y)))
+
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
+          PlusPuncA()]
+    ys = [PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
+          PlusPuncA()]
+
+    output = zip_fst(iter(xs), iter(ys))
+    result = [x for x in list(output) if x is not None]
+
+    # Expected: [1, 2, 3]
+    expected = [PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
+                PlusPuncB(), CatEvA(BaseEvent(7)), CatPunc(),
+                PlusPuncB(), CatEvA(BaseEvent(9)), CatPunc(),
+                PlusPuncA()]
+    assert result == expected
+    assert has_type(result, TyStar(INT_TY))
