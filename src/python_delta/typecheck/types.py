@@ -165,13 +165,11 @@ class TypeVar(Type):
         elif self.id == var.id:
             raise OccursCheckFail()
         else:
-            self.level = min(self.level, var.level)
             return False
 
-    # A type variable is either (1) a unique ID and a "level", or (2) a reference to another type.
-    def __init__(self, level):
+    # A type variable is either (1) a unique ID , or (2) a reference to another type.
+    def __init__(self):
         self.id = TypeVar.fresh_unif_id()
-        self.level = level
         self.link = None
 
     def unify_with(self,other):

@@ -7,10 +7,9 @@ class Delta:
     def __init__(self):
         self.ordering = RealizedOrdering()
         self.nodes = set()
-        self.current_level = 1
 
     def _fresh_type_var(self):
-        return TypeVar(self.current_level)
+        return TypeVar()
 
     def _register_node(self, node):
         self.nodes.add(node)
