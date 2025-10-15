@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp
+from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp
 
 class Delta:
     def __init__(self):
@@ -255,9 +255,16 @@ class Delta:
         return self._reset_block(build_body,result_star_type)
 
     def wait(self,x):
+        # TODO: typing. anything before x gets sunk!
         waitop = WaitOp(x)
         self._register_node(waitop)
-        return WaitHandle(waitop)
+        return SourceBuffer(waitop)
+    
+    def emit(self, buffer_op):
+        # TODO typing
+        emit_op = EmitOp(buffer_op)
+        self._register_node(emit_op)
+        return emit_op
     
     @staticmethod
     def jit(func):

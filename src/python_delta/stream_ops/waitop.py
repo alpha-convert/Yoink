@@ -166,7 +166,7 @@ def make_buffer(stream_type):
 class WaitOp(StreamOp):
     """WAIT - waits until an entire value has arrived, buffering it in"""
     def __init__(self, input_stream):
-        super().__init__(TyEps)
+        super().__init__(input_stream.stream_type)
         self.input_stream = input_stream
         self.buffer = make_buffer(input_stream.stream_type)
 

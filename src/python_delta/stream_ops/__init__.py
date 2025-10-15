@@ -12,6 +12,8 @@ from python_delta.stream_ops.resetop import ResetOp
 from python_delta.stream_ops.unsafecast import UnsafeCast
 from python_delta.stream_ops.singletonop import SingletonOp
 from python_delta.stream_ops.waitop import WaitOp, WaitBuffer
+from python_delta.stream_ops.bufferop import BufferOp, SourceBuffer
+from python_delta.stream_ops.emitop import EmitOp
 
 __all__ = [
     'DONE',
@@ -31,4 +33,7 @@ __all__ = [
     'SingletonOp',
     'WaitOp',
     'WaitBuffer',
+    'BufferOp',
+    'SourceBuffer',
+    'EmitOp',
 ]
