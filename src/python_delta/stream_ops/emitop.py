@@ -85,43 +85,31 @@ class EmitOp(StreamOp):
             # set.union([source.vars() for source in self.sources])
 
     def _pull(self):
-        # Phase 1: Pull on sources one at a time
         if self.phase == 'PULLING':
-            # Check if we've pulled all sources
             if self.source_index >= len(self.sources):
-                # All sources complete, move to serialization phase
                 self.phase = 'SERIALIZING'
-                return None  # Continue to next phase on next pull
+                return None
 
-            # Pull from current source
             current_source = self.sources[self.source_index]
 
             if current_source.buffer.is_complete():
-                # This source is done, move to next source
                 self.source_index += 1
                 return None
 
-            # Pull one event from current source
             v = current_source._pull()
             if v is DONE:
-                # Source exhausted, move to next source
                 self.source_index += 1
-            return None  # Don't emit anything yet
+            return None
 
-        # Phase 2: Serialize - evaluate BufferOp and convert to events
         elif self.phase == 'SERIALIZING':
-            # Evaluate the BufferOp to get the Python value
             value = self.buffer_op.eval()
 
-            # Convert value to event sequence (serialize)
             self.event_buffer = value_to_events(value, self.stream_type)
             self.emit_index = 0
 
-            # Move to emitting phase
             self.phase = 'EMITTING'
-            return None  # Serialization complete, emit on next pull
+            return None
 
-        # Phase 3: Emit events one at a time
         elif self.phase == 'EMITTING':
             if self.emit_index < len(self.event_buffer):
                 event = self.event_buffer[self.emit_index]
