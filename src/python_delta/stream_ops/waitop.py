@@ -5,7 +5,7 @@ import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.compilation import StateVar
-from python_delta.typecheck.types import TyEps, TyCat, TyPlus, TyStar, Singleton
+from python_delta.typecheck.types import TyEps, TyCat, TyPlus, TyStar, Singleton, TypeVar
 from python_delta.event import BaseEvent, CatEvA, CatPunc, PlusPuncA, PlusPuncB
 
 class WaitBuffer:
@@ -149,6 +149,9 @@ class StarWaitBuffer(WaitBuffer):
 
 
 def make_buffer(stream_type):
+    if isinstance(stream_type, TypeVar):
+        assert stream_type.link is not None
+        return make_buffer(stream_type.link)
     if isinstance(stream_type, Singleton):
         return SingletonWaitBuffer(stream_type)
     elif isinstance(stream_type, TyCat):

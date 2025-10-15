@@ -16,7 +16,11 @@ def value_to_events(value, stream_type):
     Returns:
         List of events
     """
-    if isinstance(stream_type, TyEps):
+    if isinstance(stream_type, TypeVar):
+        assert stream_type.link is not None
+        return value_to_events(value,stream_type.link)
+
+    elif isinstance(stream_type, TyEps):
         return []
 
     elif isinstance(stream_type, Singleton):
@@ -71,6 +75,14 @@ class EmitOp(StreamOp):
         self.source_index = 0   # Which source we're currently pulling
         self.event_buffer = None  # Events to emit in phase 3
         self.emit_index = 0     # Which event to emit next
+    
+    @property
+    def vars(self):
+        if self.sources is None:
+            return set()
+        else:
+            return set()
+            # set.union([source.vars() for source in self.sources])
 
     def _pull(self):
         # Phase 1: Pull on sources one at a time

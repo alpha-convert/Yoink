@@ -76,3 +76,15 @@ def test_wait_emit_int_plus():
     result = [x for x in list(output) if x is not None]
 
     assert result == [BaseEvent(3)]
+
+def test_map_plus_one():
+    @Delta.jit
+    def f(delta, xs: TyStar(INT_TY)):
+        return delta.map(xs,lambda x : delta.emit(delta.wait(x) + 1))
+
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
+
+    output = f(iter(xs))
+    result = [x for x in list(output) if x is not None]
+
+    assert result == [PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncA()]
