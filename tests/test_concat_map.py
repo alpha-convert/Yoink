@@ -74,10 +74,7 @@ def test_map_proj1_preserves_types(input_events):
         return delta.concat_map(s,lambda x : delta.cons(delta.singleton(1),delta.cons(x,delta.nil())))
 
     assert has_type(input_events,input_type)
-    # Run the function with generated input
     output = f(iter(input_events))
     result = [x for x in list(output) if x is not None]
 
-    # Check that output has the expected type
     assert has_type(result, input_type), f"Output does not have type {input_type}"
-

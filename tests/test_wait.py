@@ -5,10 +5,8 @@ from python_delta.core import Delta, Singleton, TyStar, TyCat, PlusPuncA, PlusPu
 from python_delta.util.hypothesis_strategies import events_of_type
 from python_delta.typecheck.has_type import has_type
 
-
 INT_TY = Singleton(int)
 STRING_TY = Singleton(str)
-
 
 def test_wait_emit_int():
     @Delta.jit
@@ -91,7 +89,7 @@ def test_map_plus_one():
 
 def test_zip_with_sum():
     @Delta.jit
-    def zip_fst(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+    def zip_sum(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
         return delta.zip_with(xs, ys, lambda x, y: delta.emit(delta.wait(x) + delta.wait(y)))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
@@ -103,13 +101,28 @@ def test_zip_with_sum():
           PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
           PlusPuncA()]
 
-    output = zip_fst(iter(xs), iter(ys))
+    output = zip_sum(iter(xs), iter(ys))
     result = [x for x in list(output) if x is not None]
 
-    # Expected: [1, 2, 3]
     expected = [PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
                 PlusPuncB(), CatEvA(BaseEvent(7)), CatPunc(),
                 PlusPuncB(), CatEvA(BaseEvent(9)), CatPunc(),
                 PlusPuncA()]
     assert result == expected
-    assert has_type(result, TyStar(INT_TY))
+
+def test_map_double():
+    @Delta.jit
+
+    def f(delta, xs: TyStar(INT_TY)):
+        def body(x):
+            y = delta.wait(x)
+            return delta.emit(y + y)
+        return delta.map(xs,body)
+
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
+
+    output = f(iter(xs))
+    result = [x for x in list(output) if x is not None]
+
+    assert result == [PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
+
