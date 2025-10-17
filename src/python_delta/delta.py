@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp
+from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp, CondOp
 
 class Delta:
     def __init__(self):
@@ -106,7 +106,7 @@ class Delta:
         x_left = UnsafeCast(x,left_type)
         x_right = UnsafeCast(x,right_type)
 
-        # TODO jcutler: does this do all of the order-checking requried here? Unclear...
+        # TODO jcutler: Check orders here. we need to ensure that x does not come after left-output or right-output.
         left_output = left_fn(x_left)
         right_output = right_fn(x_right)
 
@@ -171,6 +171,16 @@ class Delta:
         output_type = nil_output.stream_type
 
         z = CaseOp(x, nil_output, cons_output, output_type)
+        self._register_node(z)
+
+        return z
+    
+    def cond(self, b, left, right):
+        # TODO jcutler: Check orders here. we need to ensure that b does not come after left or right.
+        b.stream_type.unify_with(Singleton(bool))
+        left.stream_type.unify_with(right.stream_type)
+        output_type = left.stream_type
+        z = CondOp(b, left, right, output_type)
         self._register_node(z)
 
         return z
@@ -265,6 +275,36 @@ class Delta:
         emit_op = EmitOp(buffer_op)
         self._register_node(emit_op)
         return emit_op
+
+    def splitZ(self,xs):
+        xs_type = TyStar(Singleton(int))
+        xs.stream_type.unify_with(xs_type)
+
+        def build_body(reset_node):
+            def nil_case(_):
+                return self.catr(self.nil(element_type=Singleton(int)),self.nil(element_type=Singleton(int)))
+            def cons_case(x,_):
+                y = self.wait(x)
+                eqz = y == 0
+                emity = self.emit(y)
+                isz = self.emit(eqz)
+                # TODO ensure typing of cond makes cond come before the
+                sing_x = self.cons(emity,self.nil(element_type=Singleton(int)))
+                sing_x_catr_xs = self.catr(sing_x,xs)
+
+                sink_then_reset = SinkThen(x,reset_node,reset_node.stream_type)
+
+                self._register_node(sink_then_reset)
+
+                ys,zs = self.catl(sink_then_reset)
+                x_cons_ys = self.cons(emity,ys)
+                x_cons_ys_catr_zs = self.catr(x_cons_ys,zs)
+
+                return self.cond(isz,sing_x_catr_xs,x_cons_ys_catr_zs)
+
+            return self.starcase(xs,nil_case, cons_case)
+
+        return self._reset_block(build_body,TyCat(xs_type,xs_type))
     
     @staticmethod
     def jit(func):

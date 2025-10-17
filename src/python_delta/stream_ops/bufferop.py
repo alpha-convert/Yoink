@@ -10,6 +10,7 @@ class BufferOp:
     Each BufferOp tracks its source WaitOps so that when you "pull" on it,
     it can pull on all sources until they're complete before evaluating.
     """
+    # TODO: should probalby be a way to  go from a bufferop to the slice of the graph that it must sink. this way we can typecheck them more reasonably!
     def __init__(self, stream_type):
         self.stream_type = stream_type
 
@@ -22,15 +23,17 @@ class BufferOp:
     def __add__(self, other):
         if not isinstance(other, BufferOp):
             other = ConstantOp(other, Singleton(type(other)))
-
-        self.stream_type.unify_with(other.stream_type)
         return BinaryOp(self, '+', other)
 
     def __radd__(self, other):
         if not isinstance(other, BufferOp):
             other = ConstantOp(other, Singleton(type(other)))
-        self.stream_type.unify_with(other.stream_type)
         return BinaryOp(other, '+', self)
+
+    def __eq__(self, other):
+        if not isinstance(other, BufferOp):
+            other = ConstantOp(other, Singleton(type(other)))
+        return ComparisonOp(self, '==', other)
 
 class ConstantOp(BufferOp):
     """Wraps a constant Python value as a BufferOp."""
@@ -60,12 +63,12 @@ class SourceBuffer(BufferOp):
 
     def eval(self):
         """Read the buffered value from the WaitOp's buffer."""
+        assert self.wait_op.buffer.is_complete()
         return self.wait_op.buffer.get_value()
 
 class BinaryOp(BufferOp):
     """Binary arithmetic operation on Singleton."""
     def __init__(self, left, op, right):
-        left.stream_type.unify_with(right.stream_type)
         super().__init__(left.stream_type)
         self.left = left
         self.op = op
@@ -120,9 +123,13 @@ class UnaryOp(BufferOp):
 class ComparisonOp(BufferOp):
     """Comparison operation on Singleton."""
     def __init__(self, parent_op, operator, operand):
+        super().__init__(Singleton(bool))
         self.parent_op = parent_op
         self.operator = operator  # '<', '<=', '>', '>=', '==', '!='
         self.operand = operand  # Can be a constant or another BufferOp
+
+    def get_sources(self):
+        return self.parent_op.get_sources() | self.operand.get_sources()
 
     def eval(self):
         """Evaluate parent, operand, and apply comparison."""

@@ -14,6 +14,7 @@ from python_delta.stream_ops.singletonop import SingletonOp
 from python_delta.stream_ops.waitop import WaitOp, WaitBuffer
 from python_delta.stream_ops.bufferop import BufferOp, SourceBuffer
 from python_delta.stream_ops.emitop import EmitOp
+from python_delta.stream_ops.condop import CondOp
 
 __all__ = [
     'DONE',
@@ -36,4 +37,5 @@ __all__ = [
     'BufferOp',
     'SourceBuffer',
     'EmitOp',
+    'CondOp',
 ]
