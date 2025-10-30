@@ -78,11 +78,7 @@ class EmitOp(StreamOp):
     
     @property
     def vars(self):
-        if self.sources is None:
-            return set()
-        else:
-            return set()
-            # set.union([source.vars() for source in self.sources])
+        return set().union(*[source.vars for source in self.sources])
 
     def _pull(self):
         if self.phase == 'PULLING':

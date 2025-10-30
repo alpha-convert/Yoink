@@ -282,7 +282,7 @@ class Delta:
         self._register_node(emit_op)
         return emit_op
 
-    # OK. What does this mean?  SplitZ is fundementally different from al the
+    # OK. What does this mean?  SplitZ is fundementally different from all the
     # other streaming combinators, since it returns *two streams* that share the
     # same state, essentially.  This comes with a requirement --- you cannot use
     # the two substreams out of order, otherwise it fucks up the state handling.
