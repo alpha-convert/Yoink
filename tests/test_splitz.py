@@ -38,10 +38,34 @@ def test_splitz_cons_all_nonz():
         CatPunc(),
         PlusPuncA()
     ]
-    assert result[0] == expected_result[0]
-    assert result[1] == expected_result[1]
     assert result == expected_result
 
+def test_splitz_cons_onez():
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.splitZ(s)
+
+    input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(3)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
+             PlusPuncA()
+             ]
+    output = f(iter(input))
+    result = [x for x in list(output) if x is not None]
+    expected_result = [
+        CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(1))),CatEvA(CatPunc()),
+        CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(2))),CatEvA(CatPunc()),
+        CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(3))),CatEvA(CatPunc()),
+        CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncB(), CatEvA(BaseEvent(5)),CatPunc(),
+        PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
+        PlusPuncA()
+    ]
+    assert result == expected_result
 
 
 # def test_concatmap_nil_cons():

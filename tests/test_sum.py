@@ -1,5 +1,5 @@
 import pytest
-from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB
+from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat
 
 
 STRING_TY = Singleton(str)
@@ -102,3 +102,16 @@ def test_case_with_operations():
     assert result_left[2] == CatEvA("w")
     assert result_left[3] == CatPunc()
     assert result_left[4:] == ["a", "b"]
+
+def test_case_ordering_check():
+    """Test case analysis takes left branch on PlusPuncA."""
+    with pytest.raises(Exception):
+        @Delta.jit
+        def f(delta, x: TyCat(STRING_TY,TyPlus(STRING_TY,STRING_TY))):
+            u,v = delta.catl(x)
+            return delta.case(
+                v,
+                lambda left: u,
+                lambda right: u 
+            )
+
