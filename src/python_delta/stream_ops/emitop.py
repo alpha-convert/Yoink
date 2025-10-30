@@ -129,3 +129,7 @@ class EmitOp(StreamOp):
         # Also need to reset all source WaitOps
         for waitop in self.sources:
             waitop.reset()
+
+    @property
+    def id(self):
+        return hash(("EmitOp", hash(tuple(self.sources))))

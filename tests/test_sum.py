@@ -1,5 +1,5 @@
 import pytest
-from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat
+from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat,BaseEvent
 
 
 STRING_TY = Singleton(str)
@@ -115,3 +115,26 @@ def test_case_ordering_check():
                 lambda right: u 
             )
 
+
+
+def test_case_eta():
+    """Test case analysis with operations in each branch."""
+    @Delta.jit
+    def f(delta, x: TyPlus(STRING_TY, STRING_TY)):
+        return delta.case(
+            x,
+            lambda left: delta.inl(left),
+            lambda right: delta.inr(right)
+        )
+
+    # Test left branch
+    input_left = [PlusPuncA(), BaseEvent("a")]
+    output_left = f(iter(input_left))
+    result = [x for x in list(output_left) if x is not None]
+    assert result == input_left
+
+    # Test right branch
+    input_right = [PlusPuncB(), BaseEvent("a")]
+    output_right = f(iter(input_right))
+    result = [x for x in list(output_right) if x is not None]
+    assert result == input_right

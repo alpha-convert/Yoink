@@ -1,5 +1,5 @@
 import pytest
-from python_delta.core import Delta, Singleton, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc
+from python_delta.core import Delta, Singleton, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
 
 
 STRING_TY = Singleton(str)
@@ -89,3 +89,19 @@ def test_starcase_cons():
     output = f(iter([PlusPuncB(),CatEvA("World"),CatPunc(),PlusPuncA()]),iter(["Hi"]))
     result = [x for x in list(output) if x is not None]
     assert result[0] == "World"
+
+def test_starcase_eta():
+    @Delta.jit
+    def f(delta, xs: TyStar(INT_TY)):
+        def nil_case(_):
+            return delta.nil()
+        def cons_case(x,ys):
+            return delta.cons(x,ys)
+        return delta.starcase(xs,nil_case,cons_case)
+
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
+
+    output = f(iter(xs))
+    result = [x for x in list(output) if x is not None]
+
+    assert result == [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]

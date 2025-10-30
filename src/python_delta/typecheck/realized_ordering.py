@@ -21,6 +21,13 @@ class RealizedOrdering:
             print(self.required)
             print(self.forbidden)
             raise ValueError(f"Inconsistent constraints: edges both required and forbidden: {conflicting}")
+    
+    def add_forbidden(self,x,y):
+        """
+        Add a forbidding constraint: x cannot come before y.
+        """
+        self.forbidden.add_edge(x, y)
+        self.check_consistency()
 
     def add_ordered(self, x, y):
         """

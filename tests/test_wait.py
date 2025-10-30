@@ -126,3 +126,62 @@ def test_map_double():
 
     assert result == [PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
 
+def test_wait_emit_cat_parallel_inps():
+    @Delta.jit
+    def f(delta, x: INT_TY, y : INT_TY):
+        z = delta.wait(x)
+        return delta.catr(delta.emit(z + 2),y)
+
+    x = [BaseEvent(0)]
+    y = [BaseEvent(1)]
+
+    output = f(iter(x),iter(y))
+    result = [x for x in list(output) if x is not None]
+
+    assert result == [CatEvA(BaseEvent(2)), CatPunc(), BaseEvent(1)]
+
+
+# TODO: test backwards inputs! ensure that fails
+def test_wait_emit_cat_cat_inps():
+    @Delta.jit
+    def f(delta, xy: TyCat(INT_TY,INT_TY)):
+        x,y = delta.catl(xy)
+        z = delta.wait(x)
+        return delta.catr(delta.emit(z + 2),y)
+
+    xy = [CatEvA(BaseEvent(0)),CatPunc(), BaseEvent(1)]
+
+    output = f(iter(xy))
+    result = [x for x in list(output) if x is not None]
+
+    assert result == [CatEvA(BaseEvent(2)), CatPunc(), BaseEvent(1)]
+
+
+# TODO: this should fail!
+def test_wait_emit_cat_cat_inps_backwards():
+    with pytest.raises(Exception):
+        @Delta.jit
+        def f(delta, xy: TyCat(INT_TY,INT_TY)):
+            x,y = delta.catl(xy)
+            z = delta.wait(y)
+            return delta.catr(delta.emit(z + 2),x)
+
+
+
+def test_wait_head():
+    @Delta.jit
+    def f(delta, xs: TyStar(INT_TY), b : INT_TY):
+        def nil_case(_):
+            return delta.catr(b,delta.nil())
+        def cons_case(x,xs):
+            y = delta.wait(x)
+            return delta.catr(delta.emit(y),xs)
+        return delta.starcase(xs,nil_case,cons_case)
+
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
+    b = [BaseEvent(0)]
+
+    output = f(iter(xs),iter(b))
+    result = [x for x in list(output) if x is not None]
+
+    assert result == [CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]

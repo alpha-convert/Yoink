@@ -48,5 +48,5 @@ class PartialOrder:
     def __str__(self):
         if not self.edges:
             return "PartialOrder({})"
-        edges_str = ", ".join(f"{self._format_node(x)} < {self._format_node(y)}" for x, y in sorted(self.edges))
-        return f"PartialOrder({{{edges_str}}})"
+        edges_str = ", ".join(f"{self._format_node(x)} < {self._format_node(y)}" for x, y in self.edges)
+        return f"PartialOrder({edges_str})"

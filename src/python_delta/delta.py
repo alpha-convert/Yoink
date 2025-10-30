@@ -12,6 +12,7 @@ class Delta:
         return TypeVar()
 
     def _register_node(self, node):
+        self.ordering.metadata[node.id] = str(node)
         self.nodes.add(node)
 
     def _reset_block(self,f,ty):
@@ -105,10 +106,21 @@ class Delta:
         # the correct path.
         x_left = UnsafeCast(x,left_type)
         x_right = UnsafeCast(x,right_type)
+        self._register_node(x_left)
+        self._register_node(x_right)
+        self.ordering.add_in_place_of(x_left.id, x.vars)
+        self.ordering.add_in_place_of(x_right.id, x.vars)
 
-        # TODO jcutler: Check orders here. we need to ensure that x does not come after left-output or right-output.
         left_output = left_fn(x_left)
         right_output = right_fn(x_right)
+        self._register_node(left_output)
+        self._register_node(right_output)
+
+        # TODO: need to ensure that the outputs don't overlap except for the bit?
+        self.ordering.add_forbidden(left_output.id,x.id)
+        self.ordering.add_forbidden(right_output.id,x.id)
+
+        print(self.ordering)
 
         left_output.stream_type.unify_with(right_output.stream_type)
 
@@ -141,30 +153,18 @@ class Delta:
         """Star case analysis - builds CaseOp directly for TyStar."""
         element_type = self._fresh_type_var()
         star_type = TyStar(element_type)
-
         x.stream_type.unify_with(star_type)
-        # print(x.stream_type)
-        # print(star_type)
-
         x_nil = UnsafeCast(x,TyEps())
         x_cons = UnsafeCast(x,TyCat(element_type, star_type))
+        self._register_node(x_nil)
+        self._register_node(x_cons)
 
-        coord = CatProjCoordinator(x_cons, TyCat(element_type, star_type))
-        self._register_node(coord)
+        head,tail = self.catl(x_cons)
 
-        head = CatProj(coord, element_type, 0)
-        tail = CatProj(coord, star_type, 1)
-
-        self.ordering.add_ordered(head.id, tail.id)
-
-        self.ordering.add_in_place_of(head.id, x.vars)
-        self.ordering.add_in_place_of(tail.id, x.vars)
-
-        self._register_node(head)
-        self._register_node(tail)
-
-        nil_output : StreamOp = nil_fn(x_nil)
-        cons_output : StreamOp = cons_fn(head, tail)
+        nil_output = nil_fn(x_nil)
+        cons_output = cons_fn(head, tail)
+        self._register_node(nil_output)
+        self._register_node(cons_output)
 
         nil_output.stream_type.unify_with(other=cons_output.stream_type)
 
@@ -176,10 +176,13 @@ class Delta:
         return z
     
     def cond(self, b, left, right):
-        # TODO jcutler: Check orders here. we need to ensure that b does not come after left or right.
         b.stream_type.unify_with(Singleton(bool))
         left.stream_type.unify_with(right.stream_type)
         output_type = left.stream_type
+
+        self.ordering.add_forbidden(left.id,b.id)
+        self.ordering.add_forbidden(right.id,b.id)
+
         z = CondOp(b, left, right, output_type)
         self._register_node(z)
 
@@ -283,14 +286,13 @@ class Delta:
         def build_body(reset_node):
             def nil_case(_):
                 return self.catr(self.nil(element_type=Singleton(int)),self.nil(element_type=Singleton(int)))
-            def cons_case(x,_):
+            def cons_case(x,xs):
                 y = self.wait(x)
                 eqz = y == 0
                 emity = self.emit(y)
                 isz = self.emit(eqz)
-                # TODO ensure typing of cond makes cond come before the
-                sing_x = self.cons(emity,self.nil(element_type=Singleton(int)))
-                sing_x_catr_xs = self.catr(sing_x,xs)
+                # sing_x = self.cons(emity,self.nil(element_type=Singleton(int)))
+                nil_catr_xs = self.catr(self.nil(element_type=Singleton(int)),xs)
 
                 sink_then_reset = SinkThen(x,reset_node,reset_node.stream_type)
 
@@ -300,7 +302,7 @@ class Delta:
                 x_cons_ys = self.cons(emity,ys)
                 x_cons_ys_catr_zs = self.catr(x_cons_ys,zs)
 
-                return self.cond(isz,sing_x_catr_xs,x_cons_ys_catr_zs)
+                return self.cond(isz,nil_catr_xs,x_cons_ys_catr_zs)
 
             return self.starcase(xs,nil_case, cons_case)
 
