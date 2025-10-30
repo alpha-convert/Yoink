@@ -45,7 +45,6 @@ class CatProjCoordinator(StreamOp):
             return DONE
 
         if position == 0:
-            # Position 0: return CatEvA values, stop at CatPunc
             if isinstance(event, CatEvA):
                 return event.value
             elif isinstance(event, CatPunc):
@@ -54,19 +53,21 @@ class CatProjCoordinator(StreamOp):
             elif event is None:
                 return None
             else:
-                # Shouldn't happen in position 0 before punc
                 return None
         else:
-            # Position 1: skip CatEvA events and CatPunc, return tail events
-            if isinstance(event, CatEvA):
-                return None  # Skip wrapped events
-            elif isinstance(event, CatPunc):
-                self.seen_punc = True
-                return None  # Skip the punc itself
-            elif event is None:
-                return None
+            # Position 1: skip CatEvA and CatPunc before punc is seen, pass through all tail events after
+            if not self.seen_punc:
+                # Before punc: skip head events
+                if isinstance(event, CatEvA):
+                    return None
+                elif isinstance(event, CatPunc):
+                    self.seen_punc = True
+                    return None  # Skip the separator punc itself
+                elif event is None:
+                    return None
+                else:
+                    return None
             else:
-                # After CatPunc, return unwrapped tail events
                 return event
 
     def _pull(self):

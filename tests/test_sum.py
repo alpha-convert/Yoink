@@ -1,5 +1,5 @@
 import pytest
-from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat,BaseEvent
+from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat,BaseEvent, CatEvA, TyEps, CatPunc
 
 
 STRING_TY = Singleton(str)
@@ -135,6 +135,25 @@ def test_case_eta():
 
     # Test right branch
     input_right = [PlusPuncB(), BaseEvent("a")]
+    output_right = f(iter(input_right))
+    result = [x for x in list(output_right) if x is not None]
+    assert result == input_right
+
+
+# Emulate starcase with pluscase
+def test_case_eta_staremu():
+    @Delta.jit
+    def f(delta, x: TyPlus(TyEps(), TyCat(STRING_TY,STRING_TY))):
+        def body(right):
+            l,r = delta.catl(right)
+            return delta.inr(delta.catr(l,r))
+        return delta.case(
+            x,
+            lambda left: delta.inl(left),
+            body
+        )
+
+    input_right = [PlusPuncB(), CatEvA(BaseEvent("a")), CatPunc(), BaseEvent("b"), PlusPuncA()]
     output_right = f(iter(input_right))
     result = [x for x in list(output_right) if x is not None]
     assert result == input_right
