@@ -289,6 +289,30 @@ class Delta:
     # So the type system ensures you use the streams in order!  If we were to do
     # this in a normal fused streaming library, it would require duplicating the
     # state.
+
+    # Ok, so say you want a streaming combinator lib that lets you share state.
+    # Take,Drop -> gives you separete streams that you can pull from.
+    # then if you concat them (take;drop) you get some thing that dups the inputs.
+    # Doesn't handle its inputs imperatively.
+
+    # Kovacs's fused stream library doesn't let you concat, essentially to guarantee this problem doesn't occur.
+    # https://github.com/AndrasKovacs/staged-fusion/blob/main/Pull.hs
+    # It only lets you write affine functions, so you can't write
+
+    # FROM CLAUDE:
+    # Java Streams: One-shot consumption. Once you start a terminal operation, the stream is consumed. Trying to reuse throws IllegalStateException. You can't even express your concat(s2, s1) example—once s2 starts consuming, s is dead.
+    # Rust iterators: Ownership system prevents aliasing! When you pass an iterator to take or drop, it's moved (consumed). You can't use the original s again. If you want multiple views, you need .clone() (when supported), which creates independent state.
+
+    # THere's just this aliasing with mutable state problem. You don't want to duplicate the stream state!
+
+    # Ok. Here's the dissertation.
+    # 1. Delta (ordered types for stream procesing)
+    # 2. Using ordered types for safe imperative stream fusion.
+
+    # We can shift our perspective: "arrives before" becomes "depends on the bit of state before"
+
+
+
     def splitZ(self,xs):
         xs_type = TyStar(Singleton(int))
         xs.stream_type.unify_with(xs_type)
@@ -335,16 +359,15 @@ class Delta:
                 self._register_node(rec_ys)
 
                 # TODO: need a way of ensuring that people odn't try to use "y" here, it needs to be pulled out of th econtext zfter you wait on it. you need to use "emit(w)" anywhere else.
-                # NOTE: the problem here is that splitZ is eating the CatEvA() of ys, and so when we circle back to handle it
+                # NOTE: the problem here is that splitZ is eating the PlusPluncA() of ys, and so when we circle back to handle it
                 # in teh top of build_body, it's all gone. Really we need to recurse on rest! Because this is only sort of a tailcall...
                 # TODO: figure out of this is only an issue with the final PlusPuncA(), or if it's an issue with all of them.
+
+                # NOTE: we can write this "correctly" 
                 run,rest = self.catl(self.splitZ(ys))
                 y_run = self.cons(emitw,run)
 
-                rec_rest = SinkThen(run,reset_node,reset_node.stream_type)
-                self._register_node(rec_rest)
-
-                y_run_rec_rest = self.cons(y_run,rec_rest)
+                y_run_rec_rest = self.cons(y_run,reset_node)
 
                 return self.cond(isz,rec_ys,y_run_rec_rest)
 
