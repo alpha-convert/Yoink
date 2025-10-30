@@ -99,3 +99,25 @@ def test_map_proj2_preserves_types(input_events):
     # Check that output has the expected type
     assert has_type(result, output_type), f"Output does not have type {output_type}"
 
+
+@given(events_of_type(TyStar(TyStar(TyCat(INT_TY, INT_TY))), max_depth=5))
+def test_map_map_proj1_preserves_types(input_events):
+    output_type = TyStar(TyStar(INT_TY))
+    input_type = TyStar(TyStar(TyCat(INT_TY, INT_TY)))
+    @Delta.jit
+    def f(delta, s: input_type):
+        def proj1(z):
+            (x, _) = delta.catl(z)
+            return x
+        def map_proj1(inner_list):
+            return delta.map(inner_list, proj1)
+        return delta.map(s, map_proj1)
+
+    assert has_type(input_events, input_type)
+    # Run the function with generated input
+    output = f(iter(input_events))
+    result = [x for x in list(output) if x is not None]
+
+    # Check that output has the expected type
+    assert has_type(result, output_type), f"Output does not have type {output_type}"
+

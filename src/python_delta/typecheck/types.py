@@ -3,6 +3,9 @@ class UnificationError(Exception):
         self.ty1 = ty1
         self.ty2 = ty2
 
+    def __str__(self):
+        return f"UnificationError({self.ty1},{self.ty2})"
+
 class OccursCheckFail(Exception):
     def __init__(self):
         pass
@@ -152,7 +155,7 @@ class TypeVar(Type):
         if self.link is None:
             return f"TypeVar({self.id})"
         else:
-            return f"TypeVar(link={self.link})"
+            return str(self.link)
 
     @staticmethod
     def fresh_unif_id():

@@ -10,7 +10,6 @@ from python_delta.compilation import StateVar
 
 
 class ResetOp(StreamOp):
-    """Case analysis on sum types - routes based on PlusPuncA/PlusPuncB tag."""
     def __init__(self, reset_set, stream_type):
         super().__init__(stream_type)
         self.reset_set = reset_set
@@ -26,6 +25,7 @@ class ResetOp(StreamOp):
     def _pull(self):
         for node in self.reset_set:
             node.reset()
+        print("Reset!")
         return None
 
     def reset(self):

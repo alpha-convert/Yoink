@@ -157,7 +157,6 @@ def test_wait_emit_cat_cat_inps():
     assert result == [CatEvA(BaseEvent(2)), CatPunc(), BaseEvent(1)]
 
 
-# TODO: this should fail!
 def test_wait_emit_cat_cat_inps_backwards():
     with pytest.raises(Exception):
         @Delta.jit

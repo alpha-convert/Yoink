@@ -30,6 +30,7 @@ class CaseOp(StreamOp):
     def _pull(self):
         """Read tag and route to appropriate branch."""
         if not self.tag_read:
+            print("Scrutinizing case pull")
             tag = self.input_stream._pull()
             if tag is None:
                 return None
@@ -38,6 +39,7 @@ class CaseOp(StreamOp):
             self.tag_read = True
 
             if isinstance(tag, PlusPuncA):
+                print("Got PPA in case")
                 self.active_branch = 0
             elif isinstance(tag, PlusPuncB):
                 self.active_branch = 1

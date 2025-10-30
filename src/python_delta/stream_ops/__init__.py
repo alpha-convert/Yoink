@@ -15,6 +15,7 @@ from python_delta.stream_ops.waitop import WaitOp, WaitBuffer
 from python_delta.stream_ops.bufferop import BufferOp, SourceBuffer, ConstantOp
 from python_delta.stream_ops.emitop import EmitOp
 from python_delta.stream_ops.condop import CondOp
+from python_delta.stream_ops.muxop import MuxOp
 
 __all__ = [
     'DONE',
@@ -39,4 +40,5 @@ __all__ = [
     'SourceBuffer',
     'EmitOp',
     'CondOp',
+    'MuxOp',
 ]
