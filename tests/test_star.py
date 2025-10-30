@@ -90,13 +90,14 @@ def test_starcase_cons():
     result = [x for x in list(output) if x is not None]
     assert result[0] == "World"
 
+
 def test_starcase_eta():
     @Delta.jit
     def f(delta, xs: TyStar(INT_TY)):
         def nil_case(_):
             return delta.nil()
-        def cons_case(x,ys):
-            return delta.cons(x,ys)
+        def cons_case(y,ys):
+            return delta.cons(y,ys)
         return delta.starcase(xs,nil_case,cons_case)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]

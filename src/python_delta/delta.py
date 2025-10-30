@@ -166,6 +166,9 @@ class Delta:
         self._register_node(nil_output)
         self._register_node(cons_output)
 
+        self.ordering.add_forbidden(nil_output.id,x.id)
+        self.ordering.add_forbidden(cons_output.id,x.id)
+
         nil_output.stream_type.unify_with(other=cons_output.stream_type)
 
         output_type = nil_output.stream_type
