@@ -282,6 +282,13 @@ class Delta:
         self._register_node(emit_op)
         return emit_op
 
+    # OK. What does this mean?  SplitZ is fundementally different from al the
+    # other streaming combinators, since it returns *two streams* that share the
+    # same state, essentially.  This comes with a requirement --- you cannot use
+    # the two substreams out of order, otherwise it fucks up the state handling.
+    # So the type system ensures you use the streams in order!  If we were to do
+    # this in a normal fused streaming library, it would require duplicating the
+    # state.
     def splitZ(self,xs):
         xs_type = TyStar(Singleton(int))
         xs.stream_type.unify_with(xs_type)
