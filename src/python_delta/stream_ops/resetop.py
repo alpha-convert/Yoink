@@ -25,7 +25,6 @@ class ResetOp(StreamOp):
     def _pull(self):
         for node in self.reset_set:
             node.reset()
-        print("Reset!")
         return None
 
     def reset(self):

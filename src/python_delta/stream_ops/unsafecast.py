@@ -31,5 +31,4 @@ class UnsafeCast(StreamOp):
         pass
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Passthrough - just compile child to same destination."""
         return self.input_stream._compile_stmts(ctx, dst)

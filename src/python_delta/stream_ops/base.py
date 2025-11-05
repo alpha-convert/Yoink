@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Callable
+import ast
 
 if TYPE_CHECKING:
     from python_delta.compilation import StateVar
@@ -60,6 +61,27 @@ class StreamOp:
 
     def _compile_stmts(self, ctx, dst: StateVar):
         raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts")
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        """Compile using continuation-passing style.
+
+        Args:
+            ctx: Compilation context
+            done_cont: Statements to execute instead of setting dst = DONE
+            skip_cont: Statements to execute instead of setting dst = None
+            yield_cont: Function taking a value expression and returning statements
+                       to execute instead of setting dst = <expr>
+
+        Returns:
+            List of AST statements implementing the stream operation
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts_cps")
 
     def _get_state_initializers(self, ctx):
         return []

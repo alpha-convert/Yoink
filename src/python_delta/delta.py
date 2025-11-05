@@ -108,8 +108,6 @@ class Delta:
         x_right = UnsafeCast(x,right_type)
         self._register_node(x_left)
         self._register_node(x_right)
-        self.ordering.add_in_place_of(x_left.id, x.vars)
-        self.ordering.add_in_place_of(x_right.id, x.vars)
 
         left_output = left_fn(x_left)
         right_output = right_fn(x_right)
@@ -120,7 +118,9 @@ class Delta:
         self.ordering.add_forbidden(left_output.id,x.id)
         self.ordering.add_forbidden(right_output.id,x.id)
 
-        print(self.ordering)
+        # TODO: test this. is it required? what is the behavior of add in place of?
+        self.ordering.add_in_place_of(left_output.id, x.vars)
+        self.ordering.add_in_place_of(right_output.id, x.vars)
 
         left_output.stream_type.unify_with(right_output.stream_type)
 
@@ -239,6 +239,8 @@ class Delta:
 
         return self._reset_block(build_body,result_star_type)
 
+    # TODO: check on the ordering checking here!
+    # zipwith should be "in place of" both xs and ys
     def zip_with(self,xs,ys,fn):
         xs_elt_type = self._fresh_type_var()
         xs_type = TyStar(xs_elt_type)
@@ -311,7 +313,8 @@ class Delta:
 
     # We can shift our perspective: "arrives before" becomes "depends on the bit of state before"
 
-
+    # NOTE! You don't even need concat to break things. You really just need (1) an ability to take subreams, and (2)
+    # the ability to combine streams. If you have take/drop and zip, everything blows up.
 
     def splitZ(self,xs):
         xs_type = TyStar(Singleton(int))

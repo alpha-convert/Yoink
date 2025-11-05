@@ -129,3 +129,197 @@ class EmitOp(StreamOp):
     @property
     def id(self):
         return hash(("EmitOp", hash(tuple(self.sources))))
+
+    def _compile_stmts(self, ctx, dst):
+        """Compile three-phase emit operation."""
+        from python_delta.compilation import StateVar
+        import ast
+
+        phase_var = ctx.state_var(self, 'phase')
+        source_index_var = ctx.state_var(self, 'source_index')
+        event_buffer_var = ctx.state_var(self, 'event_buffer')
+        emit_index_var = ctx.state_var(self, 'emit_index')
+
+        # Phase 1: PULLING
+        # Generate code for pulling from each source
+        pull_stmts = []
+        for i, source in enumerate(self.sources):
+            source_tmp = ctx.allocate_temp()
+            source_stmts = source._compile_stmts(ctx, source_tmp)
+
+            pull_stmts.append(
+                ast.If(
+                    test=ast.Compare(
+                        left=source_index_var.rvalue(),
+                        ops=[ast.Eq()],
+                        comparators=[ast.Constant(value=i)]
+                    ),
+                    body=source_stmts + [
+                        ast.If(
+                            test=ast.Compare(
+                                left=source_tmp.rvalue(),
+                                ops=[ast.Is()],
+                                comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                            ),
+                            body=[
+                                source_index_var.assign(
+                                    ast.BinOp(
+                                        left=source_index_var.rvalue(),
+                                        op=ast.Add(),
+                                        right=ast.Constant(value=1)
+                                    )
+                                )
+                            ],
+                            orelse=[]
+                        ),
+                        dst.assign(ast.Constant(value=None))
+                    ],
+                    orelse=[]
+                )
+            )
+
+        # Check if all sources done
+        pull_check = ast.If(
+            test=ast.Compare(
+                left=source_index_var.rvalue(),
+                ops=[ast.GtE()],
+                comparators=[ast.Constant(value=len(self.sources))]
+            ),
+            body=[
+                phase_var.assign(ast.Constant(value='SERIALIZING')),
+                dst.assign(ast.Constant(value=None))
+            ],
+            orelse=pull_stmts if pull_stmts else [dst.assign(ast.Constant(value=None))]
+        )
+
+        # Phase 2: SERIALIZING
+        # Evaluate buffer_op and convert to events
+        serialize_stmts = [
+            # value = buffer_op.eval()
+            ast.Assign(
+                targets=[ast.Name(id='_emit_value', ctx=ast.Store())],
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id='self', ctx=ast.Load()),
+                            attr='outputs',
+                            ctx=ast.Load()
+                        ),
+                        attr='buffer_op',
+                        ctx=ast.Load()
+                    ),
+                    args=[],
+                    keywords=[]
+                )
+            ) if hasattr(self, 'buffer_op') else ast.Pass(),
+            # event_buffer = value_to_events(value, stream_type)
+            event_buffer_var.assign(
+                ast.Call(
+                    func=ast.Name(id='value_to_events', ctx=ast.Load()),
+                    args=[
+                        ast.Name(id='_emit_value', ctx=ast.Load()),
+                        ast.Attribute(
+                            value=ast.Attribute(
+                                value=ast.Name(id='self', ctx=ast.Load()),
+                                attr='outputs',
+                                ctx=ast.Load()
+                            ),
+                            attr='stream_type',
+                            ctx=ast.Load()
+                        )
+                    ],
+                    keywords=[]
+                )
+            ),
+            emit_index_var.assign(ast.Constant(value=0)),
+            phase_var.assign(ast.Constant(value='EMITTING')),
+            dst.assign(ast.Constant(value=None))
+        ]
+
+        # Phase 3: EMITTING
+        emit_stmts = [
+            ast.If(
+                test=ast.Compare(
+                    left=emit_index_var.rvalue(),
+                    ops=[ast.Lt()],
+                    comparators=[
+                        ast.Call(
+                            func=ast.Name(id='len', ctx=ast.Load()),
+                            args=[event_buffer_var.rvalue()],
+                            keywords=[]
+                        )
+                    ]
+                ),
+                body=[
+                    dst.assign(
+                        ast.Subscript(
+                            value=event_buffer_var.rvalue(),
+                            slice=emit_index_var.rvalue(),
+                            ctx=ast.Load()
+                        )
+                    ),
+                    emit_index_var.assign(
+                        ast.BinOp(
+                            left=emit_index_var.rvalue(),
+                            op=ast.Add(),
+                            right=ast.Constant(value=1)
+                        )
+                    )
+                ],
+                orelse=[
+                    dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+                ]
+            )
+        ]
+
+        # Main phase dispatch
+        return [
+            ast.If(
+                test=ast.Compare(
+                    left=phase_var.rvalue(),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Constant(value='PULLING')]
+                ),
+                body=[pull_check],
+                orelse=[
+                    ast.If(
+                        test=ast.Compare(
+                            left=phase_var.rvalue(),
+                            ops=[ast.Eq()],
+                            comparators=[ast.Constant(value='SERIALIZING')]
+                        ),
+                        body=serialize_stmts,
+                        orelse=emit_stmts
+                    )
+                ]
+            )
+        ]
+
+    def _get_state_initializers(self, ctx):
+        """Initialize emit state variables."""
+        phase_var = ctx.state_var(self, 'phase')
+        source_index_var = ctx.state_var(self, 'source_index')
+        event_buffer_var = ctx.state_var(self, 'event_buffer')
+        emit_index_var = ctx.state_var(self, 'emit_index')
+
+        return [
+            (phase_var.name, 'PULLING'),
+            (source_index_var.name, 0),
+            (event_buffer_var.name, None),
+            (emit_index_var.name, 0)
+        ]
+
+    def _get_reset_stmts(self, ctx):
+        """Reset emit state."""
+        import ast
+        phase_var = ctx.state_var(self, 'phase')
+        source_index_var = ctx.state_var(self, 'source_index')
+        event_buffer_var = ctx.state_var(self, 'event_buffer')
+        emit_index_var = ctx.state_var(self, 'emit_index')
+
+        return [
+            phase_var.assign(ast.Constant(value='PULLING')),
+            source_index_var.assign(ast.Constant(value=0)),
+            event_buffer_var.assign(ast.Constant(value=None)),
+            emit_index_var.assign(ast.Constant(value=0))
+        ]
