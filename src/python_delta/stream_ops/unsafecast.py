@@ -41,3 +41,11 @@ class UnsafeCast(StreamOp):
         yield_cont: Callable[[ast.expr], List[ast.stmt]]
     ) -> List[ast.stmt]:
         return self.input_stream._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        return self.input_stream._compile_stmts_generator(ctx, done_cont, yield_cont)

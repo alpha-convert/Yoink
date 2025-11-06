@@ -183,3 +183,26 @@ class CondOp(StreamOp):
         return [
             active_branch_var.assign(ast.Constant(value=None))
         ]
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        cond_var = ctx.allocate_temp()
+
+        def cond_yield_cont(cond_expr):
+            branch0_stmts = self.branches[0]._compile_stmts_generator(ctx, done_cont, yield_cont)
+            branch1_stmts = self.branches[1]._compile_stmts_generator(ctx, done_cont, yield_cont)
+
+            return [
+                cond_var.assign(cond_expr),
+                ast.If(
+                    test=ast.Attribute(value=cond_var.rvalue(), attr='value', ctx=ast.Load()),
+                    body=branch0_stmts,
+                    orelse=branch1_stmts
+                )
+            ]
+
+        return self.cond_stream._compile_stmts_generator(ctx, done_cont, cond_yield_cont)

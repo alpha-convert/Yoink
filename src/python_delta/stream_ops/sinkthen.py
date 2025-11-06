@@ -128,6 +128,27 @@ class SinkThen(StreamOp):
             )
         ]
 
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        # Sink s1 (ignore all yields), then run s2
+        s1_stmts = self.input_streams[0]._compile_stmts_generator(
+            ctx,
+            [],  # When s1 is done, continue to s2
+            lambda _: [ast.Pass()]  # Ignore all values from s1
+        )
+
+        s2_stmts = self.input_streams[1]._compile_stmts_generator(
+            ctx,
+            done_cont,
+            yield_cont
+        )
+
+        return s1_stmts + s2_stmts
+
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset first_exhausted to False."""
         exhausted_var = ctx.state_var(self, 'first_exhausted')

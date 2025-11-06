@@ -168,3 +168,44 @@ class CatR(StreamOp):
         return [
             state_var.assign(ast.Constant(value=CatRState.FIRST_STREAM.value))
         ]
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        def first_stream_yield_cont(val_expr):
+            # Wrap values from s1 in CatEvA
+            return yield_cont(
+                ast.Call(
+                    func=ast.Name(id='CatEvA', ctx=ast.Load()),
+                    args=[val_expr],
+                    keywords=[]
+                )
+            )
+
+        first_stream_done_cont = yield_cont(
+            ast.Call(
+                func=ast.Name(id='CatPunc', ctx=ast.Load()),
+                args=[],
+                keywords=[]
+            )
+        )
+
+        # Compile s1 - when done, yield CatPunc
+        s1_stmts = self.input_streams[0]._compile_stmts_generator(
+            ctx,
+            first_stream_done_cont,
+            first_stream_yield_cont
+        )
+
+        # Compile s2 - when done, propagate to parent's done_cont
+        s2_stmts = self.input_streams[1]._compile_stmts_generator(
+            ctx,
+            done_cont,
+            yield_cont
+        )
+
+        # Sequential execution: run s1, then s2
+        return s1_stmts + s2_stmts

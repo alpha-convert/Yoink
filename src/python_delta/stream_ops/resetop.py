@@ -58,3 +58,13 @@ class ResetOp(StreamOp):
             reset_stmts.extend(node._get_reset_stmts(ctx))
         return reset_stmts + skip_cont
 
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        # In generator mode, there are no state variables to reset
+        # The generator's execution flow naturally handles "resetting"
+        return []
+

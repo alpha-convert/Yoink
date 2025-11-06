@@ -258,3 +258,55 @@ class CaseOp(StreamOp):
             active_branch_var.assign(ast.Constant(value=-1))
         ]
 
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        tag_var = ctx.allocate_temp()
+
+        def input_yield_cont(tag_expr):
+            # Read tag, route to appropriate branch
+            branch0_stmts = self.branches[0]._compile_stmts_generator(ctx, done_cont, yield_cont)
+            branch1_stmts = self.branches[1]._compile_stmts_generator(ctx, done_cont, yield_cont)
+
+            return [
+                tag_var.assign(tag_expr),
+                ast.If(
+                    test=ast.Call(
+                        func=ast.Name(id='isinstance', ctx=ast.Load()),
+                        args=[tag_var.rvalue(), ast.Name(id='PlusPuncA', ctx=ast.Load())],
+                        keywords=[]
+                    ),
+                    body=branch0_stmts,
+                    orelse=[
+                        ast.If(
+                            test=ast.Call(
+                                func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                args=[tag_var.rvalue(), ast.Name(id='PlusPuncB', ctx=ast.Load())],
+                                keywords=[]
+                            ),
+                            body=branch1_stmts,
+                            orelse=[
+                                ast.Raise(
+                                    exc=ast.Call(
+                                        func=ast.Name(id='RuntimeError', ctx=ast.Load()),
+                                        args=[
+                                            ast.JoinedStr(values=[
+                                                ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
+                                                ast.FormattedValue(value=tag_var.rvalue(), conversion=-1, format_spec=None)
+                                            ])
+                                        ],
+                                        keywords=[]
+                                    ),
+                                    cause=None
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ]
+
+        return self.input_stream._compile_stmts_generator(ctx, done_cont, input_yield_cont)
+

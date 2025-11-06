@@ -83,6 +83,16 @@ class StreamOp:
         """
         raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts_cps")
 
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        """Compile to generator code .
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts_generator")
+
     def _get_state_initializers(self, ctx):
         return []
 

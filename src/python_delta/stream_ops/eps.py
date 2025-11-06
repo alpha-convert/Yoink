@@ -47,3 +47,11 @@ class Eps(StreamOp):
         yield_cont: Callable[[ast.expr], List[ast.stmt]]
     ) -> List[ast.stmt]:
         return done_cont
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        return done_cont

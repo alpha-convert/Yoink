@@ -375,3 +375,52 @@ class CatProj(StreamOp):
             seen_punc_var.assign(ast.Constant(value=False)),
             input_exhausted_var.assign(ast.Constant(value=False))
         ]
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        coord = self.coordinator
+
+        if self.position == 0:
+            def input_yield_cont(event_expr):
+                return [
+                    ast.If(
+                        test=ast.Call(
+                            func=ast.Name(id='isinstance', ctx=ast.Load()),
+                            args=[event_expr, ast.Name(id='CatEvA', ctx=ast.Load())],
+                            keywords=[]
+                        ),
+                        body=yield_cont(
+                            ast.Attribute(value=event_expr, attr='value', ctx=ast.Load())
+                        ),
+                        orelse=[ast.Pass()]  # Skip CatPunc and anything else
+                    )
+                ]
+
+            return coord.input_stream._compile_stmts_generator(ctx, done_cont, input_yield_cont)
+        else:
+            seen_punc_var = ctx.state_var(coord, 'seen_punc')
+
+            def input_yield_cont(event_expr):
+                return [
+                    ast.If(
+                        test=ast.Call(
+                            func=ast.Name(id='isinstance', ctx=ast.Load()),
+                            args=[event_expr, ast.Name(id='CatPunc', ctx=ast.Load())],
+                            keywords=[]
+                        ),
+                        body=[seen_punc_var.assign(ast.Constant(value=True))],
+                        orelse=[
+                            ast.If(
+                                test=seen_punc_var.rvalue(),
+                                body=yield_cont(event_expr),
+                                orelse=[ast.Pass()]  # Skip CatEvA before punc
+                            )
+                        ]
+                    )
+                ]
+
+            return coord.input_stream._compile_stmts_generator(ctx, done_cont, input_yield_cont)

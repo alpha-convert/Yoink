@@ -106,12 +106,19 @@ class DataflowGraph:
         from python_delta.util.viz_builder import VizBuilder
         return VizBuilder(self).save(filename)
 
-    def compile(self, cps = False) -> type:
+    def compile(self, cps = False, generator = False) -> type:
         """
         Compile the StreamOp graph into a single flat iterator class.
 
+        Args:
+            cps: Use CPS-style compilation with state machine
+            generator: Use generator-based compilation (implies CPS without state vars)
+
         Returns the compiled class (not an instance).
         """
+        if cps and generator:
+            raise ValueError("cps and generator are mutually exclusive")
+
         ctx = CompilationContext()
 
         # Map input vars to their indices
@@ -124,7 +131,12 @@ class DataflowGraph:
 
         # Compile the output node (this will recursively compile all dependencies)
         result_var = StateVar('result', tmp=True)
-        if cps:
+        if generator:
+            # Generator uses _compile_stmts_generator
+            done_cont = [ast.Return(value=None)]  # End the generator
+            yield_cont = lambda expr: [ast.Expr(value=ast.Yield(value=expr))]  # Yield values
+            output_stmts = self.outputs._compile_stmts_generator(ctx, done_cont, yield_cont)
+        elif cps:
             done_cont = [result_var.assign(ast.Name(id='DONE', ctx=ast.Load()))]
             skip_cont = [result_var.assign(ast.Constant(value=None))]
             yield_cont = lambda expr: [result_var.assign(expr)]
@@ -133,7 +145,7 @@ class DataflowGraph:
             output_stmts = self.outputs._compile_stmts(ctx, result_var)
 
         # Generate the class AST
-        class_ast = self._generate_class_ast(ctx, output_stmts)
+        class_ast = self._generate_class_ast(ctx, output_stmts, is_generator=generator)
 
         # Compile to bytecode and execute
         module_ast = ast.Module(body=[class_ast], type_ignores=[])
@@ -197,18 +209,29 @@ class DataflowGraph:
     def print_code(self, cps = False):
         print(self.get_code(cps))
 
-    def _generate_class_ast(self, ctx: CompilationContext, output_stmts: list) -> ast.ClassDef:
+    def _generate_class_ast(self, ctx: CompilationContext, output_stmts: list, is_generator: bool = False) -> ast.ClassDef:
         """Generate the complete FlattenedIterator class."""
-        return ast.ClassDef(
-            name='FlattenedIterator',
-            bases=[],
-            keywords=[],
-            body=[
+        if is_generator:
+            # For generators, __iter__ is a generator function containing output_stmts
+            body = [
+                self._generate_init(ctx),
+                self._generate_iter_generator(output_stmts),
+                self._generate_reset(ctx),
+            ]
+        else:
+            # For non-generators, use __next__ method
+            body = [
                 self._generate_init(ctx),
                 self._generate_iter(),
                 self._generate_next(ctx, output_stmts),
                 self._generate_reset(ctx),
-            ],
+            ]
+
+        return ast.ClassDef(
+            name='FlattenedIterator',
+            bases=[],
+            keywords=[],
+            body=body,
             decorator_list=[],
         )
 
@@ -274,6 +297,24 @@ class DataflowGraph:
                 posonlyargs=[]
             ),
             body=[ast.Return(value=ast.Name(id='self', ctx=ast.Load()))],
+            decorator_list=[],
+            returns=None,
+        )
+
+    def _generate_iter_generator(self, output_stmts: list) -> ast.FunctionDef:
+        """Generate __iter__ method as a generator function."""
+        return ast.FunctionDef(
+            name='__iter__',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=output_stmts,
             decorator_list=[],
             returns=None,
         )

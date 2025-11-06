@@ -106,3 +106,27 @@ class SumInj(StreamOp):
         return [
             tag_var.assign(ast.Constant(value=False))
         ]
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        """Generator version - emit tag, then delegate to input. No state needed!"""
+        tag_class = 'PlusPuncA' if self.position == 0 else 'PlusPuncB'
+
+        tag_event = ast.Call(
+            func=ast.Name(id=tag_class, ctx=ast.Load()),
+            args=[],
+            keywords=[]
+        )
+
+        # First yield the tag
+        tag_yield = yield_cont(tag_event)
+
+        # Then compile input stream
+        input_stmts = self.input_stream._compile_stmts_generator(ctx, done_cont, yield_cont)
+
+        # Sequential: emit tag, then run input
+        return tag_yield + input_stmts

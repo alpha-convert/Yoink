@@ -92,3 +92,17 @@ class SingletonOp(StreamOp):
         return [
             exhausted_var.assign(ast.Constant(value=False))
         ]
+
+    def _compile_stmts_generator(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        event_expr = ast.Call(
+            func=ast.Name(id='BaseEvent', ctx=ast.Load()),
+            args=[ast.Constant(value=self.value)],
+            keywords=[]
+        )
+
+        return yield_cont(event_expr) + done_cont
