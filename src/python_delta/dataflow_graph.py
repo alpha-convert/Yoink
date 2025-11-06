@@ -68,69 +68,20 @@ class DataflowGraph:
         return self.outputs
 
     def to_graphviz(self):
-        """
-        Generate a graphviz DOT representation of the computation graph.
-
-        Returns:
-            str: A DOT format string suitable for rendering with graphviz
-
-        Example:
-            >>> @Delta.jit
-            >>> def concat(delta, x: STRING_TY, y: STRING_TY):
-            ...     return delta.catr(x, y)
-            >>> print(concat.to_graphviz())
-        """
         from python_delta.util.viz_builder import VizBuilder
         return VizBuilder(self).to_graphviz()
 
     def save_graphviz(self, filename):
-        """
-        Save the graphviz DOT representation to a file.
-
-        Args:
-            filename (str): Path to save the DOT file. If it ends with .png, .pdf, or .svg,
-                          will attempt to render using graphviz (if available).
-
-        Returns:
-            str: Path to the saved file
-
-        Example:
-            >>> @Delta.jit
-            >>> def concat(delta, x: STRING_TY, y: STRING_TY):
-            ...     return delta.catr(x, y)
-            >>> concat.save_graphviz('graph.png')  # Requires graphviz installed
-            >>> concat.save_graphviz('graph.dot')  # Just save DOT file
-        """
         from python_delta.util.viz_builder import VizBuilder
         return VizBuilder(self).save(filename)
 
     def compile(self, compiler) -> type:
-        """
-        Compile the StreamOp graph into a single flat iterator class.
-
-        Args:
-            compiler: Compiler class to use (DirectCompiler, CPSCompiler, or GeneratorCompiler).
-
-        Returns the compiled class (not an instance).
-        """
-        # Handle tuple outputs (e.g., from catl which returns (x, y))
-        # For now, only compile single outputs
         if isinstance(self.outputs, tuple):
             raise NotImplementedError("Compilation of tuple outputs not yet supported")
 
         return compiler.compile(self)
 
     def get_code(self, compiler) -> str:
-        """
-        Get the compiled Python code for this dataflow graph as a string.
-
-        Args:
-            compiler: Compiler class to use (DirectCompiler, CPSCompiler, or GeneratorCompiler).
-
-        Returns:
-            str: The generated Python code
-        """
-        # Handle tuple outputs (e.g., from catl which returns (x, y))
         if isinstance(self.outputs, tuple):
             raise NotImplementedError("Compilation of tuple outputs not yet supported")
 
