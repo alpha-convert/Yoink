@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -37,7 +37,6 @@ class ResetOp(StreamOp):
         for node in self.reset_set:
             reset_stmts.extend(node._get_reset_stmts(ctx))
 
-        # Set dst = None
         reset_stmts.append(
             ast.Assign(
                 targets=[dst.lvalue()],
@@ -46,4 +45,16 @@ class ResetOp(StreamOp):
         )
 
         return reset_stmts
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        reset_stmts = []
+        for node in self.reset_set:
+            reset_stmts.extend(node._get_reset_stmts(ctx))
+        return reset_stmts + skip_cont
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -32,3 +32,12 @@ class UnsafeCast(StreamOp):
 
     def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
         return self.input_stream._compile_stmts(ctx, dst)
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        return self.input_stream._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)

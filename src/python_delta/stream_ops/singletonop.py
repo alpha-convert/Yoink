@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from typing import List
+from typing import List, Callable
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.compilation import StateVar
@@ -53,6 +53,31 @@ class SingletonOp(StreamOp):
                         keywords=[]
                     ))
                 ]
+            )
+        ]
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        exhausted_var = ctx.state_var(self, 'exhausted')
+
+        event_expr = ast.Call(
+            func=ast.Name(id='BaseEvent', ctx=ast.Load()),
+            args=[ast.Constant(value=self.value)],
+            keywords=[]
+        )
+
+        return [
+            ast.If(
+                test=exhausted_var.rvalue(),
+                body=done_cont,
+                orelse=[
+                    exhausted_var.assign(ast.Constant(value=True))
+                ] + yield_cont(event_expr)
             )
         ]
 

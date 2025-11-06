@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -267,16 +267,108 @@ class CatProj(StreamOp):
 
         return []
 
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        coord = self.coordinator
+        coord_id = coord.id
+
+        if coord_id not in ctx.state_vars:
+            seen_punc_var = ctx.state_var(coord, 'seen_punc')
+            input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
+        else:
+            seen_punc_var = ctx.state_var(coord, 'seen_punc')
+            input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
+
+        if self.position == 0:
+            def input_yield_cont(event_expr):
+                return [
+                    ast.If(
+                        test=ast.Call(
+                            func=ast.Name(id='isinstance', ctx=ast.Load()),
+                            args=[event_expr, ast.Name(id='CatEvA', ctx=ast.Load())],
+                            keywords=[]
+                        ),
+                        body=yield_cont(
+                            ast.Attribute(value=event_expr, attr='value', ctx=ast.Load())
+                        ),
+                        orelse=[
+                            ast.If(
+                                test=ast.Call(
+                                    func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                    args=[event_expr, ast.Name(id='CatPunc', ctx=ast.Load())],
+                                    keywords=[]
+                                ),
+                                body=[seen_punc_var.assign(ast.Constant(value=True))] + done_cont,
+                                orelse=skip_cont
+                            )
+                        ]
+                    )
+                ]
+
+            input_done_cont = [input_exhausted_var.assign(ast.Constant(value=True))] + done_cont
+
+            input_stmts = coord.input_stream._compile_stmts_cps(ctx, input_done_cont, skip_cont, input_yield_cont)
+
+            return [
+                ast.If(
+                    test=input_exhausted_var.rvalue(),
+                    body=done_cont,
+                    orelse=[
+                        ast.If(
+                            test=seen_punc_var.rvalue(),
+                            body=done_cont,
+                            orelse=input_stmts
+                        )
+                    ]
+                )
+            ]
+        else:
+            def input_yield_cont(event_expr):
+                return [
+                    ast.If(
+                        test=ast.Call(
+                            func=ast.Name(id='isinstance', ctx=ast.Load()),
+                            args=[event_expr, ast.Name(id='CatEvA', ctx=ast.Load())],
+                            keywords=[]
+                        ),
+                        body=skip_cont,
+                        orelse=[
+                            ast.If(
+                                test=ast.Call(
+                                    func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                    args=[event_expr, ast.Name(id='CatPunc', ctx=ast.Load())],
+                                    keywords=[]
+                                ),
+                                body=[seen_punc_var.assign(ast.Constant(value=True))] + skip_cont,
+                                orelse=yield_cont(event_expr)
+                            )
+                        ]
+                    )
+                ]
+
+            input_done_cont = [input_exhausted_var.assign(ast.Constant(value=True))] + done_cont
+
+            input_stmts = coord.input_stream._compile_stmts_cps(ctx, input_done_cont, skip_cont, input_yield_cont)
+
+            return [
+                ast.If(
+                    test=input_exhausted_var.rvalue(),
+                    body=done_cont,
+                    orelse=input_stmts
+                )
+            ]
+
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset coordinator state (only generate once for first CatProj)."""
         coord = self.coordinator
         if coord.id not in ctx.state_vars:
-            # This shouldn't happen if _get_state_initializers was called
             return []
 
-        # Only reset if this is the first CatProj we're processing
-        # Actually, both CatProj instances will try to reset, which is fine
-        # since they reset the same state variables
         seen_punc_var = ctx.state_var(coord, 'seen_punc')
         input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
         return [

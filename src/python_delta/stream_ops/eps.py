@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -38,3 +38,12 @@ class Eps(StreamOp):
                 value=ast.Name(id='DONE', ctx=ast.Load())
             )
         ]
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        return done_cont

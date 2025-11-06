@@ -106,7 +106,7 @@ class DataflowGraph:
         from python_delta.util.viz_builder import VizBuilder
         return VizBuilder(self).save(filename)
 
-    def compile(self) -> type:
+    def compile(self, cps = False) -> type:
         """
         Compile the StreamOp graph into a single flat iterator class.
 
@@ -124,7 +124,13 @@ class DataflowGraph:
 
         # Compile the output node (this will recursively compile all dependencies)
         result_var = StateVar('result', tmp=True)
-        output_stmts = self.outputs._compile_stmts(ctx, result_var)
+        if cps:
+            done_cont = [result_var.assign(ast.Name(id='DONE', ctx=ast.Load()))]
+            skip_cont = [result_var.assign(ast.Constant(value=None))]
+            yield_cont = lambda expr: [result_var.assign(expr)]
+            output_stmts = self.outputs._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+        else:
+            output_stmts = self.outputs._compile_stmts(ctx, result_var)
 
         # Generate the class AST
         class_ast = self._generate_class_ast(ctx, output_stmts)
@@ -152,7 +158,7 @@ class DataflowGraph:
 
         return namespace['FlattenedIterator']
 
-    def get_code(self) -> str:
+    def get_code(self, cps = False) -> str:
         """
         Get the compiled Python code for this dataflow graph as a string.
 
@@ -170,7 +176,13 @@ class DataflowGraph:
 
         # Compile the output node (this will recursively compile all dependencies)
         result_var = StateVar('result', tmp=True)
-        output_stmts = self.outputs._compile_stmts(ctx, result_var)
+        if cps:
+            done_cont = [result_var.assign(ast.Name(id='DONE', ctx=ast.Load()))]
+            skip_cont = [result_var.assign(ast.Constant(value=None))]
+            yield_cont = lambda expr: [result_var.assign(expr)]
+            output_stmts = self.outputs._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+        else:
+            output_stmts = self.outputs._compile_stmts(ctx, result_var)
 
         # Generate the class AST
         class_ast = self._generate_class_ast(ctx, output_stmts)
@@ -182,8 +194,8 @@ class DataflowGraph:
         # Unparse to Python code
         return ast.unparse(module_ast)
 
-    def print_code(self):
-        print(self.get_code())
+    def print_code(self, cps = False):
+        print(self.get_code(cps))
 
     def _generate_class_ast(self, ctx: CompilationContext, output_stmts: list) -> ast.ClassDef:
         """Generate the complete FlattenedIterator class."""

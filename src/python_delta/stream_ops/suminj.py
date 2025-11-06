@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -59,6 +59,39 @@ class SumInj(StreamOp):
                     ))
                 ],
                 orelse=input_stmts
+            )
+        ]
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        tag_var = ctx.state_var(self, 'tag_emitted')
+
+        tag_class = 'PlusPuncA' if self.position == 0 else 'PlusPuncB'
+
+        tag_event = ast.Call(
+            func=ast.Name(id=tag_class, ctx=ast.Load()),
+            args=[],
+            keywords=[]
+        )
+
+        input_stmts = self.input_stream._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+
+        # If tag not emitted, emit it; otherwise delegate to input
+        return [
+            ast.If(
+                test=ast.UnaryOp(
+                    op=ast.Not(),
+                    operand=tag_var.rvalue()
+                ),
+                body=[
+                    tag_var.assign(ast.Constant(value=True))
+                ] + yield_cont(tag_event),  # Use yield continuation for the tag
+                orelse=input_stmts  # Delegate to input stream
             )
         ]
 

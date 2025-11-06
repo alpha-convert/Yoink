@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -172,6 +172,81 @@ class CaseOp(StreamOp):
         return [
             (tag_read_var.name, False),
             (active_branch_var.name, -1)
+        ]
+
+    def _compile_stmts_cps(
+        self,
+        ctx,
+        done_cont: List[ast.stmt],
+        skip_cont: List[ast.stmt],
+        yield_cont: Callable[[ast.expr], List[ast.stmt]]
+    ) -> List[ast.stmt]:
+        tag_read_var = ctx.state_var(self, 'tag_read')
+        active_branch_var = ctx.state_var(self, 'active_branch')
+
+        def tag_yield_cont(tag_expr):
+            return [
+                tag_read_var.assign(ast.Constant(value=True)),
+                ast.If(
+                    test=ast.Call(
+                        func=ast.Name(id='isinstance', ctx=ast.Load()),
+                        args=[tag_expr, ast.Name(id='PlusPuncA', ctx=ast.Load())],
+                        keywords=[]
+                    ),
+                    body=[
+                        active_branch_var.assign(ast.Constant(value=0))
+                    ],
+                    orelse=[
+                        ast.If(
+                            test=ast.Call(
+                                func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                args=[tag_expr, ast.Name(id='PlusPuncB', ctx=ast.Load())],
+                                keywords=[]
+                            ),
+                            body=[
+                                active_branch_var.assign(ast.Constant(value=1))
+                            ],
+                            orelse=[
+                                ast.Raise(
+                                    exc=ast.Call(
+                                        func=ast.Name(id='RuntimeError', ctx=ast.Load()),
+                                        args=[
+                                            ast.JoinedStr(values=[
+                                                ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
+                                                ast.FormattedValue(value=tag_expr, conversion=-1, format_spec=None)
+                                            ])
+                                        ],
+                                        keywords=[]
+                                    ),
+                                    cause=None
+                                )
+                            ]
+                        )
+                    ]
+                )
+            ] + skip_cont
+
+        input_stmts = self.input_stream._compile_stmts_cps(ctx, done_cont, skip_cont, tag_yield_cont)
+
+        branch0_stmts = self.branches[0]._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+        branch1_stmts = self.branches[1]._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+
+        return [
+            ast.If(
+                test=ast.UnaryOp(op=ast.Not(), operand=tag_read_var.rvalue()),
+                body=input_stmts,
+                orelse=[
+                    ast.If(
+                        test=ast.Compare(
+                            left=active_branch_var.rvalue(),
+                            ops=[ast.Eq()],
+                            comparators=[ast.Constant(value=0)]
+                        ),
+                        body=branch0_stmts,
+                        orelse=branch1_stmts
+                    )
+                ]
+            )
         ]
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
