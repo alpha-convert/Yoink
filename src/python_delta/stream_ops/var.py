@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List, Callable
-import ast
-
 from python_delta.stream_ops.base import StreamOp, DONE
 
 
@@ -36,97 +33,3 @@ class Var(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts_cps(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        skip_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        input_idx = ctx.var_to_input_idx[self.id]
-
-        tmp_var = ctx.allocate_temp()
-
-        next_call = ast.Call(
-            func=ast.Name(id='next', ctx=ast.Load()),
-            args=[
-                ast.Subscript(
-                    value=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr='inputs',
-                        ctx=ast.Load()
-                    ),
-                    slice=ast.Constant(value=input_idx),
-                    ctx=ast.Load()
-                )
-            ],
-            keywords=[]
-        )
-
-        return [
-            ast.Try(
-                body=[
-                    tmp_var.assign(next_call)
-                ] + yield_cont(tmp_var.rvalue()),
-                handlers=[
-                    ast.ExceptHandler(
-                        type=ast.Name(id='StopIteration', ctx=ast.Load()),
-                        name=None,
-                        body=done_cont
-                    )
-                ],
-                orelse=[],
-                finalbody=[]
-            )
-        ]
-
-    def _compile_stmts_generator(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        """Generator version - loop through input iterator."""
-        input_idx = ctx.var_to_input_idx[self.id]
-
-        tmp_var = ctx.allocate_temp()
-
-        next_call = ast.Call(
-            func=ast.Name(id='next', ctx=ast.Load()),
-            args=[
-                ast.Subscript(
-                    value=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr='inputs',
-                        ctx=ast.Load()
-                    ),
-                    slice=ast.Constant(value=input_idx),
-                    ctx=ast.Load()
-                )
-            ],
-            keywords=[]
-        )
-
-        return [
-            ast.While(
-                test=ast.Constant(value=True),
-                body=[
-                    ast.Try(
-                        body=[
-                            tmp_var.assign(next_call)
-                        ] + yield_cont(tmp_var.rvalue()),
-                        handlers=[
-                            ast.ExceptHandler(
-                                type=ast.Name(id='StopIteration', ctx=ast.Load()),
-                                name=None,
-                                body=[ast.Break()]
-                            )
-                        ],
-                        orelse=[],
-                        finalbody=[]
-                    )
-                ],
-                orelse=[]
-            )
-        ] + done_cont

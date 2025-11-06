@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Callable
+from typing import List
 import ast
 from enum import Enum
 
@@ -50,104 +50,9 @@ class CatR(StreamOp):
         state_var = ctx.state_var(self, 'state')
         return [(state_var.name, CatRState.FIRST_STREAM.value)]
 
-    def _compile_stmts_cps(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        skip_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        state_var = ctx.state_var(self, 'state')
-
-        def first_stream_yield_cont(val_expr):
-            return yield_cont(
-                ast.Call(
-                    func=ast.Name(id='CatEvA', ctx=ast.Load()),
-                    args=[val_expr],
-                    keywords=[]
-                )
-            )
-
-        first_stream_done_cont = [
-            state_var.assign(ast.Constant(value=CatRState.SECOND_STREAM.value))
-        ] + yield_cont(
-            ast.Call(
-                func=ast.Name(id='CatPunc', ctx=ast.Load()),
-                args=[],
-                keywords=[]
-            )
-        )
-
-        s1_stmts = self.input_streams[0]._compile_stmts_cps(
-            ctx,
-            first_stream_done_cont,
-            skip_cont,
-            first_stream_yield_cont
-        )
-
-        s2_stmts = self.input_streams[1]._compile_stmts_cps(
-            ctx,
-            done_cont,
-            skip_cont,
-            yield_cont
-        )
-
-        return [
-            ast.If(
-                test=ast.Compare(
-                    left=state_var.rvalue(),
-                    ops=[ast.Eq()],
-                    comparators=[ast.Constant(value=CatRState.FIRST_STREAM.value)]
-                ),
-                body=s1_stmts,
-                orelse=s2_stmts
-            )
-        ]
-
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset state to FIRST_STREAM."""
         state_var = ctx.state_var(self, "state")
         return [
             state_var.assign(ast.Constant(value=CatRState.FIRST_STREAM.value))
         ]
-
-    def _compile_stmts_generator(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        def first_stream_yield_cont(val_expr):
-            # Wrap values from s1 in CatEvA
-            return yield_cont(
-                ast.Call(
-                    func=ast.Name(id='CatEvA', ctx=ast.Load()),
-                    args=[val_expr],
-                    keywords=[]
-                )
-            )
-
-        first_stream_done_cont = yield_cont(
-            ast.Call(
-                func=ast.Name(id='CatPunc', ctx=ast.Load()),
-                args=[],
-                keywords=[]
-            )
-        )
-
-        # Compile s1 - when done, yield CatPunc
-        s1_stmts = self.input_streams[0]._compile_stmts_generator(
-            ctx,
-            first_stream_done_cont,
-            first_stream_yield_cont
-        )
-
-        # Compile s2 - when done, propagate to parent's done_cont
-        s2_stmts = self.input_streams[1]._compile_stmts_generator(
-            ctx,
-            done_cont,
-            yield_cont
-        )
-
-        # Sequential execution: run s1, then s2
-        return s1_stmts + s2_stmts

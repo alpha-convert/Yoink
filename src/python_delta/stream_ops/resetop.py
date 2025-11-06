@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import List, Callable
-import ast
-
 from python_delta.stream_ops.base import StreamOp, DONE
 
 
@@ -28,26 +25,4 @@ class ResetOp(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts_cps(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        skip_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        reset_stmts = []
-        for node in self.reset_set:
-            reset_stmts.extend(node._get_reset_stmts(ctx))
-        return reset_stmts + skip_cont
-
-    def _compile_stmts_generator(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        # In generator mode, there are no state variables to reset
-        # The generator's execution flow naturally handles "resetting"
-        return []
 

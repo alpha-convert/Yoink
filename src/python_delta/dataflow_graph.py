@@ -132,15 +132,20 @@ class DataflowGraph:
         # Compile the output node (this will recursively compile all dependencies)
         result_var = StateVar('result', tmp=True)
         if generator:
-            # Generator uses _compile_stmts_generator
+            # Use visitor pattern for generator compilation
+            from python_delta.compilation.generator_compiler import GeneratorCompiler
             done_cont = [ast.Return(value=None)]  # End the generator
             yield_cont = lambda expr: [ast.Expr(value=ast.Yield(value=expr))]  # Yield values
-            output_stmts = self.outputs._compile_stmts_generator(ctx, done_cont, yield_cont)
+            compiler = GeneratorCompiler(ctx, done_cont, yield_cont)
+            output_stmts = self.outputs.accept(compiler)
         elif cps:
+            # Use visitor pattern for CPS compilation
+            from python_delta.compilation.cps_compiler import CPSCompiler
             done_cont = [result_var.assign(ast.Name(id='DONE', ctx=ast.Load()))]
             skip_cont = [result_var.assign(ast.Constant(value=None))]
             yield_cont = lambda expr: [result_var.assign(expr)]
-            output_stmts = self.outputs._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
+            compiler = CPSCompiler(ctx, done_cont, skip_cont, yield_cont)
+            output_stmts = self.outputs.accept(compiler)
         else:
             # Use visitor pattern for direct compilation
             from python_delta.compilation.direct_compiler import DirectCompiler

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Callable
+from typing import List
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -56,77 +56,9 @@ class CondOp(StreamOp):
             (active_branch_var.name, None)
         ]
 
-    def _compile_stmts_cps(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        skip_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        active_branch_var = ctx.state_var(self, 'active_branch')
-
-        def cond_yield_cont(cond_expr):
-            return [
-                ast.If(
-                    test=ast.Attribute(value=cond_expr, attr='value', ctx=ast.Load()),
-                    body=[active_branch_var.assign(ast.Constant(value=0))],
-                    orelse=[active_branch_var.assign(ast.Constant(value=1))]
-                )
-            ] + skip_cont
-
-        cond_stmts = self.cond_stream._compile_stmts_cps(ctx, done_cont, skip_cont, cond_yield_cont)
-
-        branch0_stmts = self.branches[0]._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
-        branch1_stmts = self.branches[1]._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
-
-        return [
-            ast.If(
-                test=ast.Compare(
-                    left=active_branch_var.rvalue(),
-                    ops=[ast.Is()],
-                    comparators=[ast.Constant(value=None)]
-                ),
-                body=cond_stmts,
-                orelse=[
-                    ast.If(
-                        test=ast.Compare(
-                            left=active_branch_var.rvalue(),
-                            ops=[ast.Eq()],
-                            comparators=[ast.Constant(value=0)]
-                        ),
-                        body=branch0_stmts,
-                        orelse=branch1_stmts
-                    )
-                ]
-            )
-        ]
-
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset active_branch."""
         active_branch_var = ctx.state_var(self, 'active_branch')
         return [
             active_branch_var.assign(ast.Constant(value=None))
         ]
-
-    def _compile_stmts_generator(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        cond_var = ctx.allocate_temp()
-
-        def cond_yield_cont(cond_expr):
-            branch0_stmts = self.branches[0]._compile_stmts_generator(ctx, done_cont, yield_cont)
-            branch1_stmts = self.branches[1]._compile_stmts_generator(ctx, done_cont, yield_cont)
-
-            return [
-                cond_var.assign(cond_expr),
-                ast.If(
-                    test=ast.Attribute(value=cond_var.rvalue(), attr='value', ctx=ast.Load()),
-                    body=branch0_stmts,
-                    orelse=branch1_stmts
-                )
-            ]
-
-        return self.cond_stream._compile_stmts_generator(ctx, done_cont, cond_yield_cont)

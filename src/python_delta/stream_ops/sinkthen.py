@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Callable
+from typing import List
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
@@ -49,65 +49,6 @@ class SinkThen(StreamOp):
         """Initialize first_exhausted to False."""
         exhausted_var = ctx.state_var(self, 'first_exhausted')
         return [(exhausted_var.name, False)]
-
-    def _compile_stmts_cps(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        skip_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        exhausted_var = ctx.state_var(self, 'first_exhausted')
-
-        s1_done_cont = [
-            exhausted_var.assign(ast.Constant(value=True))
-        ] + skip_cont
-
-        s1_stmts = self.input_streams[0]._compile_stmts_cps(
-            ctx,
-            s1_done_cont,
-            skip_cont,
-            lambda _: skip_cont
-        )
-
-        s2_stmts = self.input_streams[1]._compile_stmts_cps(
-            ctx,
-            done_cont,
-            skip_cont,
-            yield_cont
-        )
-
-        return [
-            ast.If(
-                test=ast.UnaryOp(
-                    op=ast.Not(),
-                    operand=exhausted_var.rvalue()
-                ),
-                body=s1_stmts,
-                orelse=s2_stmts
-            )
-        ]
-
-    def _compile_stmts_generator(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        # Sink s1 (ignore all yields), then run s2
-        s1_stmts = self.input_streams[0]._compile_stmts_generator(
-            ctx,
-            [],  # When s1 is done, continue to s2
-            lambda _: [ast.Pass()]  # Ignore all values from s1
-        )
-
-        s2_stmts = self.input_streams[1]._compile_stmts_generator(
-            ctx,
-            done_cont,
-            yield_cont
-        )
-
-        return s1_stmts + s2_stmts
 
     def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
         """Reset first_exhausted to False."""

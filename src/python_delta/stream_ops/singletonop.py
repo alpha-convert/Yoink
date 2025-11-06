@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from typing import List, Callable
+from typing import List
 
 from python_delta.stream_ops.base import StreamOp, DONE
 
@@ -34,31 +34,6 @@ class SingletonOp(StreamOp):
     def reset(self):
         self.exhausted = False
 
-    def _compile_stmts_cps(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        skip_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        exhausted_var = ctx.state_var(self, 'exhausted')
-
-        event_expr = ast.Call(
-            func=ast.Name(id='BaseEvent', ctx=ast.Load()),
-            args=[ast.Constant(value=self.value)],
-            keywords=[]
-        )
-
-        return [
-            ast.If(
-                test=exhausted_var.rvalue(),
-                body=done_cont,
-                orelse=[
-                    exhausted_var.assign(ast.Constant(value=True))
-                ] + yield_cont(event_expr)
-            )
-        ]
-
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize exhausted to False."""
         exhausted_var = ctx.state_var(self, 'exhausted')
@@ -70,17 +45,3 @@ class SingletonOp(StreamOp):
         return [
             exhausted_var.assign(ast.Constant(value=False))
         ]
-
-    def _compile_stmts_generator(
-        self,
-        ctx,
-        done_cont: List[ast.stmt],
-        yield_cont: Callable[[ast.expr], List[ast.stmt]]
-    ) -> List[ast.stmt]:
-        event_expr = ast.Call(
-            func=ast.Name(id='BaseEvent', ctx=ast.Load()),
-            args=[ast.Constant(value=self.value)],
-            keywords=[]
-        )
-
-        return yield_cont(event_expr) + done_cont
