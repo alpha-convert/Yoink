@@ -45,8 +45,3 @@ class SinkThen(StreamOp):
         """Reset state."""
         self.first_exhausted = False
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """Initialize first_exhausted to False."""
-        exhausted_var = ctx.state_var(self, 'first_exhausted')
-        return [(exhausted_var.name, False)]
-

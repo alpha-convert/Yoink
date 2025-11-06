@@ -217,7 +217,3 @@ class WaitOp(StreamOp):
         del ctx, dst  # Unused for now
         raise NotImplementedError("WaitOp compilation not yet implemented")
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """TODO: Initialize buffer instance."""
-        del ctx  # Unused for now
-        raise NotImplementedError("WaitOp compilation not yet implemented")

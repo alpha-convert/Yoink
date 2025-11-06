@@ -53,12 +53,3 @@ class CaseOp(StreamOp):
         self.tag_read = False
         self.active_branch = None
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """Initialize tag_read and active_branch."""
-        tag_read_var = ctx.state_var(self, 'tag_read')
-        active_branch_var = ctx.state_var(self, 'active_branch')
-        return [
-            (tag_read_var.name, False),
-            (active_branch_var.name, -1)
-        ]
-

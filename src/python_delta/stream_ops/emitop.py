@@ -294,17 +294,3 @@ class EmitOp(StreamOp):
                 ]
             )
         ]
-
-    def _get_state_initializers(self, ctx):
-        """Initialize emit state variables."""
-        phase_var = ctx.state_var(self, 'phase')
-        source_index_var = ctx.state_var(self, 'source_index')
-        event_buffer_var = ctx.state_var(self, 'event_buffer')
-        emit_index_var = ctx.state_var(self, 'emit_index')
-
-        return [
-            (phase_var.name, 'PULLING'),
-            (source_index_var.name, 0),
-            (event_buffer_var.name, None),
-            (emit_index_var.name, 0)
-        ]

@@ -103,29 +103,3 @@ class CatProj(StreamOp):
     def reset(self):
         """Reset is handled by the coordinator."""
         pass  # Coordinator manages the state
-
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """State is managed by coordinator, initialized once."""
-        coord = self.coordinator
-
-        # Only initialize coordinator state once, even though multiple CatProj use it
-        if coord.id in ctx.state_vars:
-            # Check if we haven't already returned these initializers
-            init_marker = f'coord_init_{coord.id}'
-            if init_marker not in ctx.compiled_nodes:
-                ctx.compiled_nodes.add(init_marker)
-                seen_punc_var = ctx.state_var(coord, 'seen_punc')
-                input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
-                return [
-                    (seen_punc_var.name, False),
-                    (input_exhausted_var.name, False)
-                ]
-
-        return []
-
-        seen_punc_var = ctx.state_var(coord, 'seen_punc')
-        input_exhausted_var = ctx.state_var(coord, 'input_exhausted')
-        return [
-            seen_punc_var.assign(ast.Constant(value=False)),
-            input_exhausted_var.assign(ast.Constant(value=False))
-        ]

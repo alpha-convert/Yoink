@@ -6,6 +6,7 @@ import ast
 
 from python_delta.compilation.compiler_visitor import CompilerVisitor
 from python_delta.compilation import CompilationContext, StateVar
+from python_delta.compilation.reset_visitor import ResetVisitor
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -125,7 +126,7 @@ class DirectCompiler(CompilerVisitor):
     @staticmethod
     def _generate_init(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
         """Generate __init__ method with state initialization."""
-        body = [
+        body: List[ast.stmt] = [
             # self.inputs = list(input_iterators)
             ast.Assign(
                 targets=[ast.Attribute(
@@ -141,19 +142,10 @@ class DirectCompiler(CompilerVisitor):
             )
         ]
 
-        # Add state initializers from all nodes
+        # Add state initializers from all nodes (use ResetVisitor since initializing = resetting to initial state)
+        reset_visitor = ResetVisitor(ctx)
         for node in dataflow_graph.nodes:
-            for var_name, initial_value in node._get_state_initializers(ctx):
-                body.append(
-                    ast.Assign(
-                        targets=[ast.Attribute(
-                            value=ast.Name(id='self', ctx=ast.Load()),
-                            attr=var_name,
-                            ctx=ast.Store()
-                        )],
-                        value=ast.Constant(value=initial_value)
-                    )
-                )
+            body.extend(reset_visitor.visit(node))
 
         return ast.FunctionDef(
             name='__init__',

@@ -34,7 +34,3 @@ class SingletonOp(StreamOp):
     def reset(self):
         self.exhausted = False
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """Initialize exhausted to False."""
-        exhausted_var = ctx.state_var(self, 'exhausted')
-        return [(exhausted_var.name, False)]

@@ -70,5 +70,3 @@ class StreamOp:
         """
         return visitor.visit(self)
 
-    def _get_state_initializers(self, ctx):
-        return []

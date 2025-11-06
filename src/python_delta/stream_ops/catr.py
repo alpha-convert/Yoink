@@ -45,7 +45,3 @@ class CatR(StreamOp):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """Initialize state to FIRST_STREAM."""
-        state_var = ctx.state_var(self, 'state')
-        return [(state_var.name, CatRState.FIRST_STREAM.value)]

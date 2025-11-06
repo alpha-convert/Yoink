@@ -36,7 +36,3 @@ class SumInj(StreamOp):
         """Reset state and recursively reset input stream."""
         self.tag_emitted = False
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """Initialize tag_emitted to False."""
-        tag_var = ctx.state_var(self, 'tag_emitted')
-        return [(tag_var.name, False)]

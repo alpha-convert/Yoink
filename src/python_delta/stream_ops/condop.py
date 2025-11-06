@@ -49,10 +49,3 @@ class CondOp(StreamOp):
         """Reset state and recursively reset branches."""
         self.active_branch = None
 
-    def _get_state_initializers(self, ctx) -> List[tuple]:
-        """Initialize active_branch."""
-        active_branch_var = ctx.state_var(self, 'active_branch')
-        return [
-            (active_branch_var.name, None)
-        ]
-
