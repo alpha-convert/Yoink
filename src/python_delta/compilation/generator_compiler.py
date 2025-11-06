@@ -193,32 +193,9 @@ class GeneratorCompiler(CompilerVisitor):
     @staticmethod
     def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
         """Generate reset method."""
-        from python_delta.compilation.reset_visitor import ResetVisitor
+        assert False
 
-        visitor = ResetVisitor(ctx)
-        body = []
-
-        for node in dataflow_graph.nodes:
-            body.extend(visitor.visit(node))
-
-        if not body:
-            body = [ast.Pass()]
-
-        return ast.FunctionDef(
-            name='reset',
-            args=ast.arguments(
-                args=[ast.arg(arg='self', annotation=None)],
-                vararg=None,
-                kwonlyargs=[],
-                kw_defaults=[],
-                kwarg=None,
-                defaults=[],
-                posonlyargs=[]
-            ),
-            body=body,
-            decorator_list=[],
-            returns=None,
-        )
+        
 
     def visit_Var(self, node: 'Var') -> List[ast.stmt]:
         """Generator version - loop through input iterator."""
@@ -280,9 +257,7 @@ class GeneratorCompiler(CompilerVisitor):
         return self.yield_cont(event_expr) + self.done_cont
 
     def visit_ResetOp(self, node: 'ResetOp') -> List[ast.stmt]:
-        """In generator mode, there are no state variables to reset."""
-        # The generator's execution flow naturally handles "resetting"
-        return []
+        assert False
 
     def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:
         """Generator version - emit tag, then delegate to input. No state needed!"""
