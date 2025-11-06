@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Callable
+from typing import List, Callable
 import ast
-
-if TYPE_CHECKING:
-    from python_delta.compilation import StateVar
 
 
 class Done:
@@ -59,8 +56,19 @@ class StreamOp:
         """Reset stream to initial state. Subclasses should override if stateful."""
         pass
 
-    def _compile_stmts(self, ctx, dst: StateVar):
-        raise NotImplementedError(f"{self.__class__.__name__} must implement _compile_stmts")
+    def accept(self, visitor) -> List[ast.stmt]:
+        """Accept a visitor for compilation (visitor pattern).
+
+        This is the entry point for the visitor pattern. The visitor
+        dispatches to the appropriate visit_* method based on node type.
+
+        Args:
+            visitor: A CompilerVisitor instance
+
+        Returns:
+            List of AST statements compiled by the visitor
+        """
+        return visitor.visit(self)
 
     def _compile_stmts_cps(
         self,

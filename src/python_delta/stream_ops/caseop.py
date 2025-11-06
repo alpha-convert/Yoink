@@ -7,7 +7,6 @@ import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import PlusPuncA, PlusPuncB
-from python_delta.compilation import StateVar
 
 
 class CaseOp(StreamOp):
@@ -53,117 +52,6 @@ class CaseOp(StreamOp):
         """Reset state and recursively reset branches."""
         self.tag_read = False
         self.active_branch = None
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Compile tag reading and branch routing."""
-        tag_read_var = ctx.state_var(self, 'tag_read')
-        active_branch_var = ctx.state_var(self, 'active_branch')
-
-        tag_tmp = ctx.allocate_temp()
-        input_stmts = self.input_stream._compile_stmts(ctx, tag_tmp)
-
-        branch0_stmts = self.branches[0]._compile_stmts(ctx, dst)
-        branch1_stmts = self.branches[1]._compile_stmts(ctx, dst)
-
-        # Build nested if/elif structure for tag reading
-        return [
-            ast.If(
-                test=ast.UnaryOp(
-                    op=ast.Not(),
-                    operand=tag_read_var.rvalue()
-                ),
-                body=input_stmts + [
-                    ast.If(
-                        test=ast.Compare(
-                            left=tag_tmp.rvalue(),
-                            ops=[ast.Is()],
-                            comparators=[ast.Constant(value=None)]
-                        ),
-                        body=[
-                            dst.assign(ast.Constant(value=None))
-                        ],
-                        orelse=[
-                            ast.If(
-                                test=ast.Compare(
-                                    left=tag_tmp.rvalue(),
-                                    ops=[ast.Is()],
-                                    comparators=[ast.Name(id='DONE', ctx=ast.Load())]
-                                ),
-                                body=[
-                                    dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
-                                ],
-                                orelse=[
-                                    # Set tag_read = True
-                                    tag_read_var.assign(ast.Constant(value=True)),
-                                    # Check tag type and set active_branch
-                                    ast.If(
-                                        test=ast.Call(
-                                            func=ast.Name(id='isinstance', ctx=ast.Load()),
-                                            args=[
-                                                tag_tmp.rvalue(),
-                                                ast.Name(id='PlusPuncA', ctx=ast.Load())
-                                            ],
-                                            keywords=[]
-                                        ),
-                                        body=[
-                                            active_branch_var.assign(ast.Constant(value=0))
-                                        ],
-                                        orelse=[
-                                            ast.If(
-                                                test=ast.Call(
-                                                    func=ast.Name(id='isinstance', ctx=ast.Load()),
-                                                    args=[
-                                                        tag_tmp.rvalue(),
-                                                        ast.Name(id='PlusPuncB', ctx=ast.Load())
-                                                    ],
-                                                    keywords=[]
-                                                ),
-                                                body=[
-                                                    active_branch_var.assign(ast.Constant(value=1))
-                                                ],
-                                                orelse=[
-                                                    ast.Raise(
-                                                        exc=ast.Call(
-                                                            func=ast.Name(id='RuntimeError', ctx=ast.Load()),
-                                                            args=[
-                                                                ast.JoinedStr(values=[
-                                                                    ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
-                                                                    ast.FormattedValue(
-                                                                        value=tag_tmp.rvalue(),
-                                                                        conversion=-1,
-                                                                        format_spec=None
-                                                                    )
-                                                                ])
-                                                            ],
-                                                            keywords=[]
-                                                        ),
-                                                        cause=None
-                                                    )
-                                                ]
-                                            )
-                                        ]
-                                    ),
-                                    # Set dst = None
-                                    dst.assign(ast.Constant(value=None))
-                                ]
-                            )
-                        ]
-                    )
-                ],
-                orelse=[
-                    # Route to appropriate branch
-                    ast.If(
-                        test=ast.Compare(
-                            left=active_branch_var.rvalue(),
-                            ops=[ast.Eq()],
-                            comparators=[ast.Constant(value=0)]
-                        ),
-                        body=branch0_stmts,
-                        orelse=branch1_stmts
-                    )
-                ]
-            )
-        ]
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize tag_read and active_branch."""

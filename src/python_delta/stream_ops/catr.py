@@ -8,7 +8,6 @@ from enum import Enum
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import CatEvA, CatPunc
-from python_delta.compilation import StateVar
 
 class CatRState(Enum):
     """State machine for CatR operation."""
@@ -45,63 +44,6 @@ class CatR(StreamOp):
     def reset(self):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Compile CatR state machine to if/else with nested conditionals."""
-        state_var = ctx.state_var(self, 'state')
-        tmp = ctx.allocate_temp()
-
-        # Compile children
-        s1_stmts = self.input_streams[0]._compile_stmts(ctx, tmp)
-        s2_stmts = self.input_streams[1]._compile_stmts(ctx, dst)
-
-        # Build the state machine: if state == FIRST_STREAM: ... else: ...
-        return [
-            ast.If(
-                test=ast.Compare(
-                    left=state_var.rvalue(),
-                    ops=[ast.Eq()],
-                    comparators=[ast.Constant(value=CatRState.FIRST_STREAM.value)]
-                ),
-                body=s1_stmts + [
-                    ast.If(
-                        test=ast.Compare(
-                            left=tmp.rvalue(),
-                            ops=[ast.Is()],
-                            comparators=[ast.Name(id='DONE', ctx=ast.Load())]
-                        ),
-                        body=[
-                            state_var.assign(ast.Constant(value=CatRState.SECOND_STREAM.value)),
-                            dst.assign(ast.Call(
-                                func=ast.Name(id='CatPunc', ctx=ast.Load()),
-                                args=[],
-                                keywords=[]
-                            ))
-                        ],
-                        orelse=[
-                            ast.If(
-                                test=ast.Compare(
-                                    left=tmp.rvalue(),
-                                    ops=[ast.Is()],
-                                    comparators=[ast.Constant(value=None)]
-                                ),
-                                body=[
-                                    dst.assign(ast.Constant(value=None))
-                                ],
-                                orelse=[
-                                    dst.assign(ast.Call(
-                                        func=ast.Name(id='CatEvA', ctx=ast.Load()),
-                                        args=[tmp.rvalue()],
-                                        keywords=[]
-                                    ))
-                                ]
-                            )
-                        ]
-                    )
-                ],
-                orelse=s2_stmts
-            )
-        ]
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize state to FIRST_STREAM."""

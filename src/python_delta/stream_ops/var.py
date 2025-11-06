@@ -6,7 +6,6 @@ from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
-from python_delta.compilation import StateVar
 
 
 class Var(StreamOp):
@@ -37,49 +36,6 @@ class Var(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts(self, ctx: 'CompilationContext', dst: StateVar) -> List[ast.stmt]:
-        """Compile to: try: dst = next(self.inputs[idx]) except StopIteration: dst = DONE"""
-        input_idx = ctx.var_to_input_idx[self.id]
-
-        return [
-            ast.Try(
-                body=[
-                    ast.Assign(
-                        targets=[dst.lvalue()],
-                        value=ast.Call(
-                            func=ast.Name(id='next', ctx=ast.Load()),
-                            args=[
-                                ast.Subscript(
-                                    value=ast.Attribute(
-                                        value=ast.Name(id='self', ctx=ast.Load()),
-                                        attr='inputs',
-                                        ctx=ast.Load()
-                                    ),
-                                    slice=ast.Constant(value=input_idx),
-                                    ctx=ast.Load()
-                                )
-                            ],
-                            keywords=[]
-                        )
-                    )
-                ],
-                handlers=[
-                    ast.ExceptHandler(
-                        type=ast.Name(id='StopIteration', ctx=ast.Load()),
-                        name=None,
-                        body=[
-                            ast.Assign(
-                                targets=[dst.lvalue()],
-                                value=ast.Name(id='DONE', ctx=ast.Load())
-                            )
-                        ]
-                    )
-                ],
-                orelse=[],
-                finalbody=[]
-            )
-        ]
 
     def _compile_stmts_cps(
         self,

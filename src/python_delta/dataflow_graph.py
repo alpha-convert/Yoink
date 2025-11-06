@@ -142,7 +142,10 @@ class DataflowGraph:
             yield_cont = lambda expr: [result_var.assign(expr)]
             output_stmts = self.outputs._compile_stmts_cps(ctx, done_cont, skip_cont, yield_cont)
         else:
-            output_stmts = self.outputs._compile_stmts(ctx, result_var)
+            # Use visitor pattern for direct compilation
+            from python_delta.compilation.direct_compiler import DirectCompiler
+            compiler = DirectCompiler(ctx, result_var)
+            output_stmts = self.outputs.accept(compiler)
 
         # Generate the class AST
         class_ast = self._generate_class_ast(ctx, output_stmts, is_generator=generator)

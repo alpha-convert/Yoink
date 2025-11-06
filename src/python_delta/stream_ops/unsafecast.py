@@ -6,7 +6,6 @@ from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
-from python_delta.compilation import StateVar
 
 
 class UnsafeCast(StreamOp):
@@ -29,9 +28,6 @@ class UnsafeCast(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        return self.input_stream._compile_stmts(ctx, dst)
 
     def _compile_stmts_cps(
         self,

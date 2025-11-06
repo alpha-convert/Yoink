@@ -6,7 +6,6 @@ import ast
 from typing import List, Callable
 
 from python_delta.stream_ops.base import StreamOp, DONE
-from python_delta.compilation import StateVar
 
 
 class SingletonOp(StreamOp):
@@ -34,27 +33,6 @@ class SingletonOp(StreamOp):
 
     def reset(self):
         self.exhausted = False
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Emit value once, then DONE."""
-        exhausted_var = ctx.state_var(self, 'exhausted')
-
-        return [
-            ast.If(
-                test=exhausted_var.rvalue(),
-                body=[
-                    dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
-                ],
-                orelse=[
-                    exhausted_var.assign(ast.Constant(value=True)),
-                    dst.assign(ast.Call(
-                        func=ast.Name(id='BaseEvent', ctx=ast.Load()),
-                        args=[ast.Constant(value=self.value)],
-                        keywords=[]
-                    ))
-                ]
-            )
-        ]
 
     def _compile_stmts_cps(
         self,

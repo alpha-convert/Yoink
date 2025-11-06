@@ -6,7 +6,6 @@ from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
-from python_delta.compilation import StateVar
 
 
 class Eps(StreamOp):
@@ -29,15 +28,6 @@ class Eps(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Compile to: dst = DONE"""
-        return [
-            ast.Assign(
-                targets=[dst.lvalue()],
-                value=ast.Name(id='DONE', ctx=ast.Load())
-            )
-        ]
 
     def _compile_stmts_cps(
         self,

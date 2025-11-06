@@ -6,7 +6,6 @@ from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
-from python_delta.compilation import StateVar
 
 
 class SinkThen(StreamOp):
@@ -45,45 +44,6 @@ class SinkThen(StreamOp):
     def reset(self):
         """Reset state."""
         self.first_exhausted = False
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Compile exhaust-first-then-second logic."""
-        exhausted_var = ctx.state_var(self, 'first_exhausted')
-
-        val_tmp = ctx.allocate_temp()
-        s1_stmts = self.input_streams[0]._compile_stmts(ctx, val_tmp)
-        s2_stmts = self.input_streams[1]._compile_stmts(ctx, dst)
-
-        return [
-            ast.If(
-                test=ast.UnaryOp(
-                    op=ast.Not(),
-                    operand=exhausted_var.rvalue()
-                ),
-                body=s1_stmts + [
-                    ast.If(
-                        test=ast.Compare(
-                            left=val_tmp.rvalue(),
-                            ops=[ast.Is()],
-                            comparators=[ast.Name(id='DONE', ctx=ast.Load())]
-                        ),
-                        body=[
-                            ast.Assign(
-                                targets=[exhausted_var.lvalue()],
-                                value=ast.Constant(value=True)
-                            )
-                        ] + s2_stmts,
-                        orelse=[
-                            ast.Assign(
-                                targets=[dst.lvalue()],
-                                value=ast.Constant(value=None)
-                            )
-                        ]
-                    )
-                ],
-                orelse=s2_stmts
-            )
-        ]
 
     def _get_state_initializers(self, ctx) -> List[tuple]:
         """Initialize first_exhausted to False."""

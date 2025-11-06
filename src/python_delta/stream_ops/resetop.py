@@ -6,7 +6,6 @@ from typing import List, Callable
 import ast
 
 from python_delta.stream_ops.base import StreamOp, DONE
-from python_delta.compilation import StateVar
 
 
 class ResetOp(StreamOp):
@@ -29,22 +28,6 @@ class ResetOp(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """Compile reset calls on all nodes in reset_set."""
-        reset_stmts = []
-
-        for node in self.reset_set:
-            reset_stmts.extend(node._get_reset_stmts(ctx))
-
-        reset_stmts.append(
-            ast.Assign(
-                targets=[dst.lvalue()],
-                value=ast.Constant(value=None)
-            )
-        )
-
-        return reset_stmts
 
     def _compile_stmts_cps(
         self,
