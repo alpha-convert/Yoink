@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import List
-import ast
+
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.stream_ops.bufferop import BufferOp
@@ -56,9 +56,3 @@ class CondOp(StreamOp):
             (active_branch_var.name, None)
         ]
 
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset active_branch."""
-        active_branch_var = ctx.state_var(self, 'active_branch')
-        return [
-            active_branch_var.assign(ast.Constant(value=None))
-        ]

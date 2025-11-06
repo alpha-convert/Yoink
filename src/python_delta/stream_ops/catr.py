@@ -49,10 +49,3 @@ class CatR(StreamOp):
         """Initialize state to FIRST_STREAM."""
         state_var = ctx.state_var(self, 'state')
         return [(state_var.name, CatRState.FIRST_STREAM.value)]
-
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset state to FIRST_STREAM."""
-        state_var = ctx.state_var(self, "state")
-        return [
-            state_var.assign(ast.Constant(value=CatRState.FIRST_STREAM.value))
-        ]

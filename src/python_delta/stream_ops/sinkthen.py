@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import List
-import ast
+
 
 from python_delta.stream_ops.base import StreamOp, DONE
 
@@ -50,12 +50,3 @@ class SinkThen(StreamOp):
         exhausted_var = ctx.state_var(self, 'first_exhausted')
         return [(exhausted_var.name, False)]
 
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset first_exhausted to False."""
-        exhausted_var = ctx.state_var(self, 'first_exhausted')
-        return [
-            ast.Assign(
-                targets=[exhausted_var.lvalue()],
-                value=ast.Constant(value=False)
-            )
-        ]

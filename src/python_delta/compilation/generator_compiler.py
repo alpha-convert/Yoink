@@ -201,10 +201,13 @@ class GeneratorCompiler(CompilerVisitor):
     @staticmethod
     def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
         """Generate reset method."""
+        from python_delta.compilation.reset_visitor import ResetVisitor
+
+        visitor = ResetVisitor(ctx)
         body = []
 
         for node in dataflow_graph.nodes:
-            body.extend(node._get_reset_stmts(ctx))
+            body.extend(visitor.visit(node))
 
         if not body:
             body = [ast.Pass()]

@@ -233,10 +233,13 @@ class CPSCompiler(CompilerVisitor):
     @staticmethod
     def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
         """Generate reset method."""
+        from python_delta.compilation.reset_visitor import ResetVisitor
+
+        visitor = ResetVisitor(ctx)
         body = []
 
         for node in dataflow_graph.nodes:
-            body.extend(node._get_reset_stmts(ctx))
+            body.extend(visitor.visit(node))
 
         if not body:
             body = [ast.Pass()]
@@ -322,9 +325,12 @@ class CPSCompiler(CompilerVisitor):
 
     def visit_ResetOp(self, node: 'ResetOp') -> List[ast.stmt]:
         """Compile reset calls on all nodes in reset_set."""
+        from python_delta.compilation.reset_visitor import ResetVisitor
+
+        visitor = ResetVisitor(self.ctx)
         reset_stmts = []
         for reset_node in node.reset_set:
-            reset_stmts.extend(reset_node._get_reset_stmts(self.ctx))
+            reset_stmts.extend(visitor.visit(reset_node))
         return reset_stmts + self.skip_cont
 
     def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:

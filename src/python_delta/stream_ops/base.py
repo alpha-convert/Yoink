@@ -72,6 +72,3 @@ class StreamOp:
 
     def _get_state_initializers(self, ctx):
         return []
-
-    def _get_reset_stmts(self, ctx):
-        return []

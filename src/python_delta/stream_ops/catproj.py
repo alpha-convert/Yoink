@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import List
-import ast
+
 
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.event import CatEvA, CatPunc, PlusPuncA, PlusPuncB
@@ -122,12 +122,6 @@ class CatProj(StreamOp):
                 ]
 
         return []
-
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset coordinator state (only generate once for first CatProj)."""
-        coord = self.coordinator
-        if coord.id not in ctx.state_vars:
-            return []
 
         seen_punc_var = ctx.state_var(coord, 'seen_punc')
         input_exhausted_var = ctx.state_var(coord, 'input_exhausted')

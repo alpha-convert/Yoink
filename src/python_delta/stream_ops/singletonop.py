@@ -38,10 +38,3 @@ class SingletonOp(StreamOp):
         """Initialize exhausted to False."""
         exhausted_var = ctx.state_var(self, 'exhausted')
         return [(exhausted_var.name, False)]
-
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset exhausted to False."""
-        exhausted_var = ctx.state_var(self, 'exhausted')
-        return [
-            exhausted_var.assign(ast.Constant(value=False))
-        ]

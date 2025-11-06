@@ -40,10 +40,3 @@ class SumInj(StreamOp):
         """Initialize tag_emitted to False."""
         tag_var = ctx.state_var(self, 'tag_emitted')
         return [(tag_var.name, False)]
-
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset tag_emitted to False."""
-        tag_var = ctx.state_var(self, 'tag_emitted')
-        return [
-            tag_var.assign(ast.Constant(value=False))
-        ]

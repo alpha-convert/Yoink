@@ -62,12 +62,3 @@ class CaseOp(StreamOp):
             (active_branch_var.name, -1)
         ]
 
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """Reset tag_read and active_branch."""
-        tag_read_var = ctx.state_var(self, 'tag_read')
-        active_branch_var = ctx.state_var(self, 'active_branch')
-        return [
-            tag_read_var.assign(ast.Constant(value=False)),
-            active_branch_var.assign(ast.Constant(value=-1))
-        ]
-

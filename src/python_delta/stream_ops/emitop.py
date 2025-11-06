@@ -308,18 +308,3 @@ class EmitOp(StreamOp):
             (event_buffer_var.name, None),
             (emit_index_var.name, 0)
         ]
-
-    def _get_reset_stmts(self, ctx):
-        """Reset emit state."""
-        import ast
-        phase_var = ctx.state_var(self, 'phase')
-        source_index_var = ctx.state_var(self, 'source_index')
-        event_buffer_var = ctx.state_var(self, 'event_buffer')
-        emit_index_var = ctx.state_var(self, 'emit_index')
-
-        return [
-            phase_var.assign(ast.Constant(value='PULLING')),
-            source_index_var.assign(ast.Constant(value=0)),
-            event_buffer_var.assign(ast.Constant(value=None)),
-            emit_index_var.assign(ast.Constant(value=0))
-        ]

@@ -221,8 +221,3 @@ class WaitOp(StreamOp):
         """TODO: Initialize buffer instance."""
         del ctx  # Unused for now
         raise NotImplementedError("WaitOp compilation not yet implemented")
-
-    def _get_reset_stmts(self, ctx) -> List[ast.stmt]:
-        """TODO: Reset buffer to new instance."""
-        del ctx  # Unused for now
-        raise NotImplementedError("WaitOp compilation not yet implemented")
