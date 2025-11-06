@@ -10,6 +10,7 @@ from typing import List, Callable, TYPE_CHECKING
 import ast
 
 from python_delta.compilation.compiler_visitor import CompilerVisitor
+from python_delta.compilation import CompilationContext, StateVar
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -37,6 +38,192 @@ class GeneratorCompiler(CompilerVisitor):
         super().__init__(ctx)
         self.done_cont = done_cont
         self.yield_cont = yield_cont
+
+    @staticmethod
+    def compile(dataflow_graph) -> type:
+        """Compile a dataflow graph using generator compilation.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The compiled class (not an instance)
+        """
+        module_ast = GeneratorCompiler._generate_module_ast(dataflow_graph)
+
+        code = compile(module_ast, '<generated>', 'exec')
+
+        # Execute in namespace with event types and DONE
+        from python_delta.stream_ops import DONE, CatRState
+        from python_delta.event import BaseEvent, CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
+        namespace = {
+            'DONE': DONE,
+            'BaseEvent': BaseEvent,
+            'CatEvA': CatEvA,
+            'CatPunc': CatPunc,
+            'ParEvA': ParEvA,
+            'ParEvB': ParEvB,
+            'PlusPuncA': PlusPuncA,
+            'PlusPuncB': PlusPuncB,
+            'CatRState': CatRState,
+        }
+        exec(code, namespace)
+
+        return namespace['FlattenedIterator']
+
+    @staticmethod
+    def get_code(dataflow_graph) -> str:
+        """Get the compiled Python code as a string.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The generated Python code as a string
+        """
+        module_ast = GeneratorCompiler._generate_module_ast(dataflow_graph)
+        return ast.unparse(module_ast)
+
+    @staticmethod
+    def _generate_module_ast(dataflow_graph) -> ast.Module:
+        """Generate the complete module AST for generator compilation.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The module AST
+        """
+        ctx = CompilationContext()
+
+        # Map input vars to their indices
+        ctx.var_to_input_idx = {var.id: i for i, var in enumerate(dataflow_graph.input_vars)}
+
+        # Compile the output node
+        done_cont = [ast.Return(value=None)]  # End the generator
+        yield_cont = lambda expr: [ast.Expr(value=ast.Yield(value=expr))]  # Yield values
+        compiler = GeneratorCompiler(ctx, done_cont, yield_cont)
+        output_stmts = dataflow_graph.outputs.accept(compiler)
+
+        # Generate the class AST
+        class_ast = GeneratorCompiler._generate_class_ast(dataflow_graph, ctx, output_stmts)
+
+        # Create and return the module AST
+        module_ast = ast.Module(body=[class_ast], type_ignores=[])
+        ast.fix_missing_locations(module_ast)
+        return module_ast
+
+    @staticmethod
+    def _generate_class_ast(dataflow_graph, ctx: CompilationContext, output_stmts: List[ast.stmt]) -> ast.ClassDef:
+        """Generate the complete FlattenedIterator class for generator compilation."""
+        body = [
+            GeneratorCompiler._generate_init(dataflow_graph, ctx),
+            GeneratorCompiler._generate_iter(output_stmts),
+            GeneratorCompiler._generate_reset(dataflow_graph, ctx),
+        ]
+
+        return ast.ClassDef(
+            name='FlattenedIterator',
+            bases=[],
+            keywords=[],
+            body=body,
+            decorator_list=[],
+        )
+
+    @staticmethod
+    def _generate_init(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
+        """Generate __init__ method with state initialization."""
+        body = [
+            # self.inputs = list(input_iterators)
+            ast.Assign(
+                targets=[ast.Attribute(
+                    value=ast.Name(id='self', ctx=ast.Load()),
+                    attr='inputs',
+                    ctx=ast.Store()
+                )],
+                value=ast.Call(
+                    func=ast.Name(id='list', ctx=ast.Load()),
+                    args=[ast.Name(id='input_iterators', ctx=ast.Load())],
+                    keywords=[]
+                )
+            )
+        ]
+
+        # Add state initializers from all nodes
+        for node in dataflow_graph.nodes:
+            for var_name, initial_value in node._get_state_initializers(ctx):
+                body.append(
+                    ast.Assign(
+                        targets=[ast.Attribute(
+                            value=ast.Name(id='self', ctx=ast.Load()),
+                            attr=var_name,
+                            ctx=ast.Store()
+                        )],
+                        value=ast.Constant(value=initial_value)
+                    )
+                )
+
+        return ast.FunctionDef(
+            name='__init__',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=ast.arg(arg='input_iterators', annotation=None),
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=body,
+            decorator_list=[],
+            returns=None,
+        )
+
+    @staticmethod
+    def _generate_iter(output_stmts: List[ast.stmt]) -> ast.FunctionDef:
+        """Generate __iter__ method as a generator function."""
+        return ast.FunctionDef(
+            name='__iter__',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=output_stmts,
+            decorator_list=[],
+            returns=None,
+        )
+
+    @staticmethod
+    def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
+        """Generate reset method."""
+        body = []
+
+        for node in dataflow_graph.nodes:
+            body.extend(node._get_reset_stmts(ctx))
+
+        if not body:
+            body = [ast.Pass()]
+
+        return ast.FunctionDef(
+            name='reset',
+            args=ast.arguments(
+                args=[ast.arg(arg='self', annotation=None)],
+                vararg=None,
+                kwonlyargs=[],
+                kw_defaults=[],
+                kwarg=None,
+                defaults=[],
+                posonlyargs=[]
+            ),
+            body=body,
+            decorator_list=[],
+            returns=None,
+        )
 
     def visit_Var(self, node: 'Var') -> List[ast.stmt]:
         """Generator version - loop through input iterator."""

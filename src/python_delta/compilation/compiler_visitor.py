@@ -34,6 +34,30 @@ class CompilerVisitor:
     def __init__(self, ctx: 'CompilationContext'):
         self.ctx = ctx
 
+    @staticmethod
+    def compile(dataflow_graph) -> type:
+        """Compile a dataflow graph to a Python class.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The compiled class (not an instance)
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def get_code(dataflow_graph) -> str:
+        """Get the compiled Python code as a string.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The generated Python code as a string
+        """
+        raise NotImplementedError
+
     def visit(self, node: 'StreamOp') -> List[ast.stmt]:
         """Dispatch to the appropriate visit method based on node type."""
         method_name = f'visit_{node.__class__.__name__}'

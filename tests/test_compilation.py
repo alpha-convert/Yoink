@@ -5,6 +5,8 @@ from hypothesis import given, settings
 from python_delta.core import Delta, Singleton, TyStar, TyCat, TyPlus, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
 from python_delta.util.hypothesis_strategies import events_of_type
 from python_delta.typecheck.has_type import has_type
+from python_delta.compilation.direct_compiler import DirectCompiler
+from python_delta.compilation.cps_compiler import CPSCompiler
 
 
 INT_TY = Singleton(int)
@@ -37,13 +39,13 @@ def run_all(program, *inputs):
     interp_output = program(*[iter(inp) for inp in inputs])
     interp_result = [x for x in list(interp_output) if x is not None]
 
-    # Run compiled version (non-CPS)
-    CompiledClass = program.compile(cps=False)
+    # Run compiled version (DirectCompiler)
+    CompiledClass = program.compile(DirectCompiler)
     compiled_output = CompiledClass(*[iter(inp) for inp in inputs])
     compiled_result = [x for x in list(compiled_output) if x is not None]
 
     # Run CPS version
-    CpsClass = program.compile(cps=True)
+    CpsClass = program.compile(CPSCompiler)
     cps_output = CpsClass(*[iter(inp) for inp in inputs])
     cps_result = [x for x in list(cps_output) if x is not None]
 
