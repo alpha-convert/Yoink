@@ -119,7 +119,7 @@ class GeneratorCompiler(CompilerVisitor):
         """Generate the complete FlattenedIterator class for generator compilation."""
         body = [
             GeneratorCompiler._generate_init(dataflow_graph, ctx),
-            GeneratorCompiler._generate_iter(output_stmts),
+            GeneratorCompiler._generate_iter(output_stmts, ctx),
             GeneratorCompiler._generate_reset(dataflow_graph, ctx),
         ]
 
@@ -171,8 +171,32 @@ class GeneratorCompiler(CompilerVisitor):
         )
 
     @staticmethod
-    def _generate_iter(output_stmts: List[ast.stmt]) -> ast.FunctionDef:
+    def _generate_iter(output_stmts: List[ast.stmt], ctx: CompilationContext) -> ast.FunctionDef:
         """Generate __iter__ method as a generator function."""
+        # Generate exception class definitions at the top of __iter__
+        exception_defs = []
+        for exc_name in ctx.escape_exceptions.values():
+            exception_defs.append(
+                ast.ClassDef(
+                    name=exc_name,
+                    bases=[ast.Name(id='Exception', ctx=ast.Load())],
+                    keywords=[],
+                    body=[ast.Pass()],
+                    decorator_list=[]
+                )
+            )
+
+        # Generate state variable initializations
+        state_inits = []
+        for node_id, state_vars in ctx.state_vars.items():
+            for var_name, state_var in state_vars.items():
+                state_inits.append(
+                    ast.Assign(
+                        targets=[state_var.lvalue()],
+                        value=ast.Constant(value=False)
+                    )
+                )
+
         return ast.FunctionDef(
             name='__iter__',
             args=ast.arguments(
@@ -184,7 +208,7 @@ class GeneratorCompiler(CompilerVisitor):
                 defaults=[],
                 posonlyargs=[]
             ),
-            body=output_stmts,
+            body=exception_defs + state_inits + output_stmts,
             decorator_list=[],
             returns=None,
         )
@@ -225,20 +249,14 @@ class GeneratorCompiler(CompilerVisitor):
 
         tmp_var = self.ctx.allocate_temp()
 
-        next_call = ast.Call(
-            func=ast.Name(id='next', ctx=ast.Load()),
-            args=[
-                ast.Subscript(
-                    value=ast.Attribute(
-                        value=ast.Name(id='self', ctx=ast.Load()),
-                        attr='inputs',
-                        ctx=ast.Load()
-                    ),
-                    slice=ast.Constant(value=input_idx),
-                    ctx=ast.Load()
-                )
-            ],
-            keywords=[]
+        input_access = ast.Subscript(
+            value=ast.Attribute(
+                value=ast.Name(id='self', ctx=ast.Load()),
+                attr='inputs',
+                ctx=ast.Load()
+            ),
+            slice=ast.Constant(value=input_idx),
+            ctx=ast.Load()
         )
 
         return [
@@ -247,7 +265,14 @@ class GeneratorCompiler(CompilerVisitor):
                 body=[
                     ast.Try(
                         body=[
-                            tmp_var.assign(next_call)
+                            ast.Assign(
+                                targets=[tmp_var.lvalue()],
+                                value=ast.Call(
+                                    func=ast.Name(id='next', ctx=ast.Load()),
+                                    args=[input_access],
+                                    keywords=[]
+                                )
+                            )
                         ] + self.yield_cont(tmp_var.rvalue()),
                         handlers=[
                             ast.ExceptHandler(
@@ -279,12 +304,23 @@ class GeneratorCompiler(CompilerVisitor):
         return self.yield_cont(event_expr) + self.done_cont
 
     def visit_ResetOp(self, node: 'ResetOp') -> List[ast.stmt]:
-        """Jump back to the start of the enclosing ResetBlockEnclosingOp's loop.
+        """Reset state variables for all nodes in reset_set, then continue loop."""
+        reset_stmts = []
 
-        In generator compilation, no explicit state reset is needed - the control
-        flow jump handles it naturally by restarting execution.
-        """
-        return [ast.Continue()]
+        # Reset state variables for all nodes in the reset set
+        for reset_node in node.reset_set:
+            if reset_node.id in self.ctx.state_vars:
+                for var_name, state_var in self.ctx.state_vars[reset_node.id].items():
+                    reset_stmts.append(
+                        ast.Assign(
+                            targets=[state_var.lvalue()],
+                            value=ast.Constant(value=False)
+                        )
+                    )
+
+        # Continue to restart the loop
+        reset_stmts.append(ast.Continue())
+        return reset_stmts
 
     def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:
         """Generator version - emit tag, then delegate to input. No state needed!"""
@@ -347,8 +383,10 @@ class GeneratorCompiler(CompilerVisitor):
         coord = node.coordinator
 
         if node.position == 0:
-            # Position 0: extract CatEvA values until CatPunc, then stop
-            seen_punc_var = self.ctx.allocate_temp()
+            # Position 0: extract CatEvA values until CatPunc
+            # When we see CatPunc, set seen_punc, execute done_cont, and raise escape exception
+            escape_exc = self.ctx.escape_exception(coord)
+            seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
 
             def input_yield_cont(event_expr):
                 return [
@@ -362,7 +400,7 @@ class GeneratorCompiler(CompilerVisitor):
                             ast.Attribute(value=event_expr, attr='value', ctx=ast.Load())
                         ),
                         orelse=[
-                            # If we see CatPunc, set flag and break to stop iteration
+                            # If we see CatPunc, set flag, execute done_cont, and raise escape exception
                             ast.If(
                                 test=ast.Call(
                                     func=ast.Name(id='isinstance', ctx=ast.Load()),
@@ -371,25 +409,51 @@ class GeneratorCompiler(CompilerVisitor):
                                 ),
                                 body=[
                                     seen_punc_var.assign(ast.Constant(value=True)),
-                                    ast.Break()  # Stop iteration when we see CatPunc
+                                    ast.Raise(
+                                        exc=ast.Call(
+                                            func=ast.Name(id=escape_exc, ctx=ast.Load()),
+                                            args=[],
+                                            keywords=[]
+                                        ),
+                                        cause=None
+                                    )
                                 ],
-                                orelse=[ast.Pass()]  # Skip anything else
+                                orelse=[ast.Pass()]
                             )
                         ]
                     )
                 ]
 
-            # Compile with done_cont that doesn't execute (we use break instead)
             input_compiler = GeneratorCompiler(self.ctx, self.done_cont, input_yield_cont)
             input_stmts = coord.input_stream.accept(input_compiler)
 
-            # Initialize seen_punc before processing
-            return [seen_punc_var.assign(ast.Constant(value=False))] + input_stmts
+            # Check seen_punc FIRST - if already true, immediately execute done_cont
+            # Otherwise, wrap input processing in try/except to catch escape exception
+            return [
+                ast.If(
+                    test=seen_punc_var.rvalue(),
+                    body=self.done_cont,
+                    orelse=[
+                        ast.Try(
+                            body=input_stmts,
+                            handlers=[
+                                ast.ExceptHandler(
+                                    type=ast.Name(id=escape_exc, ctx=ast.Load()),
+                                    name=None,
+                                    body=self.done_cont
+                                )
+                            ],
+                            orelse=[],
+                            finalbody=[]
+                        )
+                    ]
+                )
+            ]
         else:
             assert node.position == 1
             # Position 1: Skip events until CatPunc, then yield everything after
-
-            seen_punc_var = self.ctx.allocate_temp()
+            # Use the same seen_punc state var that position 0 sets
+            seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
 
             def input_yield_cont(event_expr):
                 # Position 1: skip events until CatPunc, then pass through all tail events
@@ -417,9 +481,9 @@ class GeneratorCompiler(CompilerVisitor):
                                         ),
                                         body=[
                                             seen_punc_var.assign(ast.Constant(value=True)),
-                                            ast.Pass()  # Skip the first CatPunc
+                                            # ast.Pass()  # Skip the first CatPunc
                                         ],
-                                        orelse=[ast.Pass()]  # Skip everything else before punc
+                                        orelse=[]  # Skip everything else before punc
                                     )
                                 ]
                             )

@@ -441,6 +441,7 @@ class DirectCompiler(CompilerVisitor):
         coord_id = coord.id
 
         seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
+        # TODO: get rid of the input exhausted var
         input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
 
         event_tmp = self.ctx.allocate_temp()

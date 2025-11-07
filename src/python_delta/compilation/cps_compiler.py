@@ -408,12 +408,8 @@ class CPSCompiler(CompilerVisitor):
         coord = node.coordinator
         coord_id = coord.id
 
-        if coord_id not in self.ctx.state_vars:
-            seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
-            input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
-        else:
-            seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
-            input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
+        seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
+        input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
 
         if node.position == 0:
             def input_yield_cont(event_expr):

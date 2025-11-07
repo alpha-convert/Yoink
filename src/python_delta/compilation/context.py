@@ -61,6 +61,7 @@ class CompilationContext:
         self.var_to_input_idx: Dict[int, int] = {}  # Var.id -> input array index
         self.temp_counter: int = 0
         self.compiled_nodes: Set[int] = set()  # Track which nodes are compiled
+        self.escape_exceptions: Dict[int, str] = {}  # coordinator.id -> exception class name
 
     def state_var(self, node, var_name: str) -> StateVar:
         if node.id in self.state_vars and var_name in self.state_vars[node.id]:
@@ -86,3 +87,18 @@ class CompilationContext:
         name = f'tmp_{self.temp_counter}'
         self.temp_counter += 1
         return StateVar(name, tmp=True)
+
+    def escape_exception(self, node) -> str:
+        """Get or create a unique exception class name for this coordinator."""
+        if node.id in self.escape_exceptions:
+            return self.escape_exceptions[node.id]
+
+        coord_type = node.__class__.__name__.lower()
+        if coord_type not in self.type_counters:
+            self.type_counters[coord_type] = 0
+        idx = self.type_counters[coord_type]
+        self.type_counters[coord_type] += 1
+
+        exception_name = f'Escape_{coord_type}_{idx}'
+        self.escape_exceptions[node.id] = exception_name
+        return exception_name
