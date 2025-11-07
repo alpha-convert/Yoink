@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp, CondOp
+from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp, CondOp, ResetBlockEnclosingOp
 
 class Delta:
     def __init__(self):
@@ -16,12 +16,14 @@ class Delta:
         self.nodes.add(node)
 
     def _reset_block(self,f,ty):
-        reset_node = ResetOp(set(),ty)
+        reset_node = ResetOp(set(),stream_type=ty)
         nodes_before = self.nodes.copy()
         res = f(reset_node)
         reset_node.reset_set = self.nodes - nodes_before
         self._register_node(reset_node)
-        return res
+        reset_block = ResetBlockEnclosingOp(res,res.stream_type)
+        self._register_node(reset_block)
+        return reset_block
 
     def var(self, v, var_type=None):
         if var_type is None:

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.resetop import ResetOp
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
+    from python_delta.stream_ops.resetblockenclosing import ResetBlockEnclosingOp
 
 
 class DirectCompiler(CompilerVisitor):
@@ -439,13 +440,8 @@ class DirectCompiler(CompilerVisitor):
         coord = node.coordinator
         coord_id = coord.id
 
-        # Allocate state for coordinator (shared between positions)
-        if coord_id not in self.ctx.state_vars:
-            seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
-            input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
-        else:
-            seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
-            input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
+        seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
+        input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
 
         event_tmp = self.ctx.allocate_temp()
         input_compiler = DirectCompiler(self.ctx, event_tmp)
@@ -521,7 +517,7 @@ class DirectCompiler(CompilerVisitor):
                 )
             ]
         else:  # position == 1
-            # Position 1: skip CatEvA and CatPunc, return tail events
+            # Position 1: skip events until CatPunc, then pass through all tail events
             return [
                 ast.If(
                     test=input_exhausted_var.rvalue(),
@@ -540,36 +536,50 @@ class DirectCompiler(CompilerVisitor):
                                 self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                             ],
                             orelse=[
+                                # Check if we've seen punc yet
                                 ast.If(
-                                    test=ast.Call(
-                                        func=ast.Name(id='isinstance', ctx=ast.Load()),
-                                        args=[
-                                            event_tmp.rvalue(),
-                                            ast.Name(id='CatEvA', ctx=ast.Load())
-                                        ],
-                                        keywords=[]
+                                    test=ast.UnaryOp(
+                                        op=ast.Not(),
+                                        operand=seen_punc_var.rvalue()
                                     ),
                                     body=[
-                                        self.dst.assign(ast.Constant(value=None))
-                                    ],
-                                    orelse=[
+                                        # Before punc: skip CatEvA and CatPunc
                                         ast.If(
                                             test=ast.Call(
                                                 func=ast.Name(id='isinstance', ctx=ast.Load()),
                                                 args=[
                                                     event_tmp.rvalue(),
-                                                    ast.Name(id='CatPunc', ctx=ast.Load())
+                                                    ast.Name(id='CatEvA', ctx=ast.Load())
                                                 ],
                                                 keywords=[]
                                             ),
                                             body=[
-                                                seen_punc_var.assign(ast.Constant(value=True)),
                                                 self.dst.assign(ast.Constant(value=None))
                                             ],
                                             orelse=[
-                                                self.dst.assign(event_tmp.rvalue())
+                                                ast.If(
+                                                    test=ast.Call(
+                                                        func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                                        args=[
+                                                            event_tmp.rvalue(),
+                                                            ast.Name(id='CatPunc', ctx=ast.Load())
+                                                        ],
+                                                        keywords=[]
+                                                    ),
+                                                    body=[
+                                                        seen_punc_var.assign(ast.Constant(value=True)),
+                                                        self.dst.assign(ast.Constant(value=None))
+                                                    ],
+                                                    orelse=[
+                                                        self.dst.assign(ast.Constant(value=None))
+                                                    ]
+                                                )
                                             ]
                                         )
+                                    ],
+                                    orelse=[
+                                        # After punc: pass through all events
+                                        self.dst.assign(event_tmp.rvalue())
                                     ]
                                 )
                             ]
@@ -813,3 +823,6 @@ class DirectCompiler(CompilerVisitor):
                 ]
             )
         ]
+
+    def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
+        return self.visit(node.block_contents)

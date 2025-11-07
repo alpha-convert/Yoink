@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.resetop import ResetOp
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
+    from python_delta.stream_ops.resetblockenclosing import ResetBlockEnclosingOp
     from python_delta.compilation import CompilationContext, StateVar
 
 
@@ -105,3 +106,7 @@ class CompilerVisitor:
 
     def visit_CondOp(self, node: 'CondOp') -> List[ast.stmt]:
         raise NotImplementedError
+
+    def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
+        raise NotImplementedError
+

@@ -7,26 +7,29 @@ from python_delta.util.hypothesis_strategies import events_of_type
 from python_delta.typecheck.has_type import has_type
 from python_delta.compilation.direct_compiler import DirectCompiler
 from python_delta.compilation.cps_compiler import CPSCompiler
+from python_delta.compilation.generator_compiler import GeneratorCompiler
 
 
 INT_TY = Singleton(int)
 STRING_TY = Singleton(str)
 
 
-def run_all(program, *inputs):
+def run_all(program, *inputs, compilers):
     """
-    Run a program in interpreted, compiled, and CPS modes.
+    Run a program in interpreted mode and with each specified compiler.
 
     Args:
         program: A @Delta.jit decorated function (DataflowGraph)
         *inputs: Input iterables for the program
+        compilers: List of compiler classes to test
 
     Returns:
-        (interpreted_results, compiled_results, cps_results) - all as lists with None filtered out
+        Tuple of (interpreted_result, *compiled_results) - all as lists with None filtered out
 
     Raises:
         AssertionError: If inputs or outputs are not well-typed or if results don't match
     """
+
     # Check that inputs are well-typed
     assert len(inputs) == len(program.input_types), \
         f"Expected {len(program.input_types)} inputs, got {len(inputs)}"
@@ -39,30 +42,30 @@ def run_all(program, *inputs):
     interp_output = program(*[iter(inp) for inp in inputs])
     interp_result = [x for x in list(interp_output) if x is not None]
 
-    # Run compiled version (DirectCompiler)
-    CompiledClass = program.compile(DirectCompiler)
-    compiled_output = CompiledClass(*[iter(inp) for inp in inputs])
-    compiled_result = [x for x in list(compiled_output) if x is not None]
-
-    # Run CPS version
-    CpsClass = program.compile(CPSCompiler)
-    cps_output = CpsClass(*[iter(inp) for inp in inputs])
-    cps_result = [x for x in list(cps_output) if x is not None]
+    # Run each compiler
+    compiled_results = []
+    for compiler in compilers:
+        CompiledClass = program.compile(compiler)
+        compiled_output = CompiledClass(*[iter(inp) for inp in inputs])
+        compiled_result = [x for x in list(compiled_output) if x is not None]
+        compiled_results.append(compiled_result)
 
     # Check that outputs are well-typed
     output_type = program.outputs.stream_type
     assert has_type(interp_result, output_type), \
         f"Interpreted output does not have expected type {output_type}"
-    assert has_type(compiled_result, output_type), \
-        f"Compiled output does not have expected type {output_type}"
-    assert has_type(cps_result, output_type), \
-        f"CPS output does not have expected type {output_type}"
+
+    # for i, (compiler, compiled_result) in enumerate(zip(compilers, compiled_results)):
+    #     assert has_type(compiled_result, output_type), \
+    #         f"{compiler.__name__} output does not have expected type {output_type}"
 
     # All results should match
-    assert interp_result == compiled_result == cps_result, \
-        f"Results don't match!\nInterpreted: {interp_result}\nCompiled: {compiled_result}\nCPS: {cps_result}"
+    all_results = [interp_result] + compiled_results
+    assert all(result == interp_result for result in all_results), \
+        f"Results don't match! Interpreted: {interp_result}" + \
+        " ... ".join(f"{compiler.__name__}: {result}" for compiler, result in zip(compilers, compiled_results))
 
-    return interp_result, compiled_result, cps_result
+    return tuple(all_results)
 
 
 def test_compile_var_passthrough():
@@ -72,7 +75,7 @@ def test_compile_var_passthrough():
         return x
 
     data = [BaseEvent("x")]
-    interp, compiled, cps = run_all(passthrough, data)
+    interp, compiled, cps = run_all(passthrough, data, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps == data
 
@@ -86,7 +89,7 @@ def test_compile_catr_simple():
     xs = [BaseEvent("x")]
     ys = [BaseEvent("y")]
 
-    run_all(concat, xs, ys)
+    run_all(concat, xs, ys, compilers=[DirectCompiler, CPSCompiler])
 
 
 def test_compile_sum_inl():
@@ -97,7 +100,7 @@ def test_compile_sum_inl():
 
     xs = [BaseEvent("asdf")]
 
-    interp, compiled, cps = run_all(inl_test, xs)
+    interp, compiled, cps = run_all(inl_test, xs, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert interp[0] == PlusPuncA()
@@ -116,14 +119,14 @@ def test_compile_sum_case():
 
     # Left injection
     xs_left = [PlusPuncA(), BaseEvent("asdf")]
-    interp_left, compiled_left, cps_left = run_all(swap, xs_left)
+    interp_left, compiled_left, cps_left = run_all(swap, xs_left, compilers=[DirectCompiler, CPSCompiler])
     assert interp_left == compiled_left == cps_left
     assert interp_left[0] == PlusPuncB()  # Swapped to right
     assert interp_left[1] == BaseEvent("asdf")
 
     # Right injection
     xs_right = [PlusPuncB(), BaseEvent("asdf")]
-    interp_right, compiled_right, cps_right = run_all(swap, xs_right)
+    interp_right, compiled_right, cps_right = run_all(swap, xs_right, compilers=[DirectCompiler, CPSCompiler])
     assert interp_right == compiled_right == cps_right
     assert interp_right[0] == PlusPuncA()  # Swapped to left
     assert interp_right[1] == BaseEvent("asdf")
@@ -137,7 +140,7 @@ def test_compile_map_identity():
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
 
-    interp, compiled, cps = run_all(map_id, xs)
+    interp, compiled, cps = run_all(map_id, xs, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps == xs
 
@@ -153,14 +156,14 @@ def test_compile_concat_strings():
     ys = [BaseEvent(2)]
     zs = [BaseEvent(3)]
 
-    interp, compiled, cps = run_all(concat_three, xs, ys, zs)
+    interp, compiled, cps, generator = run_all(concat_three, xs, ys, zs, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
     assert interp[0] == CatEvA(CatEvA(BaseEvent(1)))
     assert interp[1] == CatEvA(CatPunc())
     assert interp[2] == CatEvA(BaseEvent(2))
     assert interp[3] == CatPunc()
     assert interp[4] == BaseEvent(3)
 
-    assert interp == compiled == cps
+    assert interp == compiled == cps == generator
 
 
 # Hypothesis-based property tests
@@ -175,7 +178,7 @@ def test_compile_var_preserves_output(input_events):
 
     assert has_type(input_events, STRING_TY)
 
-    interp, compiled, cps = run_all(passthrough, input_events)
+    interp, compiled, cps = run_all(passthrough, input_events, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert has_type(interp, STRING_TY)
@@ -195,7 +198,7 @@ def test_compile_catr_preserves_output(xs, ys):
     assert has_type(xs, STRING_TY)
     assert has_type(ys, STRING_TY)
 
-    interp, compiled, cps = run_all(concat, xs, ys)
+    interp, compiled, cps = run_all(concat, xs, ys, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert has_type(interp, TyCat(STRING_TY, STRING_TY))
@@ -211,7 +214,7 @@ def test_compile_catr_preserves_output(xs, ys):
 
 # #     assert has_type(input_events, TyCat(STRING_TY, STRING_TY))
 
-# #     interp, compiled = run_all(catl_both, input_events)
+# #     interp, compiled = run_all(catl_both, input_events, compilers=[DirectCompiler, CPSCompiler])
 
 # #     assert interp == compiled
 
@@ -226,7 +229,7 @@ def test_compile_inl_preserves_output(input_events):
 
     assert has_type(input_events, STRING_TY)
 
-    interp, compiled, cps = run_all(inl_test, input_events)
+    interp, compiled, cps = run_all(inl_test, input_events, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert has_type(interp, TyPlus(STRING_TY, STRING_TY))
@@ -242,7 +245,7 @@ def test_compile_case_preserves_output(input_events):
 
     assert has_type(input_events, TyPlus(STRING_TY, STRING_TY))
 
-    interp, compiled, cps = run_all(case_id, input_events)
+    interp, compiled, cps = run_all(case_id, input_events, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert has_type(interp, STRING_TY)
@@ -258,9 +261,9 @@ def test_compile_map_identity_preserves_output(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(map_id, input_events)
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
-    assert interp == compiled == cps
+    assert interp == compiled == cps == generator
     assert has_type(interp, TyStar(INT_TY))
 
 
@@ -277,7 +280,7 @@ def test_compile_map_proj1_preserves_output(input_events):
 
     assert has_type(input_events, TyStar(TyCat(INT_TY, INT_TY)))
 
-    interp, compiled, cps = run_all(map_proj1, input_events)
+    interp, compiled, cps = run_all(map_proj1, input_events, compilers=[DirectCompiler, CPSCompiler])
 
 
 @given(events_of_type(TyStar(INT_TY), max_depth=5))
@@ -289,7 +292,7 @@ def test_compile_concatmap_inj(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events)
+    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
 
 @given(events_of_type(TyStar(INT_TY), max_depth=5))
 @settings(max_examples=20)
@@ -300,7 +303,7 @@ def test_compile_concatmap_one_cons(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events)
+    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
 
 
 def test_compile_zip_with_catr():
@@ -316,7 +319,7 @@ def test_compile_zip_with_catr():
           PlusPuncB(), CatEvA(BaseEvent(20)), CatPunc(),
           PlusPuncA()]
 
-    interp, compiled, cps = run_all(zip_pair, xs, ys)
+    interp, compiled, cps = run_all(zip_pair, xs, ys, compilers=[DirectCompiler, CPSCompiler])
     assert interp == compiled == cps
     assert has_type(interp, TyStar(TyCat(INT_TY, INT_TY)))
 
@@ -328,7 +331,7 @@ def test_compile_zip_with_catr():
 #         return delta.splitZ(s)
 
 #     xs = [PlusPuncA()]
-#     interp, compiled = run_all(f, xs)
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
 
 #     assert interp == compiled
 #     assert interp[0] == CatEvA(PlusPuncA())
@@ -347,7 +350,7 @@ def test_compile_zip_with_catr():
 #           PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
 #           PlusPuncA()]
 
-#     interp, compiled = run_all(f, xs)
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
 #     assert interp == compiled
 
 
@@ -362,7 +365,7 @@ def test_compile_zip_with_catr():
 #           PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
 #           PlusPuncA()]
 
-#     interp, compiled = run_all(f, xs)
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
 #     assert interp == compiled
 
 
@@ -380,7 +383,7 @@ def test_compile_zip_with_catr():
 #           PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
 #           PlusPuncA()]
 
-#     interp, compiled = run_all(f, xs)
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
 #     assert interp == compiled
 
 
@@ -394,7 +397,7 @@ def test_compile_concatmap_nil():
           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
           PlusPuncA()]
 
-    interp, compiled, cps = run_all(f, xs)
+    interp, compiled, cps = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     assert interp == compiled == cps
     assert interp == [PlusPuncA()]
 
@@ -409,7 +412,7 @@ def test_compile_concatmap_id():
           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
           PlusPuncA()]
 
-    interp, compiled, cps = run_all(f, xs)
+    interp, compiled, cps = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     assert interp == compiled == cps
     assert interp == xs
 
@@ -424,7 +427,7 @@ def test_compile_concatmap_cons_one():
           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
           PlusPuncA()]
 
-    interp, compiled, cps = run_all(f, xs)
+    interp, compiled, cps = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     assert interp == compiled == cps
 
 
@@ -438,7 +441,7 @@ def test_compile_concatmap_nil_preserves_output(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events)
+    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert has_type(interp, TyStar(INT_TY))
@@ -454,7 +457,7 @@ def test_compile_concatmap_id_preserves_output(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events)
+    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
     assert has_type(interp, TyStar(INT_TY))
@@ -470,7 +473,40 @@ def test_compile_concatmap_cons_one_preserves_output(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events)
+    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
 
     assert interp == compiled == cps
+    assert has_type(interp, TyStar(INT_TY))
+
+@given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
+@settings(max_examples=20)
+def test_compile_catproj_position0(input_events):
+    """Property test: CatProj position 0 (first element of cat) compiles correctly."""
+    @Delta.jit
+    def proj0(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
+        (x, _) = delta.catl(z)
+        return x
+
+    assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(proj0, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(INT_TY))
+
+
+@given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
+@settings(max_examples=20)
+def test_compile_catproj_position1(input_events):
+    """Property test: CatProj position 1 (second element of cat) compiles correctly."""
+    @Delta.jit
+    def proj1(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
+        (_, y) = delta.catl(z)
+        return y
+
+    assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(proj1, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
     assert has_type(interp, TyStar(INT_TY))

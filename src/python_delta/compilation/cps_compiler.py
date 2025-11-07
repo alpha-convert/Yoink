@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.resetop import ResetOp
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
+    from python_delta.stream_ops.resetblockenclosing import ResetBlockEnclosingOp
 
 
 class CPSCompiler(CompilerVisitor):
@@ -460,25 +461,36 @@ class CPSCompiler(CompilerVisitor):
             ]
         else:
             def input_yield_cont(event_expr):
+                # Position 1: skip events until CatPunc, then pass through all tail events
                 return [
                     ast.If(
-                        test=ast.Call(
-                            func=ast.Name(id='isinstance', ctx=ast.Load()),
-                            args=[event_expr, ast.Name(id='CatEvA', ctx=ast.Load())],
-                            keywords=[]
+                        test=ast.UnaryOp(
+                            op=ast.Not(),
+                            operand=seen_punc_var.rvalue()
                         ),
-                        body=self.skip_cont,
-                        orelse=[
+                        body=[
+                            # Before punc: skip CatEvA and CatPunc
                             ast.If(
                                 test=ast.Call(
                                     func=ast.Name(id='isinstance', ctx=ast.Load()),
-                                    args=[event_expr, ast.Name(id='CatPunc', ctx=ast.Load())],
+                                    args=[event_expr, ast.Name(id='CatEvA', ctx=ast.Load())],
                                     keywords=[]
                                 ),
-                                body=[seen_punc_var.assign(ast.Constant(value=True))] + self.skip_cont,
-                                orelse=self.yield_cont(event_expr)
+                                body=self.skip_cont,
+                                orelse=[
+                                    ast.If(
+                                        test=ast.Call(
+                                            func=ast.Name(id='isinstance', ctx=ast.Load()),
+                                            args=[event_expr, ast.Name(id='CatPunc', ctx=ast.Load())],
+                                            keywords=[]
+                                        ),
+                                        body=[seen_punc_var.assign(ast.Constant(value=True))] + self.skip_cont,
+                                        orelse=self.skip_cont
+                                    )
+                                ]
                             )
-                        ]
+                        ],
+                        orelse=self.yield_cont(event_expr)  # After punc: pass through all events
                     )
                 ]
 
@@ -637,3 +649,7 @@ class CPSCompiler(CompilerVisitor):
                 ]
             )
         ]
+
+
+    def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
+        return self.visit(node.block_contents)

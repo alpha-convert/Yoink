@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.resetop import ResetOp
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
+    from python_delta.stream_ops.resetblockenclosing import ResetBlockEnclosingOp
     from python_delta.compilation import CompilationContext
 
 
@@ -92,4 +93,7 @@ class ResetVisitor:
         return []
 
     def visit_UnsafeCast(self, node: 'UnsafeCast') -> List[ast.stmt]:
+        return []
+
+    def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
         return []
