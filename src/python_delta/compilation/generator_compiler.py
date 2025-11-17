@@ -298,7 +298,6 @@ class GeneratorCompiler(CompilerVisitor):
         ]
 
     def visit_Eps(self, node: 'Eps') -> List[ast.stmt]:
-        """Eps returns immediately - just execute done continuation."""
         return self.done_cont
 
     def visit_SingletonOp(self, node: 'SingletonOp') -> List[ast.stmt]:
@@ -350,7 +349,6 @@ class GeneratorCompiler(CompilerVisitor):
             keywords=[]
         )
 
-        # First yield the tag
         tag_yield = self.yield_cont(tag_event)
 
         # Then compile input stream
@@ -368,7 +366,6 @@ class GeneratorCompiler(CompilerVisitor):
     def visit_CatR(self, node: 'CatR') -> List[ast.stmt]:
         """Compile CatR with generators."""
         def first_stream_yield_cont(val_expr):
-            # Wrap values from s1 in CatEvA
             return self.yield_cont(
                 ast.Call(
                     func=ast.Name(id='CatEvA', ctx=ast.Load()),
@@ -418,7 +415,6 @@ class GeneratorCompiler(CompilerVisitor):
                             ast.Attribute(value=event_expr, attr='value', ctx=ast.Load())
                         ),
                         orelse=[
-                            # If we see CatPunc, set flag, execute done_cont, and raise escape exception
                             ast.If(
                                 test=ast.Call(
                                     func=ast.Name(id='isinstance', ctx=ast.Load()),

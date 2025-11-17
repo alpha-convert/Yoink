@@ -141,8 +141,7 @@ def test_compile_map_identity():
     assert interp == compiled == cps == xs
 
 
-def test_compile_concat_strings():
-    """Test concat operation (multiple catr calls)."""
+def test_compile_3catr_strings():
     @Delta.jit
     def concat_three(delta, x: INT_TY, y: INT_TY, z: INT_TY):
         xy = delta.catr(x, y)
@@ -193,6 +192,22 @@ def test_compile_catr_preserves_output(xs, ys):
 
     run_all(concat, xs, ys, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
+@given(
+    events_of_type(TyStar(STRING_TY), max_depth=5),
+    events_of_type(TyStar(STRING_TY), max_depth=5)
+)
+@settings(max_examples=20)
+def test_compile_catr_stars_preserves_output(xs, ys):
+    """Property test: catr produces same results compiled vs interpreted."""
+    @Delta.jit
+    def concat(delta, x: TyStar(STRING_TY), y: TyStar(STRING_TY)):
+        return delta.catr(x, y)
+
+    assert has_type(xs, TyStar(STRING_TY))
+    assert has_type(ys, TyStar(STRING_TY))
+
+    run_all(concat, xs, ys, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
 
 @given(events_of_type(STRING_TY, max_depth=5))
 @settings(max_examples=20)
@@ -223,7 +238,6 @@ def test_compile_case_preserves_output(input_events):
 @given(events_of_type(TyStar(INT_TY), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_identity_preserves_output(input_events):
-    """Property test: map with identity produces same results compiled vs interpreted."""
     @Delta.jit
     def map_id(delta, s: TyStar(INT_TY)):
         return delta.map(s, lambda x: x)
@@ -234,6 +248,70 @@ def test_compile_map_identity_preserves_output(input_events):
 
     assert interp == compiled == cps == generator
     assert has_type(interp, TyStar(INT_TY))
+
+@given(
+        events_of_type(TyStar(INT_TY), max_depth=10),
+        events_of_type(TyStar(INT_TY), max_depth=10),
+)
+@settings(max_examples=20)
+def test_compile_concat(xs,ys):
+    @Delta.jit
+    def f(delta, s1 : TyStar(INT_TY), s2 : TyStar(INT_TY)):
+        return delta.concat(s1,s2)
+
+    assert has_type(xs, TyStar(INT_TY))
+    assert has_type(ys, TyStar(INT_TY))
+
+    interp, compiled, cps, generator = run_all(f, xs,ys, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(INT_TY))
+
+@given(
+        events_of_type(TyCat(TyStar(INT_TY),TyStar(INT_TY)), max_depth=10)
+)
+@settings(max_examples=20)
+def test_compile_concat_cat(xsys):
+    @Delta.jit
+    def f(delta, s : TyCat(TyStar(INT_TY),TyStar(INT_TY))):
+        x,y = delta.catl(s)
+        return delta.concat(x,y)
+
+    assert has_type(xsys, TyCat(TyStar(INT_TY),TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(f, xsys, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(INT_TY))
+
+@given(events_of_type(TyStar(INT_TY), max_depth=10))
+@settings(max_examples=20)
+def test_compile_map_zeroes(input_events):
+    @Delta.jit
+    def map_id(delta, s: TyStar(INT_TY)):
+        return delta.map(s, lambda x: delta.singleton(0))
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(INT_TY))
+
+
+@given(events_of_type(TyStar(INT_TY), max_depth=10))
+@settings(max_examples=20)
+def test_compile_map_lift(input_events):
+    @Delta.jit
+    def map_id(delta, s: TyStar(INT_TY)):
+        return delta.map(s, lambda x: delta.cons(x,delta.nil()))
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(TyStar(INT_TY)))
 
 
 @given(events_of_type(TyStar(TyCat(INT_TY, INT_TY)), max_depth=5))
@@ -250,6 +328,35 @@ def test_compile_map_proj1_preserves_output(input_events):
     assert has_type(input_events, TyStar(TyCat(INT_TY, INT_TY)))
 
     run_all(map_proj1, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+
+@given(events_of_type(TyStar(INT_TY), max_depth=5))
+@settings(max_examples=20)
+def test_compile_concatmap_nil_preserves_output(input_events):
+    """Property test: concat_map with nil compiles correctly."""
+    @Delta.jit
+    def f(delta, s: TyStar(INT_TY)):
+        return delta.concat_map(s, lambda _: delta.nil())
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+@given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=5))
+@settings(max_examples=20)
+def test_compile_concatmap_flatten_preserves_output(input_events):
+    """Property test: concat_map with flatten (identity) compiles correctly."""
+    @Delta.jit
+    def f(delta, s: TyStar(TyStar(INT_TY))):
+        return delta.concat_map(s, lambda x: x)
+
+    assert has_type(input_events, TyStar(TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert has_type(interp, TyStar(INT_TY))
+    assert interp == compiled == cps == generator
+
 
 
 # @given(events_of_type(TyStar(INT_TY), max_depth=5))
@@ -400,17 +507,23 @@ def test_compile_concatmap_nil():
 
 
 
-@given(events_of_type(TyStar(INT_TY), max_depth=5))
-@settings(max_examples=20)
-def test_compile_concatmap_nil_preserves_output(input_events):
-    """Property test: concat_map with nil compiles correctly."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda _: delta.nil())
+# @given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=5))
+# @settings(max_examples=20)
+# def test_compile_concatmap_1consnil_preserves_output(input_events):
+#     """Property test: concat_map with flatten (identity) compiles correctly."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(TyStar(INT_TY))):
+#         return delta.concat_map(s, lambda x: delta.cons(delta.singleton(0),delta.nil()))
 
-    assert has_type(input_events, TyStar(INT_TY))
+#     assert has_type(input_events, TyStar(TyStar(INT_TY)))
 
-    run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+#     interp, compiled, cps, generator = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+#     assert has_type(interp, TyStar(INT_TY))
+#     assert interp == compiled == cps == generator
+
+
+
 
 
 # @given(events_of_type(TyStar(INT_TY), max_depth=5))
