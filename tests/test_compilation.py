@@ -297,6 +297,53 @@ def test_compile_map_inl(input_events):
     assert interp == compiled == cps == generator
     assert has_type(interp, TyStar(TyPlus(INT_TY,INT_TY)))
 
+@given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=10))
+@settings(max_examples=20)
+def test_compile_map_concat_nil(input_events):
+    @Delta.jit
+    def map_id(delta, s: TyStar(TyStar(INT_TY))):
+        return delta.map(s, lambda x: delta.concat(x,delta.nil()))
+
+    assert has_type(input_events, TyStar(TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(TyStar(INT_TY)))
+
+@given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=10))
+@settings(max_examples=20)
+def test_compile_map_concat_backwards_nil(input_events):
+    @Delta.jit
+    def map_id(delta, s: TyStar(TyStar(INT_TY))):
+        return delta.map(s, lambda x: delta.concat(delta.nil(),x))
+
+    assert has_type(input_events, TyStar(TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(TyStar(INT_TY)))
+
+@given(events_of_type(TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY))), max_depth=10))
+@settings(max_examples=20)
+def test_compile_map_concat_catl(input_events):
+    @Delta.jit
+    def map_id(delta, s: TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY)))):
+        def body(xy):
+            x,y = delta.catl(xy)
+            return delta.concat(x,y)
+        return delta.map(s, body)
+
+    assert has_type(input_events, TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY))))
+
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(TyStar(INT_TY)))
+
+
+
 
 @given(
         events_of_type(TyStar(INT_TY), max_depth=10),
