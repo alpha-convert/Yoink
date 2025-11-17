@@ -6,9 +6,10 @@ from python_delta.stream_ops.base import StreamOp, DONE
 
 
 class ResetOp(StreamOp):
-    def __init__(self, reset_set, stream_type):
+    def __init__(self, reset_set, enclosing_block , stream_type):
         super().__init__(stream_type)
         self.reset_set = reset_set
+        self.enclosing_block = enclosing_block
 
     @property
     def id(self):

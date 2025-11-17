@@ -185,6 +185,16 @@ class GeneratorCompiler(CompilerVisitor):
                     decorator_list=[]
                 )
             )
+        for exc_name in ctx.recurse_exceptions.values():
+            exception_defs.append(
+                ast.ClassDef(
+                    name=exc_name,
+                    bases=[ast.Name(id='Exception', ctx=ast.Load())],
+                    keywords=[],
+                    body=[ast.Pass()],
+                    decorator_list=[]
+                )
+            )
 
         # Generate state variable initializations
         state_inits = []
@@ -260,34 +270,32 @@ class GeneratorCompiler(CompilerVisitor):
         )
 
         return [
-            ast.While(
-                test=ast.Constant(value=True),
+            ast.Try(
                 body=[
-                    ast.Try(
-                        body=[
-                            ast.Assign(
-                                targets=[tmp_var.lvalue()],
-                                value=ast.Call(
-                                    func=ast.Name(id='next', ctx=ast.Load()),
-                                    args=[input_access],
-                                    keywords=[]
-                                )
+                    ast.While(
+                        test=ast.NamedExpr(
+                            target=ast.Name(id=tmp_var.name, ctx=ast.Store()),
+                            value=ast.Call(
+                                func=ast.Name(id='next', ctx=ast.Load()),
+                                args=[input_access],
+                                keywords=[]
                             )
-                        ] + self.yield_cont(tmp_var.rvalue()),
-                        handlers=[
-                            ast.ExceptHandler(
-                                type=ast.Name(id='StopIteration', ctx=ast.Load()),
-                                name=None,
-                                body=[ast.Break()]
-                            )
-                        ],
-                        orelse=[],
-                        finalbody=[]
+                        ),
+                        body=self.yield_cont(tmp_var.rvalue()),
+                        orelse=[]
                     )
                 ],
-                orelse=[]
+                handlers=[
+                    ast.ExceptHandler(
+                        type=ast.Name(id='StopIteration', ctx=ast.Load()),
+                        name=None,
+                        body=self.done_cont
+                    )
+                ],
+                orelse=[],
+                finalbody=[]
             )
-        ] + self.done_cont
+        ]
 
     def visit_Eps(self, node: 'Eps') -> List[ast.stmt]:
         """Eps returns immediately - just execute done continuation."""
@@ -304,7 +312,7 @@ class GeneratorCompiler(CompilerVisitor):
         return self.yield_cont(event_expr) + self.done_cont
 
     def visit_ResetOp(self, node: 'ResetOp') -> List[ast.stmt]:
-        """Reset state variables for all nodes in reset_set, then continue loop."""
+        """Reset state variables for all nodes in reset_set, then raise recurse exception to restart loop."""
         reset_stmts = []
 
         # Reset state variables for all nodes in the reset set
@@ -318,8 +326,18 @@ class GeneratorCompiler(CompilerVisitor):
                         )
                     )
 
-        # Continue to restart the loop
-        reset_stmts.append(ast.Continue())
+        # Raise the enclosing block's RECURSE exception to restart the loop
+        recurse_exc = self.ctx.recurse_exception(node.enclosing_block)
+        reset_stmts.append(
+            ast.Raise(
+                exc=ast.Call(
+                    func=ast.Name(id=recurse_exc, ctx=ast.Load()),
+                    args=[],
+                    keywords=[]
+                ),
+                cause=None
+            )
+        )
         return reset_stmts
 
     def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:
@@ -502,14 +520,13 @@ class GeneratorCompiler(CompilerVisitor):
         """Compile CaseOp with generators."""
         tag_var = self.ctx.allocate_temp()
 
+        branch0_compiler = GeneratorCompiler(self.ctx, self.done_cont, self.yield_cont)
+        branch0_stmts = node.branches[0].accept(branch0_compiler)
+
+        branch1_compiler = GeneratorCompiler(self.ctx, self.done_cont, self.yield_cont)
+        branch1_stmts = node.branches[1].accept(branch1_compiler)
+
         def input_yield_cont(tag_expr):
-            # Read tag, route to appropriate branch
-            branch0_compiler = GeneratorCompiler(self.ctx, self.done_cont, self.yield_cont)
-            branch0_stmts = node.branches[0].accept(branch0_compiler)
-
-            branch1_compiler = GeneratorCompiler(self.ctx, self.done_cont, self.yield_cont)
-            branch1_stmts = node.branches[1].accept(branch1_compiler)
-
             return [
                 tag_var.assign(tag_expr),
                 ast.If(
@@ -519,31 +536,7 @@ class GeneratorCompiler(CompilerVisitor):
                         keywords=[]
                     ),
                     body=branch0_stmts,
-                    orelse=[
-                        ast.If(
-                            test=ast.Call(
-                                func=ast.Name(id='isinstance', ctx=ast.Load()),
-                                args=[tag_var.rvalue(), ast.Name(id='PlusPuncB', ctx=ast.Load())],
-                                keywords=[]
-                            ),
-                            body=branch1_stmts,
-                            orelse=[
-                                ast.Raise(
-                                    exc=ast.Call(
-                                        func=ast.Name(id='RuntimeError', ctx=ast.Load()),
-                                        args=[
-                                            ast.JoinedStr(values=[
-                                                ast.Constant(value='Expected PlusPuncA or PlusPuncB tag, got '),
-                                                ast.FormattedValue(value=tag_var.rvalue(), conversion=-1, format_spec=None)
-                                            ])
-                                        ],
-                                        keywords=[]
-                                    ),
-                                    cause=None
-                                )
-                            ]
-                        )
-                    ]
+                    orelse=branch1_stmts
                 )
             ]
 
@@ -582,27 +575,76 @@ class GeneratorCompiler(CompilerVisitor):
                 )
             ]
 
+        # TODO: this involves significant code duplication.
+        # It seems to me like we should be able to generate code here
+        # that looks like the CPS compiler code!
+        # It pulls *one* event out and then continues to run.
         cond_compiler = GeneratorCompiler(self.ctx, self.done_cont, cond_yield_cont)
         return node.cond_stream.accept(cond_compiler)
 
     def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
-        """Wrap the block contents in a while loop to enable ResetOp jumps.
+        """Wrap the block contents in a nested try/while/try structure for reset control.
 
-        This creates an infinite loop that runs the block_contents. When a ResetOp
-        is encountered (which generates a 'continue' statement), execution jumps
-        back to the start of this loop. When the block finishes normally, it breaks
-        out of the loop and continues with the parent's done continuation.
+        Structure:
+        try:                              # Outer try - catches escape exception
+            while True:
+                try:                      # Inner try - catches recurse exception
+                    block_stmts
+                    raise EscapeException # Normal completion exits to done_cont
+                except RecurseException:  # ResetOp raises this to restart loop
+                    pass
+        except EscapeException:
+            done_cont
         """
-        # Compile the block contents with done_cont that breaks out of the loop
-        block_compiler = GeneratorCompiler(self.ctx, [ast.Break()], self.yield_cont)
+        # Get two node-unique exceptions for this block
+        escape_exc = self.ctx.escape_exception(node)
+        recurse_exc = self.ctx.recurse_exception(node)
+
+        # Compile the block contents with done_cont that raises the escape exception
+        block_done_cont: List[ast.stmt] = [
+            ast.Raise(
+                exc=ast.Call(
+                    func=ast.Name(id=escape_exc, ctx=ast.Load()),
+                    args=[],
+                    keywords=[]
+                ),
+                cause=None
+            )
+        ]
+        block_compiler = GeneratorCompiler(self.ctx, block_done_cont, self.yield_cont)
         block_stmts = node.block_contents.accept(block_compiler)
 
-        # Wrap in a while True loop - ResetOp will generate 'continue' to restart,
-        # normal completion will 'break' to exit
+        # Nested structure: outer try catches escape, inner try catches recurse
         return [
-            ast.While(
-                test=ast.Constant(value=True),
-                body=block_stmts,
-                orelse=[]
+            ast.Try(
+                body=[
+                    ast.While(
+                        test=ast.Constant(value=True),
+                        body=[
+                            ast.Try(
+                                body=block_stmts,
+                                handlers=[
+                                    ast.ExceptHandler(
+                                        type=ast.Name(id=recurse_exc, ctx=ast.Load()),
+                                        name=None,
+                                        body=[ast.Pass()]  # Recurse - loop continues
+                                    )
+                                ],
+                                orelse=[],
+                                finalbody=[]
+                            )
+                        ],
+                        orelse=[]
+                    )
+                ],
+                handlers=[
+                    ast.ExceptHandler(
+                        type=ast.Name(id=escape_exc, ctx=ast.Load()),
+                        name=None,
+                        body=self.done_cont  # Escape - exit to done_cont
+                    )
+                ],
+                orelse=[],
+                finalbody=[]
             )
-        ] + self.done_cont
+        ]

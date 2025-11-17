@@ -16,12 +16,13 @@ class Delta:
         self.nodes.add(node)
 
     def _reset_block(self,f,ty):
-        reset_node = ResetOp(set(),stream_type=ty)
+        reset_node = ResetOp(set(),enclosing_block= None,stream_type=ty)
         nodes_before = self.nodes.copy()
         res = f(reset_node)
         reset_node.reset_set = self.nodes - nodes_before
         self._register_node(reset_node)
         reset_block = ResetBlockEnclosingOp(res,res.stream_type)
+        reset_node.enclosing_block = reset_block
         self._register_node(reset_block)
         return reset_block
 

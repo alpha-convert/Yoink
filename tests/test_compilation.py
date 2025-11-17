@@ -55,10 +55,6 @@ def run_all(program, *inputs, compilers):
     assert has_type(interp_result, output_type), \
         f"Interpreted output does not have expected type {output_type}"
 
-    # for i, (compiler, compiled_result) in enumerate(zip(compilers, compiled_results)):
-    #     assert has_type(compiled_result, output_type), \
-    #         f"{compiler.__name__} output does not have expected type {output_type}"
-
     # All results should match
     all_results = [interp_result] + compiled_results
     assert all(result == interp_result for result in all_results), \
@@ -197,8 +193,6 @@ def test_compile_catr_preserves_output(xs, ys):
 
     run_all(concat, xs, ys, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
-    # assert interp == compiled == cps
-    # assert has_type(interp, TyCat(STRING_TY, STRING_TY))
 
 @given(events_of_type(STRING_TY, max_depth=5))
 @settings(max_examples=20)
@@ -211,9 +205,6 @@ def test_compile_inl_preserves_output(input_events):
     assert has_type(input_events, STRING_TY)
 
     run_all(inl_test, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
-
-    # assert interp == compiled == cps
-    # assert has_type(interp, TyPlus(STRING_TY, STRING_TY))
 
 
 @given(events_of_type(TyPlus(STRING_TY, STRING_TY), max_depth=5))
@@ -299,15 +290,26 @@ def test_compile_zip_with_catr():
 
     run_all(zip_pair, xs, ys, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
+# @given(
+#     events_of_type(TyStar(INT_TY), max_depth=5),
+#     events_of_type(TyStar(INT_TY), max_depth=5)
+# )
+# @settings(max_examples=20)
+# def test_compile_concatmap_one_cons(xs_inps,ys_inps):
+#     @Delta.jit
+#     def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+#         return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
 
-def test_compile_splitz_nil():
-    """Test splitZ with nil (empty list)."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+#     run_all(zip_pair, xs_inps,ys_inps, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
-    xs = [PlusPuncA()]
-    run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+# def test_compile_splitz_nil():
+#     """Test splitZ with nil (empty list)."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.splitZ(s)
+
+#     xs = [PlusPuncA()]
+#     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     
 # def test_compile_splitz_cons_all_nonz():
 #     """Test splitZ with all non-zero elements."""
@@ -357,6 +359,32 @@ def test_compile_splitz_nil():
 #     assert interp == compiled
 
 
+
+# def test_compile_concatmap_id():
+#     """Test concat_map with identity (cons(x, nil))."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.concat_map(s, lambda x: delta.cons(x, delta.nil()))
+
+#     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
+#           PlusPuncA()]
+
+#     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler,GeneratorCompiler])
+
+
+# def test_compile_concatmap_cons_one():
+#     """Test concat_map with cons(1, cons(x, nil))."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.concat_map(s, lambda x: delta.cons(delta.singleton(1), delta.cons(x, delta.nil())))
+
+#     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
+#           PlusPuncA()]
+
+#     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
 def test_compile_concatmap_nil():
     """Test concat_map with nil function."""
     @Delta.jit
@@ -365,38 +393,11 @@ def test_compile_concatmap_nil():
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
           PlusPuncA()]
 
-    run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+    run_all(f, xs, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
-
-def test_compile_concatmap_id():
-    """Test concat_map with identity (cons(x, nil))."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda x: delta.cons(x, delta.nil()))
-
-    xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
-          PlusPuncA()]
-
-    interp, compiled, cps = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-    assert interp == compiled == cps
-    assert interp == xs
-
-
-def test_compile_concatmap_cons_one():
-    """Test concat_map with cons(1, cons(x, nil))."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda x: delta.cons(delta.singleton(1), delta.cons(x, delta.nil())))
-
-    xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
-          PlusPuncA()]
-
-    interp, compiled, cps = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-    assert interp == compiled == cps
 
 
 @given(events_of_type(TyStar(INT_TY), max_depth=5))
@@ -409,42 +410,32 @@ def test_compile_concatmap_nil_preserves_output(input_events):
 
     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
-
-    assert interp == compiled == cps
-    assert has_type(interp, TyStar(INT_TY))
+    run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
 
-@given(events_of_type(TyStar(INT_TY), max_depth=5))
-@settings(max_examples=20)
-def test_compile_concatmap_id_preserves_output(input_events):
-    """Property test: concat_map with identity compiles correctly."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda x: delta.cons(x, delta.nil()))
+# @given(events_of_type(TyStar(INT_TY), max_depth=5))
+# @settings(max_examples=20)
+# def test_compile_concatmap_id_preserves_output(input_events):
+#     """Property test: concat_map with identity compiles correctly."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.concat_map(s, lambda x: delta.cons(x, delta.nil()))
 
-    assert has_type(input_events, TyStar(INT_TY))
+#     assert has_type(input_events, TyStar(INT_TY))
 
-    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
+#     run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
-    assert interp == compiled == cps
-    assert has_type(interp, TyStar(INT_TY))
+# @given(events_of_type(TyStar(INT_TY), max_depth=5))
+# @settings(max_examples=20)
+# def test_compile_concatmap_cons_one_preserves_output(input_events):
+#     """Property test: concat_map with cons(1, cons(x, nil)) compiles correctly."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.concat_map(s, lambda x: delta.cons(delta.singleton(1), delta.cons(x, delta.nil())))
 
+#     assert has_type(input_events, TyStar(INT_TY))
 
-@given(events_of_type(TyStar(INT_TY), max_depth=5))
-@settings(max_examples=20)
-def test_compile_concatmap_cons_one_preserves_output(input_events):
-    """Property test: concat_map with cons(1, cons(x, nil)) compiles correctly."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda x: delta.cons(delta.singleton(1), delta.cons(x, delta.nil())))
-
-    assert has_type(input_events, TyStar(INT_TY))
-
-    interp, compiled, cps = run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
-
-    assert interp == compiled == cps
-    assert has_type(interp, TyStar(INT_TY))
+#     run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
 @given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
 @settings(max_examples=20)

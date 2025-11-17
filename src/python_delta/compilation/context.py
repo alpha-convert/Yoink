@@ -62,6 +62,7 @@ class CompilationContext:
         self.temp_counter: int = 0
         self.compiled_nodes: Set[int] = set()  # Track which nodes are compiled
         self.escape_exceptions: Dict[int, str] = {}  # coordinator.id -> exception class name
+        self.recurse_exceptions: Dict[int, str] = {}  # ResetBlockEnclosingOp.id -> exception class name
 
     def state_var(self, node, var_name: str) -> StateVar:
         if node.id in self.state_vars and var_name in self.state_vars[node.id]:
@@ -69,12 +70,14 @@ class CompilationContext:
 
         node_type = node.__class__.__name__.lower()
 
-        if node_type not in self.type_counters:
-            self.type_counters[node_type] = 0
-        idx = self.type_counters[node_type]
-        self.type_counters[node_type] += 1
+        # if node_type not in self.type_counters:
+        #     self.type_counters[node_type] = 0
+        # idx = self.type_counters[node_type]
+        # self.type_counters[node_type] += 1
 
-        full_name = f'{node_type}_{idx}_{var_name}'
+        # Use unsigned hex (mask to 64-bit unsigned)
+        node_id_hex = f'{node.id & 0xffffffffffffffff:x}'
+        full_name = f'{node_type}_{node_id_hex}_{var_name}'
         state_var = StateVar(full_name)
 
         if node.id not in self.state_vars:
@@ -93,12 +96,19 @@ class CompilationContext:
         if node.id in self.escape_exceptions:
             return self.escape_exceptions[node.id]
 
-        coord_type = node.__class__.__name__.lower()
-        if coord_type not in self.type_counters:
-            self.type_counters[coord_type] = 0
-        idx = self.type_counters[coord_type]
-        self.type_counters[coord_type] += 1
-
-        exception_name = f'Escape_{coord_type}_{idx}'
+        node_type = node.__class__.__name__.lower()
+        node_id_hex = f'{node.id & 0xffffffffffffffff:x}'
+        exception_name = f'Escape_{node_type}_{node_id_hex}'
         self.escape_exceptions[node.id] = exception_name
+        return exception_name
+
+    def recurse_exception(self, node) -> str:
+        """Get or create a unique recurse exception class name for this ResetBlockEnclosingOp."""
+        if node.id in self.recurse_exceptions:
+            return self.recurse_exceptions[node.id]
+
+        node_type = node.__class__.__name__.lower()
+        node_id_hex = f'{node.id & 0xffffffffffffffff:x}'
+        exception_name = f'Recurse_{node_type}_{node_id_hex}'
+        self.recurse_exceptions[node.id] = exception_name
         return exception_name

@@ -18,6 +18,7 @@ class VizBuilder:
         self.dataflow_graph = dataflow_graph
         self.visited = set()
         self.node_labels = {}
+        self.type_counters = {}  # Same as CompilationContext - StreamOp class name -> counter
 
     def to_graphviz(self):
         """
@@ -54,13 +55,14 @@ class VizBuilder:
         return "\n".join(lines)
 
     def _get_node_label(self, node):
-        """Generate a readable label for a node."""
+        """Generate a readable label for a node, matching CompilationContext naming."""
         if node.id in self.node_labels:
             return self.node_labels[node.id]
 
-        node_type = node.__class__.__name__
-        count = sum(1 for nid in self.node_labels.values() if nid.startswith(node_type))
-        label = f"{node_type}_{count}"
+        node_type_lower = node.__class__.__name__.lower()
+        # Use unsigned hex (mask to 64-bit unsigned) to match CompilationContext
+        node_id_hex = f"{node.id & 0xffffffffffffffff:x}"
+        label = f"{node_type_lower}_{node_id_hex}"
         self.node_labels[node.id] = label
         return label
 
@@ -88,11 +90,13 @@ class VizBuilder:
             "Cons": "plum",
             "RecCall": "orange",
             "UnsafeCast": "pink",
-            "ResetOp": "lightpink"
+            "ResetOp": "lightpink",
+            "ResetBlockEnclosingOp": "mistyrose"
         }
         color = colors.get(node_type, "white")
 
         # Special labels for specific node types
+        # Use the same label format as CompilationContext (lowercase)
         if hasattr(node, 'name'):  # Var
             display_label = f"{label}\\n{node.name}\\n{node.stream_type}"
         elif hasattr(node, 'position'):  # CatProj, ParProj, SumInj
@@ -105,13 +109,14 @@ class VizBuilder:
         # Add edges based on node type
         # Check specific node types first before generic hasattr checks
         if node_type == 'ResetOp':  # ResetOp has reset_set
-            # Draw dashed back-edges to all nodes in reset_set
-            for reset_node in node.reset_set:
-                child_label = self._get_node_label(reset_node)
-                lines.append(f'  "{label}" -> "{child_label}" [style=dashed, color=red, label="resets"];')
-                # Only visit if not already visited (avoid infinite loops on back-edges)
-                if reset_node.id not in self.visited:
-                    self._visit_node(reset_node, lines)
+            # # Draw dashed back-edges to all nodes in reset_set
+            # for reset_node in node.reset_set:
+            #     child_label = self._get_node_label(reset_node)
+            #     lines.append(f'  "{label}" -> "{child_label}" [style=dashed, color=red, label="resets"];')
+            #     # Only visit if not already visited (avoid infinite loops on back-edges)
+            #     if reset_node.id not in self.visited:
+            #         self._visit_node(reset_node, lines)
+            pass
         elif node_type == 'CaseOp':  # CaseOp has special structure
             # Input stream
             child_label = self._get_node_label(node.input_stream)
@@ -119,11 +124,11 @@ class VizBuilder:
             self._visit_node(node.input_stream, lines)
             # Left branch
             child_label = self._get_node_label(node.branches[0])
-            lines.append(f'  "{child_label}" -> "{label}" [label="left"];')
+            lines.append(f'  "{child_label}" -> "{label}" [label="evA"];')
             self._visit_node(node.branches[0], lines)
             # Right branch
             child_label = self._get_node_label(node.branches[1])
-            lines.append(f'  "{child_label}" -> "{label}" [label="right"];')
+            lines.append(f'  "{child_label}" -> "{label}" [label="evB"];')
             self._visit_node(node.branches[1], lines)
         elif hasattr(node, 'head') and hasattr(node, 'tail'):  # Cons
             head_label = self._get_node_label(node.head)
@@ -141,6 +146,10 @@ class VizBuilder:
             child_label = self._get_node_label(node.coordinator)
             lines.append(f'  "{child_label}" -> "{label}";')
             self._visit_node(node.coordinator, lines)
+        elif hasattr(node, 'block_contents'):  # ResetBlockEnclosingOp
+            child_label = self._get_node_label(node.block_contents)
+            lines.append(f'  "{child_label}" -> "{label}";')
+            self._visit_node(node.block_contents, lines)
         elif hasattr(node, 'input_stream'):  # CatProj, ParLCoordinator, SumInj, UnsafeCast
             child_label = self._get_node_label(node.input_stream)
             lines.append(f'  "{child_label}" -> "{label}";')
