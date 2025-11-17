@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.resetop import ResetOp
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
-    from python_delta.stream_ops.resetblockenclosing import ResetBlockEnclosingOp
+    from python_delta.stream_ops.recursive_section import RecursiveSection
 
 
 class GeneratorCompiler(CompilerVisitor):
@@ -578,7 +578,7 @@ class GeneratorCompiler(CompilerVisitor):
         cond_compiler = GeneratorCompiler(self.ctx, self.done_cont, cond_yield_cont)
         return node.cond_stream.accept(cond_compiler)
 
-    def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
+    def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
         """Wrap the block contents in a nested try/while/try structure for reset control.
 
         Structure:
@@ -623,7 +623,7 @@ class GeneratorCompiler(CompilerVisitor):
                                     ast.ExceptHandler(
                                         type=ast.Name(id=recurse_exc, ctx=ast.Load()),
                                         name=None,
-                                        body=[ast.Pass()]  # Recurse - loop continues
+                                        body=[ast.Continue()]  # Recurse - loop continues
                                     )
                                 ],
                                 orelse=[],

@@ -1,18 +1,18 @@
-"""ResetOp StreamOp - reset a set of nodes."""
+"""RecursiveSection StreamOp - marks a recursive section with reset capability."""
 
 from __future__ import annotations
 
 from python_delta.stream_ops.base import StreamOp, DONE
 
 
-class ResetBlockEnclosingOp(StreamOp):
+class RecursiveSection(StreamOp):
     def __init__(self, block_contents, stream_type):
         super().__init__(stream_type)
         self.block_contents = block_contents
 
     @property
     def id(self):
-        return hash(("ResetBlockEnclosingOp", self.block_contents.id))
+        return hash(("RecursiveSection", self.block_contents.id))
 
     @property
     def vars(self):

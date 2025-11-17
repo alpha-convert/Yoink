@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.resetop import ResetOp
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
-    from python_delta.stream_ops.resetblockenclosing import ResetBlockEnclosingOp
+    from python_delta.stream_ops.recursive_section import RecursiveSection
 
 
 class DirectCompiler(CompilerVisitor):
@@ -825,5 +825,5 @@ class DirectCompiler(CompilerVisitor):
             )
         ]
 
-    def visit_ResetBlockEnclosingOp(self, node: 'ResetBlockEnclosingOp') -> List[ast.stmt]:
+    def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
         return self.visit(node.block_contents)

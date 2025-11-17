@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp, CondOp, ResetBlockEnclosingOp
+from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, ResetOp, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp, CondOp, RecursiveSection
 
 class Delta:
     def __init__(self):
@@ -21,7 +21,7 @@ class Delta:
         res = f(reset_node)
         reset_node.reset_set = self.nodes - nodes_before
         self._register_node(reset_node)
-        reset_block = ResetBlockEnclosingOp(res,res.stream_type)
+        reset_block = RecursiveSection(res,res.stream_type)
         reset_node.enclosing_block = reset_block
         self._register_node(reset_block)
         return reset_block

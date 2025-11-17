@@ -91,7 +91,7 @@ class VizBuilder:
             "RecCall": "orange",
             "UnsafeCast": "pink",
             "ResetOp": "lightpink",
-            "ResetBlockEnclosingOp": "mistyrose"
+            "RecursiveSection": "mistyrose"
         }
         color = colors.get(node_type, "white")
 
@@ -146,7 +146,7 @@ class VizBuilder:
             child_label = self._get_node_label(node.coordinator)
             lines.append(f'  "{child_label}" -> "{label}";')
             self._visit_node(node.coordinator, lines)
-        elif hasattr(node, 'block_contents'):  # ResetBlockEnclosingOp
+        elif hasattr(node, 'block_contents'):  # RecursiveSection
             child_label = self._get_node_label(node.block_contents)
             lines.append(f'  "{child_label}" -> "{label}";')
             self._visit_node(node.block_contents, lines)

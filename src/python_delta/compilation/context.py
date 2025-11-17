@@ -62,7 +62,7 @@ class CompilationContext:
         self.temp_counter: int = 0
         self.compiled_nodes: Set[int] = set()  # Track which nodes are compiled
         self.escape_exceptions: Dict[int, str] = {}  # coordinator.id -> exception class name
-        self.recurse_exceptions: Dict[int, str] = {}  # ResetBlockEnclosingOp.id -> exception class name
+        self.recurse_exceptions: Dict[int, str] = {}  # RecursiveSection.id -> exception class name
 
     def state_var(self, node, var_name: str) -> StateVar:
         if node.id in self.state_vars and var_name in self.state_vars[node.id]:
@@ -103,7 +103,7 @@ class CompilationContext:
         return exception_name
 
     def recurse_exception(self, node) -> str:
-        """Get or create a unique recurse exception class name for this ResetBlockEnclosingOp."""
+        """Get or create a unique recurse exception class name for this RecursiveSection."""
         if node.id in self.recurse_exceptions:
             return self.recurse_exceptions[node.id]
 
