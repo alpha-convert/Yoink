@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.eps import Eps
     from python_delta.stream_ops.singletonop import SingletonOp
     from python_delta.stream_ops.sinkthen import SinkThen
-    from python_delta.stream_ops.resetop import ResetOp
+    from python_delta.stream_ops.rec_call import RecCall
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
     from python_delta.stream_ops.recursive_section import RecursiveSection
@@ -98,7 +98,7 @@ class CompilerVisitor:
     def visit_SinkThen(self, node: 'SinkThen') -> List[ast.stmt]:
         raise NotImplementedError
 
-    def visit_ResetOp(self, node: 'ResetOp') -> List[ast.stmt]:
+    def visit_RecCall(self, node: 'RecCall') -> List[ast.stmt]:
         raise NotImplementedError
 
     def visit_UnsafeCast(self, node: 'UnsafeCast') -> List[ast.stmt]:

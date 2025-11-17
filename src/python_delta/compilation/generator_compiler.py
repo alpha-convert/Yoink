@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.eps import Eps
     from python_delta.stream_ops.singletonop import SingletonOp
     from python_delta.stream_ops.sinkthen import SinkThen
-    from python_delta.stream_ops.resetop import ResetOp
+    from python_delta.stream_ops.rec_call import RecCall
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
     from python_delta.stream_ops.recursive_section import RecursiveSection
@@ -310,7 +310,7 @@ class GeneratorCompiler(CompilerVisitor):
 
         return self.yield_cont(event_expr) + self.done_cont
 
-    def visit_ResetOp(self, node: 'ResetOp') -> List[ast.stmt]:
+    def visit_RecCall(self, node: 'RecCall') -> List[ast.stmt]:
         """Reset state variables for all nodes in reset_set, then raise recurse exception to restart loop."""
         reset_stmts = []
 
@@ -587,7 +587,7 @@ class GeneratorCompiler(CompilerVisitor):
                 try:                      # Inner try - catches recurse exception
                     block_stmts
                     raise EscapeException # Normal completion exits to done_cont
-                except RecurseException:  # ResetOp raises this to restart loop
+                except RecurseException:  # RecCall raises this to restart loop
                     pass
         except EscapeException:
             done_cont

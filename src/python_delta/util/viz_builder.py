@@ -90,7 +90,6 @@ class VizBuilder:
             "Cons": "plum",
             "RecCall": "orange",
             "UnsafeCast": "pink",
-            "ResetOp": "lightpink",
             "RecursiveSection": "mistyrose"
         }
         color = colors.get(node_type, "white")
@@ -108,7 +107,7 @@ class VizBuilder:
 
         # Add edges based on node type
         # Check specific node types first before generic hasattr checks
-        if node_type == 'ResetOp':  # ResetOp has reset_set
+        if node_type == 'RecCall':  # RecCall has reset_set
             # # Draw dashed back-edges to all nodes in reset_set
             # for reset_node in node.reset_set:
             #     child_label = self._get_node_label(reset_node)

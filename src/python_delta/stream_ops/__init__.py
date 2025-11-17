@@ -8,7 +8,7 @@ from python_delta.stream_ops.catproj import CatProj, CatProjCoordinator
 from python_delta.stream_ops.suminj import SumInj
 from python_delta.stream_ops.caseop import CaseOp
 from python_delta.stream_ops.sinkthen import SinkThen
-from python_delta.stream_ops.resetop import ResetOp
+from python_delta.stream_ops.rec_call import RecCall
 from python_delta.stream_ops.unsafecast import UnsafeCast
 from python_delta.stream_ops.singletonop import SingletonOp
 from python_delta.stream_ops.waitop import WaitOp, WaitBuffer
@@ -30,7 +30,7 @@ __all__ = [
     'SumInj',
     'CaseOp',
     'SinkThen',
-    'ResetOp',
+    'RecCall',
     'UnsafeCast',
     'SingletonOp',
     'WaitOp',
