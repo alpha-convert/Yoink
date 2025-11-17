@@ -221,6 +221,40 @@ def test_compile_inl_preserves_output(input_events):
 
     run_all(inl_test, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
+@given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
+@settings(max_examples=20)
+def test_compile_catproj_position0(input_events):
+    """Property test: CatProj position 0 (first element of cat) compiles correctly."""
+    @Delta.jit
+    def proj0(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
+        (x, _) = delta.catl(z)
+        return x
+
+    assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(proj0, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(INT_TY))
+
+
+@given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
+@settings(max_examples=20)
+def test_compile_catproj_position1(input_events):
+    """Property test: CatProj position 1 (second element of cat) compiles correctly."""
+    @Delta.jit
+    def proj1(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
+        (_, y) = delta.catl(z)
+        return y
+
+    assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
+
+    interp, compiled, cps, generator = run_all(proj1, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(INT_TY))
+
+
 
 @given(events_of_type(TyPlus(STRING_TY, STRING_TY), max_depth=5))
 @settings(max_examples=20)
@@ -248,6 +282,21 @@ def test_compile_map_identity_preserves_output(input_events):
 
     assert interp == compiled == cps == generator
     assert has_type(interp, TyStar(INT_TY))
+
+@given(events_of_type(TyStar(INT_TY), max_depth=10))
+@settings(max_examples=20)
+def test_compile_map_inl(input_events):
+    @Delta.jit
+    def map_id(delta, s: TyStar(INT_TY)):
+        return delta.map(s, lambda x: delta.inl(x))
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    interp, compiled, cps, generator = run_all(map_id, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
+
+    assert interp == compiled == cps == generator
+    assert has_type(interp, TyStar(TyPlus(INT_TY,INT_TY)))
+
 
 @given(
         events_of_type(TyStar(INT_TY), max_depth=10),
@@ -550,35 +599,3 @@ def test_compile_concatmap_nil():
 
 #     run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
 
-@given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
-@settings(max_examples=20)
-def test_compile_catproj_position0(input_events):
-    """Property test: CatProj position 0 (first element of cat) compiles correctly."""
-    @Delta.jit
-    def proj0(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
-        (x, _) = delta.catl(z)
-        return x
-
-    assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
-
-    interp, compiled, cps, generator = run_all(proj0, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
-
-    assert interp == compiled == cps == generator
-    assert has_type(interp, TyStar(INT_TY))
-
-
-@given(events_of_type(TyCat(TyStar(INT_TY), TyStar(INT_TY)), max_depth=5))
-@settings(max_examples=20)
-def test_compile_catproj_position1(input_events):
-    """Property test: CatProj position 1 (second element of cat) compiles correctly."""
-    @Delta.jit
-    def proj1(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
-        (_, y) = delta.catl(z)
-        return y
-
-    assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
-
-    interp, compiled, cps, generator = run_all(proj1, input_events, compilers=[DirectCompiler, CPSCompiler, GeneratorCompiler])
-
-    assert interp == compiled == cps == generator
-    assert has_type(interp, TyStar(INT_TY))
