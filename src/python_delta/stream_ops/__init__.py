@@ -13,10 +13,11 @@ from python_delta.stream_ops.unsafecast import UnsafeCast
 from python_delta.stream_ops.singletonop import SingletonOp
 from python_delta.stream_ops.waitop import WaitOp
 from python_delta.stream_ops.typed_buffer import TypedBuffer, make_typed_buffer
-from python_delta.stream_ops.bufferop import BufferOp, SourceBuffer, ConstantOp
+from python_delta.stream_ops.bufferop import BufferOp, WaitOpBuffer, ConstantOp, RegisterBuffer
 from python_delta.stream_ops.emitop import EmitOp
 from python_delta.stream_ops.condop import CondOp
 from python_delta.stream_ops.recursive_section import RecursiveSection
+from python_delta.stream_ops.register_update_op import RegisterUpdateOp
 
 __all__ = [
     'DONE',
@@ -39,8 +40,10 @@ __all__ = [
     'make_typed_buffer',
     'BufferOp',
     'ConstantOp',
-    'SourceBuffer',
+    'WaitOpBuffer',
+    'RegisterBuffer',
     'EmitOp',
     'CondOp',
     'RecursiveSection',
+    'RegisterUpdateOp',
 ]

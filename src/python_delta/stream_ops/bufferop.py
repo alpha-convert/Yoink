@@ -1,5 +1,6 @@
 
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
+from python_delta.stream_ops.typed_buffer import SingletonTypedBuffer
 
 class BufferOp:
     """
@@ -35,6 +36,11 @@ class BufferOp:
             other = ConstantOp(other, Singleton(type(other)))
         return ComparisonOp(self, '==', other)
 
+    def __ne__(self, other):
+        if not isinstance(other, BufferOp):
+            other = ConstantOp(other, Singleton(type(other)))
+        return ComparisonOp(self, '!=', other)
+
 class ConstantOp(BufferOp):
     """Wraps a constant Python value as a BufferOp."""
     def __init__(self, value, stream_type):
@@ -47,8 +53,24 @@ class ConstantOp(BufferOp):
     def eval(self):
         return self.value
 
+class RegisterBuffer(BufferOp):
+    def __init__(self,init_buffer_val,klass):
+        stream_type = Singleton(klass)
+        super().__init__(stream_type=stream_type)
+        self.buffer = SingletonTypedBuffer(stream_type)
+        self.buffer.value = init_buffer_val
+        self.buffer.complete = True
+    
+    def get_sources(self):
+        return {}
+    
+    def eval(self):
+        return self.buffer.get_value()
+    
+    def update_value(self,new_val):
+        self.buffer.value = new_val
 
-class SourceBuffer(BufferOp):
+class WaitOpBuffer(BufferOp):
     """
     Root operation - points to the WaitOp that provides the buffered value.
     This is always the root of any BufferOp tree.

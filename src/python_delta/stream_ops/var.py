@@ -27,7 +27,8 @@ class Var(StreamOp):
         if self.source is None:
             raise RuntimeError(f"Var '{self.name}' has no source bound")
         try:
-            return next(self.source)
+            v = next(self.source)
+            return v
         except StopIteration:
             return DONE
 

@@ -14,7 +14,12 @@ def test_ronz_nil():
 
     output = f(iter([PlusPuncA()]))
     result = [x for x in list(output) if x is not None]
-    assert result[0] == PlusPuncA()
+    expected_result = [
+        PlusPuncB(), CatEvA(PlusPuncA()), CatPunc(),
+        PlusPuncA()
+    ]
+
+    assert expected_result == result
 
 
 def test_ronz_none():
@@ -40,53 +45,125 @@ def test_ronz_none():
     ]
     assert result == expected_result
 
-# def test_splitz_cons_immediate_z():
-#     @Delta.jit
-#     def f(delta,s : TyStar(INT_TY)):
-#         return delta.runsOfNonZ(s)
+def test_splitz_cons_immediate_z():
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.runsOfNonZ(s)
 
-#     input = [PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
-#              PlusPuncA()
-#              ]
-#     output = f(iter(input))
-#     result = [x for x in list(output) if x is not None]
-#     expected_result = [
-#         CatEvA(PlusPuncA()),
-#         CatPunc(),
-#         PlusPuncB(), CatEvA(BaseEvent(5)),CatPunc(),
-#         PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
-#         PlusPuncA()
-#     ]
-#     assert result == expected_result
+    input = [PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
+             PlusPuncA()
+             ]
+    output = f(iter(input))
+    result = [x for x in list(output) if x is not None]
+    expected_result = [
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(5))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(6))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncA()
+    ]
+    assert result == expected_result
 
-# def test_splitz_cons_onez():
-#     @Delta.jit
-#     def f(delta,s : TyStar(INT_TY)):
-#         return delta.runsOfNonZ(s)
+def test_splitz_cons_onez():
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.runsOfNonZ(s)
 
-#     input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(3)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
-#              PlusPuncA()
-#              ]
-#     output = f(iter(input))
-#     result = [x for x in list(output) if x is not None]
-#     expected_result = [
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(1))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(2))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(3))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncA()),
-#         CatPunc(),
-#         PlusPuncB(), CatEvA(BaseEvent(5)),CatPunc(),
-#         PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
-#         PlusPuncA()
-#     ]
-#     assert result == expected_result
+    input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(3)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
+             PlusPuncA()
+             ]
+    output = f(iter(input))
+    result = [x for x in list(output) if x is not None]
+    expected_result = [
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(1))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(2))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(3))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(5))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(6))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncA()
+    ]
+    assert result == expected_result
+
+def test_splitz_cons_twoz():
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.runsOfNonZ(s)
+
+    input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(3)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
+             PlusPuncA()
+             ]
+    output = f(iter(input))
+    result = [x for x in list(output) if x is not None]
+    expected_result = [
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(1))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(2))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(3))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(5))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(6))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncA()
+    ]
+    assert result == expected_result
+
+def test_splitz_cons_twoz_endz():
+    @Delta.jit
+    def f(delta,s : TyStar(INT_TY)):
+        return delta.runsOfNonZ(s)
+
+    input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(3)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
+             PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
+             PlusPuncA()
+             ]
+    output = f(iter(input))
+    result = [x for x in list(output) if x is not None]
+    expected_result = [
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(1))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(2))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(3))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncB(),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(5))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(6))),CatEvA(CatPunc()),
+            CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncB(), CatEvA(PlusPuncA()),
+        CatPunc(),
+        PlusPuncA()
+    ]
+    assert result == expected_result
 
 # def test_ronz_zero_end():
 #     @Delta.jit

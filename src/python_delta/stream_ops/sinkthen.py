@@ -10,8 +10,8 @@ from python_delta.stream_ops.base import StreamOp, DONE
 
 class SinkThen(StreamOp):
     """Sink operation - pulls from first stream until exhausted, then switches to second stream."""
-    def __init__(self, first_stream, second_stream, stream_type):
-        super().__init__(stream_type)
+    def __init__(self, first_stream, second_stream):
+        super().__init__(second_stream.stream_type)
         self.input_streams = [first_stream, second_stream]
         self.first_exhausted = False
 
@@ -29,16 +29,12 @@ class SinkThen(StreamOp):
     def _pull(self):
         """Pull from first stream until exhausted, then switch to second stream."""
         if not self.first_exhausted:
-            # Pull from first stream and drop the value (sink it)
             val = self.input_streams[0]._pull()
             if val is DONE:
-                # First stream exhausted, switch to second
                 self.first_exhausted = True
                 return None
             else:
-                return None  # Drop all values from first stream
-
-        # Pull from second stream
+                return None
         return self.input_streams[1]._pull()
 
     def reset(self):

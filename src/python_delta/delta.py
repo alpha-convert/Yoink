@@ -1,7 +1,7 @@
 from python_delta.typecheck.realized_ordering import RealizedOrdering
 from python_delta.dataflow_graph import DataflowGraph
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
-from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, RecCall, SingletonOp, WaitOp, BufferOp, SourceBuffer, EmitOp, CondOp, RecursiveSection
+from python_delta.stream_ops import StreamOp, Var, Eps, CatR, CatProjCoordinator, CatProj, SumInj, CaseOp, UnsafeCast, SinkThen, RecCall, SingletonOp, WaitOp, BufferOp, WaitOpBuffer, EmitOp, CondOp, RecursiveSection, RegisterBuffer, RegisterUpdateOp
 
 class Delta:
     def __init__(self):
@@ -206,7 +206,7 @@ class Delta:
             def map_cons_case(x_head,x_tail):
                 map_output = map_fn(x_head)
                 map_output.stream_type.unify_with(result_elt_type)
-                sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
+                sink_then_reset = SinkThen(x_head,reset_node)
                 self._register_node(sink_then_reset)
                 return self.cons(map_output,sink_then_reset)
 
@@ -240,7 +240,7 @@ class Delta:
             def map_cons_case(x_head,x_tail):
                 map_output = map_fn(x_head)
                 map_output.stream_type.unify_with(result_star_type)
-                sink_then_reset = SinkThen(x_head,reset_node,result_star_type)
+                sink_then_reset = SinkThen(x_head,reset_node)
                 self._register_node(sink_then_reset)
                 return self.concat(map_output,sink_then_reset)
 
@@ -268,8 +268,8 @@ class Delta:
                 def inner_case_cons(y_head,y_tail):
                     z_output = fn(x_head,y_head)
                     z_output.stream_type.unify_with(result_elt_type)
-                    y_sink = SinkThen(y_head,reset_node,result_star_type)
-                    x_sink = SinkThen(x_head,y_sink,result_star_type)
+                    y_sink = SinkThen(y_head,reset_node)
+                    x_sink = SinkThen(x_head,y_sink)
 
                     self._register_node(x_sink)
                     self._register_node(y_sink)
@@ -285,7 +285,7 @@ class Delta:
         # TODO: typing. anything before x gets sunk!
         waitop = WaitOp(x)
         self._register_node(waitop)
-        return SourceBuffer(waitop)
+        return WaitOpBuffer(waitop)
     
     def emit(self, buffer_op):
         # TODO typing
@@ -334,7 +334,7 @@ class Delta:
                 # sing_x = self.cons(emity,self.nil(element_type=Singleton(int)))
                 nil_catr_xs = self.catr(self.nil(element_type=Singleton(int)),xs)
 
-                sink_then_reset = SinkThen(x,reset_node,reset_node.stream_type)
+                sink_then_reset = SinkThen(x,reset_node)
 
                 self._register_node(sink_then_reset)
 
@@ -349,18 +349,100 @@ class Delta:
         return self._recursive_block(build_body,TyCat(xs_type,xs_type))
 
 
-    # def runOfNonZ(self,xs):
-    #     xs_type = TyStar(Singleton(int))
-    #     xs.stream_type.unify_with(xs_type)
+    def runsOfNonZ(self,xs):
+        xs_type = TyStar(Singleton(int))
+        xs.stream_type.unify_with(xs_type)
 
-    #     def runOfNonZ_helper(self,b,xs):
-    #         def build_body(rec):
-    #             def nil_case(_)
-    #             pass
-    #         return self._recursive_block(build_body,TyCat(TyStar(Singleton(int)),TyStar(TyStar(Singleton(int)))))
+        run_register = RegisterBuffer(False,bool)
 
-    #     run,rest = self.catl(runOfNonZ_helper(self,self.singleton(False),xs))
-    #     return self.cons(run,rest)
+        def runOfNonZ_helper(self,xs):
+            def build_body(rec):
+                def nil_case(_):
+                    return self.catr(self.nil(element_type=Singleton(int)),self.nil(element_type=TyStar(Singleton(int))))
+                
+                def cons_case(y,ys):
+                    buffered_y = self.wait(y)
+                    y_eqz = buffered_y == 0
+                    emity = self.emit(buffered_y)
+                    y_eqz_s = self.emit(y_eqz)
+                    isrun = self.emit(run_register)
+
+                    update_true = RegisterUpdateOp(True,run_register)
+                    update_false = RegisterUpdateOp(False,run_register)
+                    self._register_node(update_true)
+                    self._register_node(update_false)
+
+                    rec_true = SinkThen(update_true,rec)
+                    self._register_node(rec_true)
+                    run_rest_true = SinkThen(y,rec_true)
+                    self._register_node(run_rest_true)
+                    run_true,rest_true = self.catl(run_rest_true)
+                    y_run_rest_true = self.catr(self.cons(emity,run_true),rest_true)
+
+
+                    rec_false = SinkThen(update_false,rec)
+                    self._register_node(rec_false)
+                    run_rest_false = SinkThen(y,rec_false)
+                    run_false,rest_false = self.catl(run_rest_false)
+                    z_and_run = self.catr(self.nil(element_type = Singleton(int)),self.cons(run_false,rest_false))
+                    self._register_node(run_rest_false)
+                    case_z = self.cond(isrun,z_and_run,run_rest_false)
+
+                    return self.cond(y_eqz_s,case_z,y_run_rest_true)
+                
+                return self.starcase(xs,nil_case,cons_case)
+
+            return self._recursive_block(build_body,TyCat(TyStar(Singleton(int)),TyStar(TyStar(Singleton(int)))))
+
+        run,rest = self.catl(runOfNonZ_helper(self,xs))
+        return self.cons(run,rest)
+
+    def anyNonZ(self, xs):
+        def build_body(rec):
+            def nil_case(_):
+                return self.singleton(False)
+
+            def cons_case(y, ys):
+                y_val = self.wait(y)
+                is_nonzero_buf = y_val != 0
+                is_nonzero = self.emit(is_nonzero_buf)
+
+                sink_y_rec = SinkThen(y, rec)
+                self._register_node(sink_y_rec)
+                return self.cond(is_nonzero, self.singleton(True), sink_y_rec)
+            return self.starcase(xs, nil_case, cons_case)
+
+        from python_delta.typecheck.types import TyStar
+        result_type = Singleton(bool)
+        return self._recursive_block(build_body, result_type)
+
+    
+    def weird(self,xs):
+        xs_type = TyStar(Singleton(int))
+        xs.stream_type.unify_with(xs_type)
+
+        def weird_h(self,xs):
+            def build_body(rec):
+                def nil_case(_):
+                    return self.catr(self.nil(element_type=Singleton(int)),self.nil(element_type=TyStar(Singleton(int))))
+                
+                def cons_case(y,ys):
+                    buffered_y = self.wait(y)
+                    emity = self.emit(buffered_y)
+
+                    run_rest_true = SinkThen(y,rec)
+                    self._register_node(run_rest_true)
+                    run_true,rest_true = self.catl(run_rest_true)
+                    y_run_rest_true = self.catr(self.cons(emity,run_true),rest_true)
+
+                    return y_run_rest_true
+                
+                return self.starcase(xs,nil_case,cons_case)
+
+            return self._recursive_block(build_body,TyCat(TyStar(Singleton(int)),TyStar(TyStar(Singleton(int)))))
+
+        run,rest = self.catl(weird_h(self,xs))
+        return self.cons(run,rest)
 
     
     # def runsOfNonZ(self,xs):
