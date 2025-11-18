@@ -15,7 +15,7 @@ class Delta:
         self.ordering.metadata[node.id] = str(node)
         self.nodes.add(node)
 
-    def _reset_block(self,f,ty):
+    def _recursive_block(self,f,ty):
         reset_node = RecCall(set(),enclosing_block= None,stream_type=ty)
         nodes_before = self.nodes.copy()
         res = f(reset_node)
@@ -212,7 +212,7 @@ class Delta:
 
             return self.starcase(x,lambda _ : self.nil(), map_cons_case)
 
-        return self._reset_block(build_body,result_star_type)
+        return self._recursive_block(build_body,result_star_type)
     
     def concat(self,xs,ys):
         input_elt_type = self._fresh_type_var()
@@ -220,7 +220,13 @@ class Delta:
         xs.stream_type.unify_with(input_star_type)
         ys.stream_type.unify_with(input_star_type)
 
-        return self._reset_block(lambda rec: self.starcase(xs,lambda _ : ys, lambda xs_head, _ : self.cons(xs_head,rec)),input_star_type)
+        return self._recursive_block(
+            lambda rec:
+                self.starcase(xs,
+                    lambda _ : ys,
+                    lambda xs_head, _ : self.cons(xs_head,rec)),
+                    input_star_type
+        )
     
     def concat_map(self,x,map_fn):
         input_elt_type = self._fresh_type_var()
@@ -240,7 +246,7 @@ class Delta:
 
             return self.starcase(x,lambda _ : self.nil(element_type=result_elt_type), map_cons_case)
 
-        return self._reset_block(build_body,result_star_type)
+        return self._recursive_block(build_body,result_star_type)
 
     # TODO: check on the ordering checking here!
     # zipwith should be "in place of" both xs and ys
@@ -273,7 +279,7 @@ class Delta:
 
             return self.starcase(xs,lambda _ : self.nil(), outer_case_cons)
 
-        return self._reset_block(build_body,result_star_type)
+        return self._recursive_block(build_body,result_star_type)
 
     def wait(self,x):
         # TODO: typing. anything before x gets sunk!
@@ -346,7 +352,7 @@ class Delta:
 
             return self.starcase(xs,nil_case, cons_case)
 
-        return self._reset_block(build_body,TyCat(xs_type,xs_type))
+        return self._recursive_block(build_body,TyCat(xs_type,xs_type))
     
     def runsOfNonZ(self,xs):
         xs_type = TyStar(Singleton(int))
@@ -379,7 +385,7 @@ class Delta:
 
             return self.starcase(xs,nil_case,cons_case)
 
-        return self._reset_block(build_body,TyStar(TyStar(Singleton(int))))
+        return self._recursive_block(build_body,TyStar(TyStar(Singleton(int))))
 
     
     @staticmethod

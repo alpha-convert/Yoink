@@ -235,7 +235,6 @@ class GeneratorCompiler(CompilerVisitor):
 
         # # If no state to reset, just pass
         # if not body:
-        body = [ast.Pass()]
 
         return ast.FunctionDef(
             name='reset',
@@ -248,7 +247,7 @@ class GeneratorCompiler(CompilerVisitor):
                 defaults=[],
                 posonlyargs=[]
             ),
-            body=body,
+            body=[ast.Pass()],
             decorator_list=[],
             returns=None,
         )
@@ -364,7 +363,6 @@ class GeneratorCompiler(CompilerVisitor):
         return node.input_stream.accept(input_compiler)
 
     def visit_CatR(self, node: 'CatR') -> List[ast.stmt]:
-        """Compile CatR with generators."""
         def first_stream_yield_cont(val_expr):
             return self.yield_cont(
                 ast.Call(
@@ -524,11 +522,10 @@ class GeneratorCompiler(CompilerVisitor):
 
         def input_yield_cont(tag_expr):
             return [
-                tag_var.assign(tag_expr),
                 ast.If(
                     test=ast.Call(
                         func=ast.Name(id='isinstance', ctx=ast.Load()),
-                        args=[tag_var.rvalue(), ast.Name(id='PlusPuncA', ctx=ast.Load())],
+                        args=[tag_expr, ast.Name(id='PlusPuncA', ctx=ast.Load())],
                         keywords=[]
                     ),
                     body=branch0_stmts,
@@ -587,7 +584,7 @@ class GeneratorCompiler(CompilerVisitor):
                 try:                      # Inner try - catches recurse exception
                     block_stmts
                     raise EscapeException # Normal completion exits to done_cont
-                except RecurseException:  # RecCall raises this to restart loop
+                except RecurseException:  # ResetOp raises this to restart loop
                     pass
         except EscapeException:
             done_cont
