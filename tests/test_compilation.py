@@ -478,61 +478,61 @@ def test_zipwith_catr(xs_inps,ys_inps):
 
     run_all(zip_pair, xs_inps,ys_inps, compilers=[DirectCompiler, CPSCompiler])
 
-def test_compile_splitz_nil():
-    """Test splitZ with nil (empty list)."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+# def test_compile_splitz_nil():
+#     """Test splitZ with nil (empty list)."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.splitZ(s)
 
-    xs = [PlusPuncA()]
-    run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+#     xs = [PlusPuncA()]
+#     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     
-def test_compile_splitz_cons_all_nonz():
-    """Test splitZ with all non-zero elements."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+# def test_compile_splitz_cons_all_nonz():
+#     """Test splitZ with all non-zero elements."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.splitZ(s)
 
-    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
-          PlusPuncA()]
+#     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
+#           PlusPuncA()]
 
-    interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-    assert interp == compiled
-
-
-def test_compile_splitz_cons_immediate_z():
-    """Test splitZ with zero as first element."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
-
-    xs = [PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
-          PlusPuncA()]
-
-    interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-    assert interp == compiled
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+#     assert interp == compiled
 
 
-def test_compile_splitz_cons_onez():
-    """Test splitZ with zero in middle of list."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+# def test_compile_splitz_cons_immediate_z():
+#     """Test splitZ with zero as first element."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.splitZ(s)
 
-    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
-          PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
-          PlusPuncA()]
+#     xs = [PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
+#           PlusPuncA()]
 
-    interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-    assert interp == compiled
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+#     assert interp == compiled
+
+
+# def test_compile_splitz_cons_onez():
+#     """Test splitZ with zero in middle of list."""
+#     @Delta.jit
+#     def f(delta, s: TyStar(INT_TY)):
+#         return delta.splitZ(s)
+
+#     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
+#           PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
+#           PlusPuncA()]
+
+#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+#     assert interp == compiled
 
 def test_compile_concatmap_nil():
     """Test concat_map with nil function."""

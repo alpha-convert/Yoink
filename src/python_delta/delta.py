@@ -316,12 +316,6 @@ class Delta:
 
     # THere's just this aliasing with mutable state problem. You don't want to duplicate the stream state!
 
-    # Ok. Here's the dissertation.
-    # 1. Delta (ordered types for stream procesing)
-    # 2. Using ordered types for safe imperative stream fusion.
-
-    # We can shift our perspective: "arrives before" becomes "depends on the bit of state before"
-
     # NOTE! You don't even need concat to break things. You really just need (1) an ability to take subreams, and (2)
     # the ability to combine streams. If you have take/drop and zip, everything blows up.
 
@@ -370,11 +364,20 @@ class Delta:
                 rec_ys = SinkThen(y,reset_node,reset_node.stream_type)
                 self._register_node(rec_ys)
 
-                # TODO: need a way of ensuring that people odn't try to use "y" here, it needs to be pulled out of th econtext zfter you wait on it. you need to use "emit(w)" anywhere else.
-                # NOTE: the problem here is that splitZ is eating the PlusPluncA() of ys, and so when we circle back to handle it
-                # in teh top of build_body, it's all gone. Really we need to recurse on rest! Because this is only sort of a tailcall...
-                # TODO: figure out of this is only an issue with the final PlusPuncA(), or if it's an issue with all of them.
-
+                # TODO: need a way of ensuring that people odn't try to use "y"
+                # here, it needs to be pulled out of th econtext zfter you wait
+                # on it. you need to use "emit(w)" anywhere else. 
+                 
+                # NOTE: the
+                # problem here is that splitZ is eating the PlusPluncA() of ys,
+                # and so when we circle back to handle it in teh top of
+                # build_body, it's all gone. Really we need to recurse on rest!
+                # Because this is only sort of a tailcall... 
+                
+                # TODO: figure out
+                # of this is only an issue with the final PlusPuncA(), or if
+                # it's an issue with all of them.
+                
                 # NOTE: we can write this "correctly" 
                 run,rest = self.catl(self.splitZ(ys))
                 y_run = self.cons(emitw,run)
