@@ -11,7 +11,8 @@ from python_delta.stream_ops.sinkthen import SinkThen
 from python_delta.stream_ops.rec_call import RecCall
 from python_delta.stream_ops.unsafecast import UnsafeCast
 from python_delta.stream_ops.singletonop import SingletonOp
-from python_delta.stream_ops.waitop import WaitOp, WaitBuffer
+from python_delta.stream_ops.waitop import WaitOp
+from python_delta.stream_ops.typed_buffer import TypedBuffer, make_typed_buffer
 from python_delta.stream_ops.bufferop import BufferOp, SourceBuffer, ConstantOp
 from python_delta.stream_ops.emitop import EmitOp
 from python_delta.stream_ops.condop import CondOp
@@ -34,7 +35,8 @@ __all__ = [
     'UnsafeCast',
     'SingletonOp',
     'WaitOp',
-    'WaitBuffer',
+    'TypedBuffer',
+    'make_typed_buffer',
     'BufferOp',
     'ConstantOp',
     'SourceBuffer',

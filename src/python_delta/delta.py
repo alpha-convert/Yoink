@@ -347,48 +347,63 @@ class Delta:
             return self.starcase(xs,nil_case, cons_case)
 
         return self._recursive_block(build_body,TyCat(xs_type,xs_type))
+
+
+    # def runOfNonZ(self,xs):
+    #     xs_type = TyStar(Singleton(int))
+    #     xs.stream_type.unify_with(xs_type)
+
+    #     def runOfNonZ_helper(self,b,xs):
+    #         def build_body(rec):
+    #             def nil_case(_)
+    #             pass
+    #         return self._recursive_block(build_body,TyCat(TyStar(Singleton(int)),TyStar(TyStar(Singleton(int)))))
+
+    #     run,rest = self.catl(runOfNonZ_helper(self,self.singleton(False),xs))
+    #     return self.cons(run,rest)
+
     
-    def runsOfNonZ(self,xs):
-        xs_type = TyStar(Singleton(int))
-        xs.stream_type.unify_with(xs_type)
+    # def runsOfNonZ(self,xs):
+    #     xs_type = TyStar(Singleton(int))
+    #     xs.stream_type.unify_with(xs_type)
 
-        def build_body(reset_node):
-            def nil_case(_):
-                return self.nil(element_type=TyStar(Singleton(int)))
-            def cons_case(y,ys):
-                w = self.wait(y)
-                eqz = w == 0
-                emitw = self.emit(w)
-                isz = self.emit(eqz)
+    #     def build_body(reset_node):
+    #         def nil_case(_):
+    #             return self.nil(element_type=TyStar(Singleton(int)))
+    #         def cons_case(y,ys):
+    #             w = self.wait(y)
+    #             eqz = w == 0
+    #             emitw = self.emit(w)
+    #             isz = self.emit(eqz)
 
-                rec_ys = SinkThen(y,reset_node,reset_node.stream_type)
-                self._register_node(rec_ys)
+    #             rec_ys = SinkThen(y,reset_node,reset_node.stream_type)
+    #             self._register_node(rec_ys)
 
-                # TODO: need a way of ensuring that people odn't try to use "y"
-                # here, it needs to be pulled out of th econtext zfter you wait
-                # on it. you need to use "emit(w)" anywhere else. 
+    #             # TODO: need a way of ensuring that people odn't try to use "y"
+    #             # here, it needs to be pulled out of th econtext zfter you wait
+    #             # on it. you need to use "emit(w)" anywhere else. 
                  
-                # NOTE: the
-                # problem here is that splitZ is eating the PlusPluncA() of ys,
-                # and so when we circle back to handle it in teh top of
-                # build_body, it's all gone. Really we need to recurse on rest!
-                # Because this is only sort of a tailcall... 
+    #             # NOTE: the
+    #             # problem here is that splitZ is eating the PlusPluncA() of ys,
+    #             # and so when we circle back to handle it in teh top of
+    #             # build_body, it's all gone. Really we need to recurse on rest!
+    #             # Because this is only sort of a tailcall... 
                 
-                # TODO: figure out
-                # of this is only an issue with the final PlusPuncA(), or if
-                # it's an issue with all of them.
+    #             # TODO: figure out
+    #             # of this is only an issue with the final PlusPuncA(), or if
+    #             # it's an issue with all of them.
                 
-                # NOTE: we can write this "correctly" 
-                run,rest = self.catl(self.splitZ(ys))
-                y_run = self.cons(emitw,run)
+    #             # NOTE: we can write this "correctly" 
+    #             run,rest = self.catl(self.splitZ(ys))
+    #             y_run = self.cons(emitw,run)
 
-                y_run_rec_rest = self.cons(y_run,reset_node)
+    #             y_run_rec_rest = self.cons(y_run,reset_node)
 
-                return self.cond(isz,rec_ys,y_run_rec_rest)
+    #             return self.cond(isz,rec_ys,y_run_rec_rest)
 
-            return self.starcase(xs,nil_case,cons_case)
+    #         return self.starcase(xs,nil_case,cons_case)
 
-        return self._recursive_block(build_body,TyStar(TyStar(Singleton(int))))
+    #     return self._recursive_block(build_body,TyStar(TyStar(Singleton(int))))
 
     
     @staticmethod
