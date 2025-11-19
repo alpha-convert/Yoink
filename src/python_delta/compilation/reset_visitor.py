@@ -114,42 +114,8 @@ class ResetVisitor:
             emit_index_var.assign(ast.Constant(value=0))
         ]
 
-        # TODO: this should be in a seperate visitor!
-        # Also initialize all BufferOp nodes in the BufferOp DAG
-        buffer_ops = self._collect_buffer_ops(node.buffer_op)
-        for buf_op in buffer_ops:
-            stmts.extend(self.visit_BufferOp(buf_op))
-
         return stmts
 
-    # TODO: this should be a separate visitor!
-    def _collect_buffer_ops(self, node) -> list:
-        """Recursively collect all BufferOp nodes in a DAG."""
-        from python_delta.stream_ops.bufferop import BinaryOp, UnaryOp, ComparisonOp
-
-        visited = set()
-        result = []
-
-        def traverse(n):
-            node_id = id(n)
-            if node_id in visited:
-                return
-            visited.add(node_id)
-            result.append(n)
-
-            # Traverse children based on node type
-            if isinstance(n, BinaryOp):
-                traverse(n.left)
-                traverse(n.right)
-            elif isinstance(n, UnaryOp):
-                traverse(n.parent_op)
-            elif isinstance(n, ComparisonOp):
-                traverse(n.parent_op)
-                traverse(n.operand)
-            # WaitOpBuffer, ConstantOp, RegisterBuffer have no children
-
-        traverse(node)
-        return result
 
     def visit_WaitOp(self, node: 'WaitOp') -> List[ast.stmt]:
         """Reset WaitOp buffer using TypedBufferBuilderCompiler."""
@@ -164,46 +130,3 @@ class ResetVisitor:
         return [
             buffer_var.assign(buffer_expr)
         ]
-
-    # TODO: this should be a different visitor...
-    def visit_BufferOp(self, node) -> List[ast.stmt]:
-        """Allocate out_buf for BufferOp nodes.
-
-        We need to allocate a list to hold the events that the BufferOp will produce.
-        The size depends on the stream type - for now we'll allocate based on a simple heuristic.
-        """
-        from python_delta.stream_ops.bufferop import WaitOpBuffer
-        from python_delta.compilation.typed_buffer_builder_compiler import TypedBufferBuilderCompiler
-
-        out_buf_var = self.ctx.state_var(node, 'out_buf')
-
-        # For WaitOpBuffer, we need to determine the size from the WaitOp's type
-        if isinstance(node, WaitOpBuffer):
-            # The buffer size should match the number of events the type produces
-            # For now, use a simple heuristic: allocate a typed buffer and get events from it
-            buffer_builder = TypedBufferBuilderCompiler(self.ctx)
-            buffer_expr = buffer_builder.visit(node.stream_type)
-
-            return [
-                out_buf_var.assign(
-                    ast.Call(
-                        func=ast.Attribute(
-                            value=buffer_expr,
-                            attr='get_events',
-                            ctx=ast.Load()
-                        ),
-                        args=[],
-                        keywords=[]
-                    )
-                )
-            ]
-        else:
-            # For other BufferOps (ConstantOp, BinaryOp, etc.), allocate a single-element list
-            return [
-                out_buf_var.assign(
-                    ast.List(
-                        elts=[ast.Constant(value=None)],
-                        ctx=ast.Load()
-                    )
-                )
-            ]

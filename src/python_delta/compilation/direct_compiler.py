@@ -135,6 +135,7 @@ class DirectCompiler(StreamOpVisitor):
         reset_visitor = ResetVisitor(ctx)
         for node in dataflow_graph.nodes:
             body.extend(reset_visitor.visit(node))
+        # TODO: also add initializers for bufferop outputs here.
 
         return ast.FunctionDef(
             name='__init__',
