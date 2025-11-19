@@ -10,7 +10,8 @@ from __future__ import annotations
 from typing import List, Callable, TYPE_CHECKING
 import ast
 
-from python_delta.compilation.compiler_visitor import CompilerVisitor
+from python_delta.compilation.runtime import Runtime
+from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
 from python_delta.compilation.reset_visitor import ResetVisitor
 
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.recursive_section import RecursiveSection
 
 
-class CPSCompiler(CompilerVisitor):
+class CPSCompiler(StreamOpVisitor):
 
     def __init__(self, ctx, done_cont: List[ast.stmt], skip_cont: List[ast.stmt],
                  yield_cont: Callable[[ast.expr], List[ast.stmt]]):
@@ -53,23 +54,8 @@ class CPSCompiler(CompilerVisitor):
         # Compile to bytecode and execute
         code = compile(module_ast, '<generated>', 'exec')
 
-        # Execute in namespace with event types and DONE
-        from python_delta.stream_ops import DONE, CatRState
-        from python_delta.event import BaseEvent, CatEvA, CatPunc, ParEvA, ParEvB, PlusPuncA, PlusPuncB
-        namespace = {
-            'DONE': DONE,
-            'BaseEvent': BaseEvent,
-            'CatEvA': CatEvA,
-            'CatPunc': CatPunc,
-            'ParEvA': ParEvA,
-            'ParEvB': ParEvB,
-            'PlusPuncA': PlusPuncA,
-            'PlusPuncB': PlusPuncB,
-            'CatRState': CatRState,
-        }
-        exec(code, namespace)
-
-        return namespace['FlattenedIterator']
+        runtime = Runtime()
+        return runtime.exec(code)
 
     @staticmethod
     def get_code(dataflow_graph) -> str:
@@ -649,3 +635,9 @@ class CPSCompiler(CompilerVisitor):
 
     def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
         return self.visit(node.block_contents)
+
+    def visit_EmitOp(self, node : 'EmitOp') -> List[ast.stmt]:
+        return [ast.Pass()]
+
+    def visit_WaitOp(self, node : 'EmitOp') -> List[ast.stmt]:
+        return [ast.Pass()]

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 import ast
 
+from python_delta.compilation.runtime import Runtime
 from python_delta.stream_ops.base import StreamOp, DONE
 from python_delta.compilation import StateVar
 from python_delta.stream_ops.typed_buffer import TypedBuffer, make_typed_buffer

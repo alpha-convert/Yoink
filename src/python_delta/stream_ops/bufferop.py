@@ -1,4 +1,5 @@
 
+from python_delta.event import BaseEvent
 from python_delta.typecheck.types import Type, Singleton, TyCat, TyPlus, TyStar, TyEps, TypeVar
 from python_delta.stream_ops.typed_buffer import SingletonTypedBuffer
 
@@ -8,10 +9,9 @@ class BufferOp:
     Implements magic methods for type-driven operations.
     All constants are auto-promoted to ConstantOp.
 
-    Each BufferOp tracks its source WaitOps so that when you "pull" on it,
-    it can pull on all sources until they're complete before evaluating.
+    Each BufferOp tracks its sources so we can traverse back through the graph
+    to figure out which waits must be sunk beforehand.
     """
-    # TODO: should probalby be a way to  go from a bufferop to the slice of the graph that it must sink. this way we can typecheck them more reasonably!
     def __init__(self, stream_type):
         self.stream_type = stream_type
 
@@ -20,6 +20,10 @@ class BufferOp:
 
     def eval(self):
         raise NotImplementedError("Subclasses must implement eval")
+
+    @property
+    def id(self):
+        raise NotImplementedError("Subclasses must implement id")
 
     def __add__(self, other):
         if not isinstance(other, BufferOp):
@@ -47,26 +51,34 @@ class ConstantOp(BufferOp):
         super().__init__(stream_type)
         self.value = value
 
+    @property
+    def id(self):
+        return hash(("ConstantOp", id(self.value)))
+
     def get_sources(self):
         return set()
 
     def eval(self):
-        return self.value
+        return [BaseEvent(self.value)]
 
 class RegisterBuffer(BufferOp):
     def __init__(self,init_buffer_val,klass):
         stream_type = Singleton(klass)
         super().__init__(stream_type=stream_type)
-        self.buffer = SingletonTypedBuffer(stream_type)
+        self.buffer = SingletonTypedBuffer()
         self.buffer.value = init_buffer_val
         self.buffer.complete = True
-    
+
+    @property
+    def id(self):
+        return hash(("RegisterBuffer", id(self.buffer)))
+
     def get_sources(self):
         return {}
-    
+
     def eval(self):
-        return self.buffer.get_value()
-    
+        return self.buffer.get_events()
+
     def update_value(self,new_val):
         self.buffer.value = new_val
 
@@ -79,6 +91,10 @@ class WaitOpBuffer(BufferOp):
         super().__init__(wait_op.stream_type)
         self.wait_op = wait_op
 
+    @property
+    def id(self):
+        return hash(("WaitOpBuffer", self.wait_op.id))
+
     def get_sources(self):
         """Return the single WaitOp this depends on."""
         return {self.wait_op}
@@ -86,7 +102,7 @@ class WaitOpBuffer(BufferOp):
     def eval(self):
         """Read the buffered value from the WaitOp's buffer."""
         assert self.wait_op.buffer.is_complete()
-        return self.wait_op.buffer.get_value()
+        return self.wait_op.buffer.get_events()
 
 class BinaryOp(BufferOp):
     """Binary arithmetic operation on Singleton."""
@@ -96,51 +112,67 @@ class BinaryOp(BufferOp):
         self.op = op
         self.right = right
 
+    @property
+    def id(self):
+        return hash(("BinaryOp", self.left.id, self.op, self.right.id))
+
     def eval(self):
         """Evaluate parent, operand, and apply operator."""
-        left = self.left.eval()
-        right = self.right.eval()
+        left = self.left.eval()[0].value
+        right = self.right.eval()[0].value
 
         if self.op == '+':
-            return left + right
+            v = left + right
         elif self.op == '-':
-            return left - right
+            v = left - right
         elif self.op == '*':
-            return left * right
+            v = left * right
         elif self.op == '/':
-            return left / right
+            v = left / right
         elif self.op == '//':
-            return left // right
+            v = left // right
         elif self.op == '%':
-            return left % right
+            v = left % right
         elif self.op == '**':
-            return left ** right
+            v = left ** right
         else:
             raise ValueError(f"Unknown operator: {self.operator}")
         
+        return [BaseEvent(v)]
+
     def get_sources(self):
         return self.left.get_sources() | self.right.get_sources()
 
 class UnaryOp(BufferOp):
     """Unary operation on Singleton."""
     def __init__(self, parent_op, operator):
+        super().__init__(parent_op.stream_type)
         self.parent_op = parent_op
         self.operator = operator  # '-', '+', '~', 'not'
 
+    @property
+    def id(self):
+        return hash(("UnaryOp", self.operator, self.parent_op.id))
+
+    def get_sources(self):
+        return self.parent_op.get_sources()
+
     def eval(self):
         """Evaluate parent and apply unary operator."""
-        value = self.parent_op.eval()
+        value = self.parent_op.eval()[0].value
 
         if self.operator == '-':
-            return -value
+            res = -value
         elif self.operator == '+':
-            return +value
+            res = +value
         elif self.operator == '~':
-            return ~value
+            res = ~value
         elif self.operator == 'not':
-            return not value
+            res = not value
         else:
             raise ValueError(f"Unknown operator: {self.operator}")
+        
+        return [BaseEvent(res)]
 
 class ComparisonOp(BufferOp):
     """Comparison operation on Singleton."""
@@ -150,25 +182,31 @@ class ComparisonOp(BufferOp):
         self.operator = operator  # '<', '<=', '>', '>=', '==', '!='
         self.operand = operand  # Can be a constant or another BufferOp
 
+    @property
+    def id(self):
+        return hash(("ComparisonOp", self.parent_op.id, self.operator, self.operand.id))
+
     def get_sources(self):
         return self.parent_op.get_sources() | self.operand.get_sources()
 
     def eval(self):
         """Evaluate parent, operand, and apply comparison."""
-        left = self.parent_op.eval()
-        right = self.operand.eval() if isinstance(self.operand, BufferOp) else self.operand
+        left = self.parent_op.eval()[0].value
+        right = self.operand.eval()[0].value
 
         if self.operator == '<':
-            return left < right
+            res = left < right
         elif self.operator == '<=':
-            return left <= right
+            res = left <= right
         elif self.operator == '>':
-            return left > right
+            res = left > right
         elif self.operator == '>=':
-            return left >= right
+            res = left >= right
         elif self.operator == '==':
-            return left == right
+            res = left == right
         elif self.operator == '!=':
-            return left != right
+            res = left != right
         else:
             raise ValueError(f"Unknown operator: {self.operator}")
+        
+        return [BaseEvent(res)]

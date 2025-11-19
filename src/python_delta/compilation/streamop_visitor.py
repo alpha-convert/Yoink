@@ -22,10 +22,13 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
     from python_delta.stream_ops.recursive_section import RecursiveSection
+    from python_delta.stream_ops.waitop import WaitOp
+    from python_delta.stream_ops.emitop import EmitOp
+    from python_delta.stream_ops.register_update_op import RegisterUpdateOp
     from python_delta.compilation import CompilationContext, StateVar
 
 
-class CompilerVisitor:
+class StreamOpVisitor:
     """Base visitor for compiling StreamOps to AST statements.
 
     Each compilation strategy (direct, CPS, generator) extends this class
@@ -108,5 +111,14 @@ class CompilerVisitor:
         raise NotImplementedError
 
     def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_WaitOp(self, node: 'WaitOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_EmitOp(self, node: 'EmitOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_RegisterUpdate(self, node: 'RegisterUpdate') -> List[ast.stmt]:
         raise NotImplementedError
 

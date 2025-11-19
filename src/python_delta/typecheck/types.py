@@ -42,6 +42,20 @@ class Type:
         from python_delta.typecheck.derivative import derivative
         return derivative(self, event)
 
+    def accept(self, visitor):
+        """Accept a visitor for type traversal (visitor pattern).
+
+        This is the entry point for the visitor pattern. The visitor
+        dispatches to the appropriate visit_* method based on type constructor.
+
+        Args:
+            visitor: A StreamTypeVisitor instance
+
+        Returns:
+            Result from the visitor's visit method
+        """
+        return visitor.visit(self)
+
 
 class NullaryType(Type):
     """Base class for nullary type constructors without parameters."""

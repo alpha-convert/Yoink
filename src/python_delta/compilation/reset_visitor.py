@@ -17,6 +17,8 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.unsafecast import UnsafeCast
     from python_delta.stream_ops.condop import CondOp
     from python_delta.stream_ops.recursive_section import RecursiveSection
+    from python_delta.stream_ops.emitop import EmitOp
+    from python_delta.stream_ops.waitop import WaitOp
     from python_delta.compilation import CompilationContext
 
 
@@ -97,3 +99,41 @@ class ResetVisitor:
 
     def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
         return []
+
+    def visit_EmitOp(self, node: 'EmitOp') -> List[ast.stmt]:
+        """Reset EmitOp phase and counters."""
+        from python_delta.stream_ops.emitop import EmitOpPhase
+
+        phase_var = self.ctx.state_var(node, 'phase')
+        event_buffer_var = self.ctx.state_var(node, 'event_buffer')
+        emit_index_var = self.ctx.state_var(node, 'emit_index')
+
+        return [
+            phase_var.assign(ast.Constant(value=EmitOpPhase.SERIALIZING.value)),
+            event_buffer_var.assign(ast.Constant(value=None)),
+            emit_index_var.assign(ast.Constant(value=0))
+        ]
+
+    def visit_WaitOp(self, node: 'WaitOp') -> List[ast.stmt]:
+        """Reset WaitOp buffer."""
+        buffer_var = self.ctx.state_var(node, 'buffer')
+
+        return [
+            buffer_var.assign(
+                ast.Call(
+                    func=ast.Name(id='make_typed_buffer', ctx=ast.Load()),
+                    args=[
+                        ast.Attribute(
+                            value=ast.Attribute(
+                                value=ast.Name(id='self', ctx=ast.Load()),
+                                attr=f'input_stream_{id(node)}',
+                                ctx=ast.Load()
+                            ),
+                            attr='stream_type',
+                            ctx=ast.Load()
+                        )
+                    ],
+                    keywords=[]
+                )
+            )
+        ]

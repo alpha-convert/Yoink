@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import List, Callable, TYPE_CHECKING
 import ast
 
-from python_delta.compilation.compiler_visitor import CompilerVisitor
+from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from python_delta.stream_ops.recursive_section import RecursiveSection
 
 
-class GeneratorCompiler(CompilerVisitor):
+class GeneratorCompiler(StreamOpVisitor):
     """Generator compilation: uses yield statements.
 
     This corresponds to the old _compile_stmts_generator() method.

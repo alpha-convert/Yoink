@@ -56,17 +56,6 @@ class StreamOp:
         """Reset stream to initial state. Subclasses should override if stateful."""
         pass
 
-    def accept(self, visitor) -> List[ast.stmt]:
-        """Accept a visitor for compilation (visitor pattern).
-
-        This is the entry point for the visitor pattern. The visitor
-        dispatches to the appropriate visit_* method based on node type.
-
-        Args:
-            visitor: A CompilerVisitor instance
-
-        Returns:
-            List of AST statements compiled by the visitor
-        """
+    def accept(self, visitor):
         return visitor.visit(self)
 

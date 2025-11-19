@@ -288,9 +288,15 @@ class Delta:
         return WaitOpBuffer(waitop)
     
     def emit(self, buffer_op):
-        # TODO typing
+        op_sources = buffer_op.get_sources()
         emit_op = EmitOp(buffer_op)
         self._register_node(emit_op)
+        # Have to pull our way through all of the WaitOps that this depends on
+        # to ensure everything's all buffered before we go.
+        # The invariant on EmitOp is that it's free to serialize and start firing immediately.
+        for source in op_sources:
+            emit_op = SinkThen(source,emit_op)
+            self._register_node(emit_op)
         return emit_op
 
     # OK. What does this mean?  SplitZ is fundementally different from all the
