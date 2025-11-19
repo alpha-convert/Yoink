@@ -43,8 +43,10 @@ def value_to_events(value, stream_type : Type):
         raise ValueError(f"Unknown stream type: {stream_type}")
 
 class Runtime:
-    
+
     def __init__(self):
+        from python_delta.stream_ops.emitop import EmitOpPhase
+
         self.namespace =  {
             'DONE': DONE,
             'BaseEvent': BaseEvent,
@@ -55,8 +57,11 @@ class Runtime:
             'PlusPuncA': PlusPuncA,
             'PlusPuncB': PlusPuncB,
             'CatRState': CatRState,
-            # 'EmitOpPhase': EmitOpPhase,
-            'value_to_events': value_to_events,
+            'EmitOpPhase': EmitOpPhase,
+            'SingletonTypedBuffer': SingletonTypedBuffer,
+            'EpsTypedBuffer': EpsTypedBuffer,
+            'CatTypedBuffer': CatTypedBuffer,
+            'PlusTypedBuffer': PlusTypedBuffer,
         }
     
     def exec(self,code):

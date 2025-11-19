@@ -885,5 +885,77 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_WaitOp(self, node : 'EmitOp') -> List[ast.stmt]:
-        return [ast.Pass()]
+    def visit_WaitOp(self, node : 'WaitOp') -> List[ast.stmt]:
+        """Compile WaitOp: buffer events from input stream until complete.
+
+        Consumes events from input stream and pokes them into a TypedBuffer
+        until the buffer is complete, then returns DONE.
+
+        Note: Buffer initialization is handled by ResetVisitor using TypedBufferBuilderCompiler.
+        """
+        buffer_var = self.ctx.state_var(node, 'buffer')
+        event_tmp = self.ctx.allocate_temp()
+
+        # Compile input stream
+        input_compiler = DirectCompiler(self.ctx, event_tmp)
+        input_stmts = node.input_stream.accept(input_compiler)
+
+        return [
+            # Check if buffer is already complete
+            ast.If(
+                test=ast.Call(
+                    func=ast.Attribute(
+                        value=buffer_var.rvalue(),
+                        attr='is_complete',
+                        ctx=ast.Load()
+                    ),
+                    args=[],
+                    keywords=[]
+                ),
+                body=[
+                    self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+                ],
+                orelse=input_stmts + [
+                    # Check what the input returned
+                    ast.If(
+                        test=ast.Compare(
+                            left=event_tmp.rvalue(),
+                            ops=[ast.Is()],
+                            comparators=[ast.Name(id='DONE', ctx=ast.Load())]
+                        ),
+                        body=[
+                            # Input exhausted - buffer should be complete
+                            self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+                        ],
+                        orelse=[
+                            ast.If(
+                                test=ast.Compare(
+                                    left=event_tmp.rvalue(),
+                                    ops=[ast.Is()],
+                                    comparators=[ast.Constant(value=None)]
+                                ),
+                                body=[
+                                    # No event yet, return None
+                                    self.dst.assign(ast.Constant(value=None))
+                                ],
+                                orelse=[
+                                    # Poke event into buffer
+                                    ast.Expr(
+                                        value=ast.Call(
+                                            func=ast.Attribute(
+                                                value=buffer_var.rvalue(),
+                                                attr='poke_event',
+                                                ctx=ast.Load()
+                                            ),
+                                            args=[event_tmp.rvalue()],
+                                            keywords=[]
+                                        )
+                                    ),
+                                    self.dst.assign(ast.Constant(value=None))
+                                ]
+                            )
+                        ]
+                    )
+                ]
+            )
+        ]

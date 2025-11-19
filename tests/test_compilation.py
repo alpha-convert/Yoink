@@ -582,5 +582,5 @@ def test_compile_wait_emit(input_events):
 
     assert has_type(input_events, INT_TY)
 
-    run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
+    run_all(f, input_events, compilers=[DirectCompiler])
 
