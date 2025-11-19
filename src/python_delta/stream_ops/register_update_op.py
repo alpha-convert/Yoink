@@ -33,7 +33,3 @@ class RegisterUpdateOp(StreamOp):
 
     def reset(self):
         pass
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        del ctx, dst  # Unused for now
-        raise NotImplementedError("RegisterUpdateOp compilation not yet implemented")

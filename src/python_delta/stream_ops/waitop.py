@@ -38,24 +38,3 @@ class WaitOp(StreamOp):
 
     def reset(self):
         self.buffer = make_typed_buffer(self.input_stream.stream_type)
-
-    def _compile_stmts(self, ctx, dst: StateVar) -> List[ast.stmt]:
-        """
-        TODO: Compilation for WaitOp
-
-        The compilation should:
-        1. Store a buffer instance as state (initialized via make_typed_buffer(stream_type))
-        2. On each pull:
-           - If buffer.is_complete(): return DONE
-           - Otherwise: pull from input_stream
-           - If input is DONE: assert buffer.is_complete(), return DONE
-           - If input is None: return None
-           - Otherwise: buffer.poke_event(input), return None
-        3. On reset: create new buffer via make_typed_buffer(stream_type)
-
-        Challenge: Need to make make_typed_buffer and TypedBuffer classes available
-        at runtime in the compiled code's namespace.
-        """
-        del ctx, dst  # Unused for now
-        raise NotImplementedError("WaitOp compilation not yet implemented")
-

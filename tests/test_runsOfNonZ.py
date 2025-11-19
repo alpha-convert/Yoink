@@ -164,30 +164,3 @@ def test_splitz_cons_twoz_endz():
         PlusPuncA()
     ]
     assert result == expected_result
-
-# def test_ronz_zero_end():
-#     @Delta.jit
-#     def f(delta,s : TyStar(INT_TY)):
-#         return delta.runsOfNonZ(s)
-
-#     input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(3)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(6)),CatPunc(),
-#              PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
-#              PlusPuncA()
-#              ]
-#     output = f(iter(input))
-#     result = [x for x in list(output) if x is not None]
-#     expected_result = [
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(1))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(2))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(3))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(5))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncB()),CatEvA(CatEvA(BaseEvent(6))),CatEvA(CatPunc()),
-#         CatEvA(PlusPuncA()),
-#         CatPunc(),
-#         PlusPuncA()
-#     ]
-#     assert result == expected_result
