@@ -639,5 +639,5 @@ class CPSCompiler(StreamOpVisitor):
     def visit_EmitOp(self, node : 'EmitOp') -> List[ast.stmt]:
         return [ast.Pass()]
 
-    def visit_WaitOp(self, node : 'EmitOp') -> List[ast.stmt]:
+    def visit_WaitOp(self, node : WaitOp) -> List[ast.stmt]:
         return [ast.Pass()]

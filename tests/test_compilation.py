@@ -478,14 +478,14 @@ def test_zipwith_catr(xs_inps,ys_inps):
 
     run_all(zip_pair, xs_inps,ys_inps, compilers=[DirectCompiler, CPSCompiler])
 
-# def test_compile_splitz_nil():
-#     """Test splitZ with nil (empty list)."""
-#     @Delta.jit
-#     def f(delta, s: TyStar(INT_TY)):
-#         return delta.splitZ(s)
+def test_compile_splitz_nil():
+    """Test splitZ with nil (empty list)."""
+    @Delta.jit
+    def f(delta, s: TyStar(INT_TY)):
+        return delta.splitZ(s)
 
-#     xs = [PlusPuncA()]
-#     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
+    xs = [PlusPuncA()]
+    run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     
 # def test_compile_splitz_cons_all_nonz():
 #     """Test splitZ with all non-zero elements."""
@@ -568,6 +568,19 @@ def test_compile_concatmap_cons_one_preserves_output(input_events):
         return delta.concat_map(s, lambda x: delta.cons(delta.singleton(1), delta.cons(x, delta.nil())))
 
     assert has_type(input_events, TyStar(INT_TY))
+
+    run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
+
+
+
+@given(events_of_type(INT_TY, max_depth=10))
+@settings(max_examples=20)
+def test_compile_wait_emit(input_events):
+    @Delta.jit
+    def f(delta, s: INT_TY):
+        return delta.emit(delta.wait(s))
+
+    assert has_type(input_events, INT_TY)
 
     run_all(f, input_events, compilers=[DirectCompiler, CPSCompiler])
 

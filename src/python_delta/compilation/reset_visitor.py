@@ -115,25 +115,4 @@ class ResetVisitor:
         ]
 
     def visit_WaitOp(self, node: 'WaitOp') -> List[ast.stmt]:
-        """Reset WaitOp buffer."""
-        buffer_var = self.ctx.state_var(node, 'buffer')
-
-        return [
-            buffer_var.assign(
-                ast.Call(
-                    func=ast.Name(id='make_typed_buffer', ctx=ast.Load()),
-                    args=[
-                        ast.Attribute(
-                            value=ast.Attribute(
-                                value=ast.Name(id='self', ctx=ast.Load()),
-                                attr=f'input_stream_{id(node)}',
-                                ctx=ast.Load()
-                            ),
-                            attr='stream_type',
-                            ctx=ast.Load()
-                        )
-                    ],
-                    keywords=[]
-                )
-            )
-        ]
+        return [ast.Pass()]

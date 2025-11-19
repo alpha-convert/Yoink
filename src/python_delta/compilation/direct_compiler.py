@@ -817,7 +817,73 @@ class DirectCompiler(StreamOpVisitor):
         return self.visit(node.block_contents)
     
     def visit_EmitOp(self, node : 'EmitOp') -> List[ast.stmt]:
-        return [ast.Pass()]
+        """Compile EmitOp: evaluate BufferOp, then emit events one at a time.
+
+        Two-phase execution:
+        1. SERIALIZING: Compile BufferOp evaluation code
+        2. EMITTING: Emit events from buffer sequentially
+        """
+        from python_delta.stream_ops.emitop import EmitOpPhase
+        from python_delta.compilation.bufferop_compiler import BufferOpCompiler
+
+        phase_var = self.ctx.state_var(node, 'phase')
+        emit_index_var = self.ctx.state_var(node, 'emit_index')
+
+        # Generate BufferOp evaluation statements
+        bufferop_compiler = BufferOpCompiler(self.ctx)
+        bufferop_stmts = bufferop_compiler.visit(node.buffer_op)
+
+        # Get the buffer that holds the result
+        buffer_op_out = bufferop_compiler.result_var(node.buffer_op)
+
+        return [
+            ast.If(
+                test=ast.Compare(
+                    left=phase_var.rvalue(),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Constant(value=EmitOpPhase.SERIALIZING.value)]
+                ),
+                body=bufferop_stmts + [
+                    emit_index_var.assign(ast.Constant(value=0)),
+                    phase_var.assign(ast.Constant(value=EmitOpPhase.EMITTING.value)),
+                    self.dst.assign(ast.Constant(value=None))
+                ],
+                orelse=[
+                    ast.If(
+                        test=ast.Compare(
+                            left=emit_index_var.rvalue(),
+                            ops=[ast.Lt()],
+                            comparators=[
+                                ast.Call(
+                                    func=ast.Name(id='len', ctx=ast.Load()),
+                                    args=[buffer_op_out.rvalue()],
+                                    keywords=[]
+                                )
+                            ]
+                        ),
+                        body=[
+                            self.dst.assign(
+                                ast.Subscript(
+                                    value=buffer_op_out.rvalue(),
+                                    slice=emit_index_var.rvalue(),
+                                    ctx=ast.Load()
+                                )
+                            ),
+                            emit_index_var.assign(
+                                ast.BinOp(
+                                    left=emit_index_var.rvalue(),
+                                    op=ast.Add(),
+                                    right=ast.Constant(value=1)
+                                )
+                            )
+                        ],
+                        orelse=[
+                            self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+                        ]
+                    )
+                ]
+            )
+        ]
 
     def visit_WaitOp(self, node : 'EmitOp') -> List[ast.stmt]:
         return [ast.Pass()]

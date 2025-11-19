@@ -306,9 +306,9 @@ class BufferOpCompiler(BufferOpVisitor):
         stmts.extend(self.visit(node.operand))
 
         # Get buffer variables
-        buffer_var = self.ctx.state_var(node, 'buffer')
-        parent_buffer = self.ctx.state_var(node.parent_op, 'buffer')
-        operand_buffer = self.ctx.state_var(node.operand, 'buffer')
+        buffer_var = self.ctx.state_var(node, 'out_buf')
+        parent_buffer = self.ctx.state_var(node.parent_op, 'out_buf')
+        operand_buffer = self.ctx.state_var(node.operand, 'out_buf')
 
         # Apply comparison operator
         op_map = {

@@ -53,7 +53,7 @@ class EmitOp(StreamOp):
     def reset(self):
         self.phase = EmitOpPhase.SERIALIZING
         self.source_index = 0
-        self.event_buffer = None
+        # self.event_buffer = None
         self.emit_index = 0
         for waitop in self.buffer_op.get_sources():
             waitop.reset()
