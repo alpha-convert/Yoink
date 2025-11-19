@@ -487,34 +487,34 @@ def test_compile_splitz_nil():
     xs = [PlusPuncA()]
     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     
-# def test_compile_splitz_cons_all_nonz():
-#     """Test splitZ with all non-zero elements."""
-#     @Delta.jit
-#     def f(delta, s: TyStar(INT_TY)):
-#         return delta.splitZ(s)
+def test_compile_splitz_cons_all_nonz():
+    """Test splitZ with all non-zero elements."""
+    @Delta.jit
+    def f(delta, s: TyStar(INT_TY)):
+        return delta.splitZ(s)
 
-#     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
-#           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
-#           PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
-#           PlusPuncA()]
+    xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
+          PlusPuncA()]
 
-#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-#     assert interp == compiled
+    interp, compiled = run_all(f, xs, compilers=[DirectCompiler])
+    assert interp == compiled
 
 
-# def test_compile_splitz_cons_immediate_z():
-#     """Test splitZ with zero as first element."""
-#     @Delta.jit
-#     def f(delta, s: TyStar(INT_TY)):
-#         return delta.splitZ(s)
+def test_compile_splitz_cons_immediate_z():
+    """Test splitZ with zero as first element."""
+    @Delta.jit
+    def f(delta, s: TyStar(INT_TY)):
+        return delta.splitZ(s)
 
-#     xs = [PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
-#           PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
-#           PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
-#           PlusPuncA()]
+    xs = [PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
+          PlusPuncB(), CatEvA(BaseEvent(6)), CatPunc(),
+          PlusPuncA()]
 
-#     interp, compiled = run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
-#     assert interp == compiled
+    interp, compiled = run_all(f, xs, compilers=[DirectCompiler])
+    assert interp == compiled
 
 
 # def test_compile_splitz_cons_onez():
@@ -581,6 +581,30 @@ def test_compile_wait_emit(input_events):
         return delta.emit(delta.wait(s))
 
     assert has_type(input_events, INT_TY)
+
+    run_all(f, input_events, compilers=[DirectCompiler])
+
+
+
+@given(events_of_type(TyStar(INT_TY), max_depth=20))
+@settings(max_examples=20)
+def test_compile_splitz(input_events):
+    @Delta.jit
+    def f(delta, s: TyStar(INT_TY)):
+        return delta.splitZ(s)
+
+    assert has_type(input_events, TyStar(INT_TY))
+
+    run_all(f, input_events, compilers=[DirectCompiler])
+
+@given(events_of_type(TyStar(INT_TY), max_depth=20))
+@settings(max_examples=20)
+def test_compile_runs_of_nonz(input_events):
+    @Delta.jit
+    def f(delta, s: TyStar(INT_TY)):
+        return delta.runsOfNonZ(s)
+
+    assert has_type(input_events, TyStar(INT_TY))
 
     run_all(f, input_events, compilers=[DirectCompiler])
 
