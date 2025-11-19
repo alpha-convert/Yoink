@@ -16,10 +16,8 @@ class StateVar:
     def rvalue(self) -> ast.expr:
         """Get AST node for reading this variable (load context)."""
         if self.tmp:
-            # Temporary variable: just use the name directly
             return ast.Name(id=self.name, ctx=ast.Load())
         else:
-            # State variable: access via self.name
             return ast.Attribute(
                 value=ast.Name(id='self', ctx=ast.Load()),
                 attr=self.name,
@@ -29,10 +27,8 @@ class StateVar:
     def lvalue(self) -> ast.expr:
         """Get AST node for writing to this variable (store context)."""
         if self.tmp:
-            # Temporary variable: just use the name directly
             return ast.Name(id=self.name, ctx=ast.Store())
         else:
-            # State variable: access via self.name
             return ast.Attribute(
                 value=ast.Name(id='self', ctx=ast.Load()),
                 attr=self.name,
@@ -70,12 +66,6 @@ class CompilationContext:
 
         node_type = node.__class__.__name__.lower()
 
-        # if node_type not in self.type_counters:
-        #     self.type_counters[node_type] = 0
-        # idx = self.type_counters[node_type]
-        # self.type_counters[node_type] += 1
-
-        # Use unsigned hex (mask to 64-bit unsigned)
         node_id_hex = f'{node.id & 0xffffffffffffffff:x}'
         full_name = f'{node_type}_{node_id_hex}_{var_name}'
         state_var = StateVar(full_name)

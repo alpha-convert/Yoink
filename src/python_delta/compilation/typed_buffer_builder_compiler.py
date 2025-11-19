@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 from python_delta.compilation.streamtype_visitor import StreamTypeVisitor
 
 class TypedBufferBuilderCompiler(StreamTypeVisitor):
-
     def __init__(self, ctx):
         super().__init__(ctx)
 
