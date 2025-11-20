@@ -9,6 +9,7 @@ from python_delta.compilation.runtime import Runtime
 from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
 from python_delta.compilation.streamop_reset_compiler import StreamOpResetCompiler
+from python_delta.compilation.typed_buffer_builder_compiler import TypedBufferBuilderCompiler
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -885,23 +886,37 @@ class DirectCompiler(StreamOpVisitor):
         buffer_var = self.ctx.state_var(node, 'buffer')
         event_tmp = self.ctx.allocate_temp()
 
+        buffer_write_idx = self.ctx.state_var(node,'buffer_write_idx')
+
+
         # Compile input stream
         input_compiler = DirectCompiler(self.ctx, event_tmp)
         input_stmts = node.input_stream.accept(input_compiler)
 
+        buffer_size = TypedBufferBuilderCompiler(self.ctx).visit(node.stream_type)
+        # if buffer_write_idx == buffer_size:
+        #   dst := DONE
+        # else:
+        #   <...input_stmts...>(event_tmp)
+        #   if event_tmp == DONE:
+        #     assert False
+        #   elif event_tmp is None:
+        #     dst := None
+        #   else:
+        #     buffer_var[buffer_write_idx] = event_tmp
+        #     buffer_write_idx += 1
+        #     dst := None
+
         return [
-            # Check if buffer is already complete
+            # if buffer_write_idx == buffer_size:
             ast.If(
-                test=ast.Call(
-                    func=ast.Attribute(
-                        value=buffer_var.rvalue(),
-                        attr='is_complete',
-                        ctx=ast.Load()
-                    ),
-                    args=[],
-                    keywords=[]
+                test=ast.Compare(
+                    left=buffer_write_idx.rvalue(),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Constant(value=buffer_size)]
                 ),
                 body=[
+                    # dst := DONE
                     self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
                 ],
                 orelse=input_stmts + [
@@ -913,8 +928,15 @@ class DirectCompiler(StreamOpVisitor):
                             comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                         ),
                         body=[
-                            # Input exhausted - buffer should be complete
-                            self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+                            # Input exhausted unexpectedly - assert False
+                            ast.Raise(
+                                exc=ast.Call(
+                                    func=ast.Name(id='AssertionError', ctx=ast.Load()),
+                                    args=[ast.Constant(value='WaitOp received DONE before buffer was full')],
+                                    keywords=[]
+                                ),
+                                cause=None
+                            )
                         ],
                         orelse=[
                             ast.If(
@@ -928,18 +950,26 @@ class DirectCompiler(StreamOpVisitor):
                                     self.dst.assign(ast.Constant(value=None))
                                 ],
                                 orelse=[
-                                    # Poke event into buffer
-                                    ast.Expr(
-                                        value=ast.Call(
-                                            func=ast.Attribute(
+                                    # buffer_var[buffer_write_idx] = event_tmp
+                                    ast.Assign(
+                                        targets=[
+                                            ast.Subscript(
                                                 value=buffer_var.rvalue(),
-                                                attr='poke_event',
-                                                ctx=ast.Load()
-                                            ),
-                                            args=[event_tmp.rvalue()],
-                                            keywords=[]
+                                                slice=buffer_write_idx.rvalue(),
+                                                ctx=ast.Store()
+                                            )
+                                        ],
+                                        value=event_tmp.rvalue()
+                                    ),
+                                    # buffer_write_idx += 1
+                                    buffer_write_idx.assign(
+                                        ast.BinOp(
+                                            left=buffer_write_idx.rvalue(),
+                                            op=ast.Add(),
+                                            right=ast.Constant(value=1)
                                         )
                                     ),
+                                    # dst := None
                                     self.dst.assign(ast.Constant(value=None))
                                 ]
                             )

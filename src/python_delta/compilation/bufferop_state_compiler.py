@@ -74,13 +74,7 @@ class BufferOpStateCompiler(BufferOpVisitor):
         ]
 
     def visit_WaitOpBuffer(self, node: 'WaitOpBuffer') -> List[ast.stmt]:
-        # result_var(node) := [None]
-        buffer_var = self.result_var(node)
-        return [
-            buffer_var.assign(
-                ast.List(elts=[ast.Constant(value=None)], ctx=ast.Load())
-            )
-        ]
+        return []
 
     def visit_BinaryOp(self, node: 'BinaryOp') -> List[ast.stmt]:
         # result_var(node) := [None]

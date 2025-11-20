@@ -126,15 +126,15 @@ class StreamOpResetCompiler:
 
 
     def visit_WaitOp(self, node: 'WaitOp') -> List[ast.stmt]:
-        """Reset WaitOp buffer using TypedBufferBuilderCompiler."""
         from python_delta.compilation.typed_buffer_builder_compiler import TypedBufferBuilderCompiler
 
         buffer_var = self.ctx.state_var(node, 'buffer')
-
-        # Generate buffer construction expression
-        buffer_builder = TypedBufferBuilderCompiler(self.ctx)
-        buffer_expr = buffer_builder.visit(node.stream_type)
+        buffer_size = TypedBufferBuilderCompiler(self.ctx).visit(node.stream_type)
+        buffer_write_idx = self.ctx.state_var(node,'buffer_write_idx')
 
         return [
-            buffer_var.assign(buffer_expr)
+            buffer_var.assign(
+                ast.List(elts=buffer_size * [ast.Constant(value=None)], ctx=ast.Load())
+            ),
+            buffer_write_idx.assign(ast.Constant(0))
         ]

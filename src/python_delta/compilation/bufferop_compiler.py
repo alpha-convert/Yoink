@@ -31,7 +31,7 @@ class BufferOpCompiler(BufferOpVisitor):
     """Generates AST statements for BufferOp evaluation.
 
     Walks the BufferOp DAG and generates code that writes results into
-    pre-allocated buffers. Tracks visited nodes to handle DAG structure
+    pre-allocated buffers of events. Tracks visited nodes to handle DAG structure
     correctly (evaluating shared nodes exactly once).
 
     Note: Buffer allocation is handled separately (assumed to be done upfront).
@@ -103,55 +103,17 @@ class BufferOpCompiler(BufferOpVisitor):
         ]
 
     def visit_WaitOpBuffer(self, node: 'WaitOpBuffer') -> List[ast.stmt]:
-        """Generate code to copy events from WaitOp buffer.
+        """Generate code to assign WaitOp buffer to result.
 
+        A WaitOp has a TypedBuffer, which is a structured object (list of events).
         Generated code:
-        for i, event in enumerate(self.wait_op_<id>.buffer.get_events()):
-            self.out_buf_<id>[i] = event
+        result_var = self.wait_op.buffer
         """
-        buffer_var = self.result_var(node)
+        result_var = self.result_var(node)
         wait_buffer_var = self.ctx.state_var(node.wait_op, 'buffer')
 
         return [
-            # for i, event in enumerate(self.wait_op_buffer.get_events()):
-            #     self.buffer[i] = event
-            ast.For(
-                target=ast.Tuple(
-                    elts=[
-                        ast.Name(id='i', ctx=ast.Store()),
-                        ast.Name(id='event', ctx=ast.Store())
-                    ],
-                    ctx=ast.Store()
-                ),
-                iter=ast.Call(
-                    func=ast.Name(id='enumerate', ctx=ast.Load()),
-                    args=[
-                        ast.Call(
-                            func=ast.Attribute(
-                                value=wait_buffer_var.rvalue(),
-                                attr='get_events',
-                                ctx=ast.Load()
-                            ),
-                            args=[],
-                            keywords=[]
-                        )
-                    ],
-                    keywords=[]
-                ),
-                body=[
-                    ast.Assign(
-                        targets=[
-                            ast.Subscript(
-                                value=buffer_var.rvalue(),
-                                slice=ast.Name(id='i', ctx=ast.Load()),
-                                ctx=ast.Store()
-                            )
-                        ],
-                        value=ast.Name(id='event', ctx=ast.Load())
-                    )
-                ],
-                orelse=[]
-            )
+            result_var.assign(wait_buffer_var.rvalue())
         ]
 
     def visit_BinaryOp(self, node: 'BinaryOp') -> List[ast.stmt]:
@@ -180,7 +142,7 @@ class BufferOpCompiler(BufferOpVisitor):
             '**': ast.Pow()
         }
 
-        # Write result: self.buffer[0] = BaseEvent(left.value <op> right.value)
+        # Write result: self.buffer[0] = BaseEvent(left[0].value <op> right[0].value)
         stmts.append(
             ast.Assign(
                 targets=[
@@ -245,7 +207,6 @@ class BufferOpCompiler(BufferOpVisitor):
             'not': ast.Not()
         }
 
-        # Write result: self.buffer[0] = BaseEvent(<op> parent.value)
         stmts.append(
             ast.Assign(
                 targets=[
