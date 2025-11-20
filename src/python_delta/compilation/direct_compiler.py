@@ -9,7 +9,7 @@ from python_delta.compilation.runtime import Runtime
 from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
 from python_delta.compilation.streamop_reset_compiler import StreamOpResetCompiler
-from python_delta.compilation.typed_buffer_builder_compiler import TypedBufferBuilderCompiler
+from python_delta.compilation.event_buffer_size import EventBufferSize
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -893,7 +893,7 @@ class DirectCompiler(StreamOpVisitor):
         input_compiler = DirectCompiler(self.ctx, event_tmp)
         input_stmts = node.input_stream.accept(input_compiler)
 
-        buffer_size = TypedBufferBuilderCompiler(self.ctx).visit(node.stream_type)
+        buffer_size = EventBufferSize(self.ctx).visit(node.stream_type)
         # if buffer_write_idx == buffer_size:
         #   dst := DONE
         # else:

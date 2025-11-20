@@ -12,7 +12,7 @@ import ast
 
 from python_delta.compilation.bufferop_visitor import BufferOpVisitor
 from python_delta.compilation.context import StateVar
-from python_delta.compilation.typed_buffer_builder_compiler import TypedBufferBuilderCompiler
+from python_delta.compilation.event_buffer_size import EventBufferSize
 from python_delta.typecheck.types import Singleton
 
 if TYPE_CHECKING:
