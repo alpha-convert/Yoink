@@ -80,7 +80,7 @@ class BufferOpCompiler(BufferOpVisitor):
         ]
 
     def visit_RegisterBuffer(self, node: 'RegisterBuffer') -> List[ast.stmt]:
-        buffer_var = self.ctx.state_var(node, 'out_buf')
+        buffer_var = self.result_var(node)
         register_var = self.ctx.state_var(node, 'register')
 
         return [
@@ -92,19 +92,7 @@ class BufferOpCompiler(BufferOpVisitor):
                         ctx=ast.Store()
                     )
                 ],
-                value=ast.Subscript(
-                    value=ast.Call(
-                        func=ast.Attribute(
-                            value=register_var.rvalue(),
-                            attr='get_events',
-                            ctx=ast.Load()
-                        ),
-                        args=[],
-                        keywords=[]
-                    ),
-                    slice=ast.Constant(value=0),
-                    ctx=ast.Load()
-                )
+                value=register_var.rvalue(),
             )
         ]
 
@@ -112,31 +100,14 @@ class BufferOpCompiler(BufferOpVisitor):
         """Generate code to copy events from WaitOp buffer.
 
         Generated code:
-        events = self.wait_op_<id>.buffer.get_events()
-        for i, event in enumerate(events):
+        for i, event in enumerate(self.wait_op_<id>.buffer.get_events()):
             self.out_buf_<id>[i] = event
         """
-        buffer_var = self.ctx.state_var(node, 'out_buf')
+        buffer_var = self.result_var(node)
         wait_buffer_var = self.ctx.state_var(node.wait_op, 'buffer')
 
-        # Temporary variable for events
-        events_temp = self.ctx.allocate_temp()
-
         return [
-            # events = self.wait_op_buffer.get_events()
-            ast.Assign(
-                targets=[events_temp.lvalue()],
-                value=ast.Call(
-                    func=ast.Attribute(
-                        value=wait_buffer_var.rvalue(),
-                        attr='get_events',
-                        ctx=ast.Load()
-                    ),
-                    args=[],
-                    keywords=[]
-                )
-            ),
-            # for i, event in enumerate(events):
+            # for i, event in enumerate(self.wait_op_buffer.get_events()):
             #     self.buffer[i] = event
             ast.For(
                 target=ast.Tuple(
@@ -148,7 +119,17 @@ class BufferOpCompiler(BufferOpVisitor):
                 ),
                 iter=ast.Call(
                     func=ast.Name(id='enumerate', ctx=ast.Load()),
-                    args=[events_temp.rvalue()],
+                    args=[
+                        ast.Call(
+                            func=ast.Attribute(
+                                value=wait_buffer_var.rvalue(),
+                                attr='get_events',
+                                ctx=ast.Load()
+                            ),
+                            args=[],
+                            keywords=[]
+                        )
+                    ],
                     keywords=[]
                 ),
                 body=[
@@ -175,14 +156,12 @@ class BufferOpCompiler(BufferOpVisitor):
         """
         stmts = []
 
-        # Compile children first (DAG-safe)
         stmts.extend(self.visit(node.left))
         stmts.extend(self.visit(node.right))
 
-        # Get buffer variables
-        buffer_var = self.ctx.state_var(node, 'out_buf')
-        left_buffer = self.ctx.state_var(node.left, 'out_buf')
-        right_buffer = self.ctx.state_var(node.right, 'out_buf')
+        buffer_var = self.result_var(node)
+        left_buffer = self.result_var(node.left)
+        right_buffer = self.result_var(node.right)
 
         # Apply operator
         op_map = {
@@ -249,8 +228,8 @@ class BufferOpCompiler(BufferOpVisitor):
         stmts.extend(self.visit(node.parent_op))
 
         # Get buffer variables
-        buffer_var = self.ctx.state_var(node, 'out_buf')
-        parent_buffer = self.ctx.state_var(node.parent_op, 'out_buf')
+        buffer_var = self.result_var(node)
+        parent_buffer = self.result_var(node.parent_op)
 
         # Apply unary operator
         op_map = {
@@ -306,9 +285,9 @@ class BufferOpCompiler(BufferOpVisitor):
         stmts.extend(self.visit(node.operand))
 
         # Get buffer variables
-        buffer_var = self.ctx.state_var(node, 'out_buf')
-        parent_buffer = self.ctx.state_var(node.parent_op, 'out_buf')
-        operand_buffer = self.ctx.state_var(node.operand, 'out_buf')
+        buffer_var = self.result_var(node)
+        parent_buffer = self.result_var(node.parent_op)
+        operand_buffer = self.result_var(node.operand)
 
         # Apply comparison operator
         op_map = {

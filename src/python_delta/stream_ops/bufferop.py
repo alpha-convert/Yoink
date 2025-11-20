@@ -65,22 +65,21 @@ class RegisterBuffer(BufferOp):
     def __init__(self,init_buffer_val,klass):
         stream_type = Singleton(klass)
         super().__init__(stream_type=stream_type)
-        self.buffer = SingletonTypedBuffer()
-        self.buffer.value = init_buffer_val
-        self.buffer.complete = True
+        self.val = init_buffer_val
+        self.init_buffer_val = init_buffer_val
 
     @property
     def id(self):
-        return hash(("RegisterBuffer", id(self.buffer)))
+        return hash(("RegisterBuffer", id(self)))
 
     def get_sources(self):
         return {}
 
     def eval(self):
-        return self.buffer.get_events()
+        return [BaseEvent(self.val)]
 
     def update_value(self,new_val):
-        self.buffer.value = new_val
+        self.val = new_val
 
 class WaitOpBuffer(BufferOp):
     """

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import List, TYPE_CHECKING
 import ast
 
+from python_delta.compilation.bufferop_state_compiler import BufferOpStateCompiler
 from python_delta.compilation.runtime import Runtime
 from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
@@ -133,7 +134,13 @@ class DirectCompiler(StreamOpVisitor):
 
         # Add state initializers from all nodes
         body.extend(StreamOpResetCompiler(ctx).compile_all(dataflow_graph.nodes))
-        # TODO: also add initializers for bufferop outputs here.
+        # TODO: This will have to do for now... we should also probably track what bufferops exist in a
+        # graph. THen we can make this BufferOpStateCompiler nonrecursive, and just directly walk the particular set of
+        # bufferop computations
+        for node in dataflow_graph.nodes:
+            from python_delta.stream_ops.emitop import EmitOp
+            if isinstance(node,EmitOp):
+                body.extend(BufferOpStateCompiler(ctx).visit(node.buffer_op))
 
         return ast.FunctionDef(
             name='__init__',
@@ -943,4 +950,17 @@ class DirectCompiler(StreamOpVisitor):
         ]
 
     def visit_RegisterUpdateOp(self, node: 'RegisterUpdateOp') -> List[ast.stmt]:
-        return [ast.Pass()]
+        """Compile RegisterUpdateOp: update register with new value, then return DONE.
+
+        Generated code:
+        self.register_<id> = <update_val>
+        dst = DONE
+        """
+        register_var = self.ctx.state_var(node.register_buffer, 'register')
+
+        return [
+            # self.register = update_val
+            register_var.assign(ast.Constant(value=node.update_val)),
+            # dst = DONE
+            self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
+        ]
