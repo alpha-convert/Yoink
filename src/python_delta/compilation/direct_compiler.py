@@ -10,6 +10,7 @@ from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
 from python_delta.compilation.streamop_reset_compiler import StreamOpResetCompiler
 from python_delta.compilation.event_buffer_size import EventBufferSize
+from python_delta.stream_ops.register_update_op import RegisterUpdateOp
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -348,13 +349,12 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_UnsafeCast(self, node: 'UnsafeCast') -> List[ast.stmt]:
+    def visit_UnsafeCast(self, node: UnsafeCast) -> List[ast.stmt]:
         """Pass through to input stream."""
         input_compiler = DirectCompiler(self.ctx, self.dst)
         return node.input_stream.accept(input_compiler)
 
-    def visit_CatR(self, node: 'CatR') -> List[ast.stmt]:
-        """Compile CatR state machine."""
+    def visit_CatR(self, node: CatR) -> List[ast.stmt]:
         from python_delta.stream_ops.catr import CatRState
 
         state_var = self.ctx.state_var(node, 'state')
@@ -415,7 +415,7 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_CatProj(self, node: 'CatProj') -> List[ast.stmt]:
+    def visit_CatProj(self, node: CatProj) -> List[ast.stmt]:
         """Inline coordinator logic with event filtering based on position."""
         coord = node.coordinator
         coord_id = coord.id
@@ -569,7 +569,7 @@ class DirectCompiler(StreamOpVisitor):
                 )
             ]
 
-    def visit_CaseOp(self, node: 'CaseOp') -> List[ast.stmt]:
+    def visit_CaseOp(self, node: CaseOp) -> List[ast.stmt]:
         """Compile tag reading and branch routing."""
         tag_read_var = self.ctx.state_var(node, 'tag_read')
         active_branch_var = self.ctx.state_var(node, 'active_branch')
@@ -684,8 +684,7 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_SinkThen(self, node: 'SinkThen') -> List[ast.stmt]:
-        """Compile exhaust-first-then-second logic."""
+    def visit_SinkThen(self, node: SinkThen) -> List[ast.stmt]:
         exhausted_var = self.ctx.state_var(node, 'first_exhausted')
 
         val_tmp = self.ctx.allocate_temp()
@@ -726,8 +725,7 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_CondOp(self, node: 'CondOp') -> List[ast.stmt]:
-        """Compile boolean condition reading and branch routing."""
+    def visit_CondOp(self, node: CondOp) -> List[ast.stmt]:
         active_branch_var = self.ctx.state_var(node, 'active_branch')
 
         cond_tmp = self.ctx.allocate_temp()
@@ -805,10 +803,10 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
+    def visit_RecursiveSection(self, node: RecursiveSection) -> List[ast.stmt]:
         return self.visit(node.block_contents)
     
-    def visit_EmitOp(self, node : 'EmitOp') -> List[ast.stmt]:
+    def visit_EmitOp(self, node : EmitOp) -> List[ast.stmt]:
         """Compile EmitOp: evaluate BufferOp, then emit events one at a time.
 
         Two-phase execution:
@@ -847,6 +845,8 @@ class DirectCompiler(StreamOpVisitor):
                             ops=[ast.Lt()],
                             comparators=[
                                 ast.Call(
+                                    # TODO: this is a bug. When the value is a sum type, one branch can be longer than the other, so
+                                    # the prefix of the buffer containing valid data can be less than the entire buffer.
                                     func=ast.Name(id='len', ctx=ast.Load()),
                                     args=[buffer_op_out.rvalue()],
                                     keywords=[]
@@ -877,7 +877,7 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-    def visit_WaitOp(self, node : 'WaitOp') -> List[ast.stmt]:
+    def visit_WaitOp(self, node : WaitOp) -> List[ast.stmt]:
         """Compile WaitOp: buffer events from input stream until complete.
 
         Consumes events from input stream and pokes them into a TypedBuffer
@@ -894,12 +894,9 @@ class DirectCompiler(StreamOpVisitor):
         input_stmts = node.input_stream.accept(input_compiler)
 
         buffer_size = EventBufferSize(self.ctx).visit(node.stream_type)
-        # if buffer_write_idx == buffer_size:
-        #   dst := DONE
-        # else:
         #   <...input_stmts...>(event_tmp)
         #   if event_tmp == DONE:
-        #     assert False
+        #     dst := DONE
         #   elif event_tmp is None:
         #     dst := None
         #   else:
@@ -907,19 +904,7 @@ class DirectCompiler(StreamOpVisitor):
         #     buffer_write_idx += 1
         #     dst := None
 
-        return [
-            # if buffer_write_idx == buffer_size:
-            ast.If(
-                test=ast.Compare(
-                    left=buffer_write_idx.rvalue(),
-                    ops=[ast.Eq()],
-                    comparators=[ast.Constant(value=buffer_size)]
-                ),
-                body=[
-                    # dst := DONE
-                    self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))
-                ],
-                orelse=input_stmts + [
+        return input_stmts + [
                     # Check what the input returned
                     ast.If(
                         test=ast.Compare(
@@ -927,17 +912,7 @@ class DirectCompiler(StreamOpVisitor):
                             ops=[ast.Is()],
                             comparators=[ast.Name(id='DONE', ctx=ast.Load())]
                         ),
-                        body=[
-                            # Input exhausted unexpectedly - assert False
-                            ast.Raise(
-                                exc=ast.Call(
-                                    func=ast.Name(id='AssertionError', ctx=ast.Load()),
-                                    args=[ast.Constant(value='WaitOp received DONE before buffer was full')],
-                                    keywords=[]
-                                ),
-                                cause=None
-                            )
-                        ],
+                        body=[self.dst.assign(ast.Name(id='DONE', ctx=ast.Load()))],
                         orelse=[
                             ast.If(
                                 test=ast.Compare(
@@ -976,10 +951,8 @@ class DirectCompiler(StreamOpVisitor):
                         ]
                     )
                 ]
-            )
-        ]
 
-    def visit_RegisterUpdateOp(self, node: 'RegisterUpdateOp') -> List[ast.stmt]:
+    def visit_RegisterUpdateOp(self, node: RegisterUpdateOp) -> List[ast.stmt]:
         """Compile RegisterUpdateOp: update register with new value, then return DONE.
 
         Generated code:

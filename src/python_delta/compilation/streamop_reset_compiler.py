@@ -133,6 +133,8 @@ class StreamOpResetCompiler:
         buffer_write_idx = self.ctx.state_var(node,'buffer_write_idx')
 
         return [
+            # TODO: this one really only needs to be done at initialization time.
+            # At reset time, we can just let the old buffer values sit stale-ly in memory, we don't have to overwrite them.
             buffer_var.assign(
                 ast.List(elts=buffer_size * [ast.Constant(value=None)], ctx=ast.Load())
             ),

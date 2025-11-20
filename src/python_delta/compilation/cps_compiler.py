@@ -10,10 +10,15 @@ from __future__ import annotations
 from typing import List, Callable, TYPE_CHECKING
 import ast
 
+from python_delta.compilation.bufferop_state_compiler import BufferOpStateCompiler
+from python_delta.compilation.event_buffer_size import EventBufferSize
 from python_delta.compilation.runtime import Runtime
 from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
 from python_delta.compilation.streamop_reset_compiler import StreamOpResetCompiler
+from python_delta.stream_ops.emitop import EmitOp
+from python_delta.stream_ops.register_update_op import RegisterUpdateOp
+from python_delta.stream_ops.waitop import WaitOp
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -134,6 +139,13 @@ class CPSCompiler(StreamOpVisitor):
         ]
 
         body.extend(StreamOpResetCompiler(ctx).compile_all(dataflow_graph.nodes))
+        # TODO: see the corresponding comment in DirectCompiler about making this less dumb by keeping track of
+        # the bufferop nodes at top level, too.
+        for node in dataflow_graph.nodes:
+            from python_delta.stream_ops.emitop import EmitOp
+            if isinstance(node,EmitOp):
+                body.extend(BufferOpStateCompiler(ctx).visit(node.buffer_op))
+
 
         return ast.FunctionDef(
             name='__init__',
@@ -619,8 +631,113 @@ class CPSCompiler(StreamOpVisitor):
     def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
         return self.visit(node.block_contents)
 
-    def visit_EmitOp(self, node : 'EmitOp') -> List[ast.stmt]:
-        return [ast.Pass()]
+
+    def visit_EmitOp(self, node : EmitOp) -> List[ast.stmt]:
+        """Compile EmitOp: evaluate BufferOp, then emit events one at a time.
+
+        Two-phase execution:
+        1. SERIALIZING: Compile BufferOp evaluation code
+        2. EMITTING: Emit events from buffer sequentially
+        """
+        from python_delta.stream_ops.emitop import EmitOpPhase
+        from python_delta.compilation.bufferop_compiler import BufferOpCompiler
+
+        phase_var = self.ctx.state_var(node, 'phase')
+        emit_index_var = self.ctx.state_var(node, 'emit_index')
+
+        bufferop_compiler = BufferOpCompiler(self.ctx)
+        bufferop_stmts = bufferop_compiler.visit(node.buffer_op)
+
+        buffer_op_out = bufferop_compiler.result_var(node.buffer_op)
+
+        return [
+            ast.If(
+                test=ast.Compare(
+                    left=phase_var.rvalue(),
+                    ops=[ast.Eq()],
+                    comparators=[ast.Constant(value=EmitOpPhase.SERIALIZING.value)]
+                ),
+                body=bufferop_stmts +
+                    [
+                        emit_index_var.assign(ast.Constant(value=0)),
+                        phase_var.assign(ast.Constant(value=EmitOpPhase.EMITTING.value)),
+                    ]
+                    + self.skip_cont,
+                orelse=[
+                    ast.If(
+                        test=ast.Compare(
+                            left=emit_index_var.rvalue(),
+                            ops=[ast.Lt()],
+                            comparators=[
+                                ast.Call(
+                                    # TODO: this is a bug. When the value is a sum type, one branch can be longer than the other, so
+                                    # the prefix of the buffer containing valid data can be less than the entire buffer.
+                                    func=ast.Name(id='len', ctx=ast.Load()),
+                                    args=[buffer_op_out.rvalue()],
+                                    keywords=[]
+                                )
+                            ]
+                        ),
+                        body=
+                         self.yield_cont(
+                                ast.Subscript(
+                                    value=buffer_op_out.rvalue(),
+                                    slice=emit_index_var.rvalue(),
+                                    ctx=ast.Load()
+                                )
+                            ) +
+                        [
+                            emit_index_var.assign(
+                                ast.BinOp(
+                                    left=emit_index_var.rvalue(),
+                                    op=ast.Add(),
+                                    right=ast.Constant(value=1)
+                                )
+                            )
+                        ],
+                        orelse=self.done_cont
+                    )
+                ]
+            )
+        ]
 
     def visit_WaitOp(self, node : WaitOp) -> List[ast.stmt]:
-        return [ast.Pass()]
+        """Compile WaitOp: buffer events from input stream until complete.
+
+        Consumes events from input stream and pokes them into a TypedBuffer
+        until the buffer is complete, then returns DONE.
+        """
+        buffer_var = self.ctx.state_var(node, 'buffer')
+
+        buffer_write_idx = self.ctx.state_var(node,'buffer_write_idx')
+
+        def poke(event):
+            return [
+                ast.Assign(
+                    targets=[
+                        ast.Subscript(
+                            value=buffer_var.rvalue(),
+                            slice=buffer_write_idx.rvalue(),
+                            ctx=ast.Store()
+                        )
+                    ],
+                    value=event
+                ),
+            ] + self.skip_cont
+
+        input_compiler = CPSCompiler(self.ctx, self.done_cont,self.skip_cont,poke)
+        return node.input_stream.accept(input_compiler)
+
+    def visit_RegisterUpdateOp(self, node: RegisterUpdateOp) -> List[ast.stmt]:
+        """Compile RegisterUpdateOp: update register with new value, then return DONE.
+
+        Generated code:
+        self.register_<id> = <update_val>
+        dst = DONE
+        """
+        register_var = self.ctx.state_var(node.register_buffer, 'register')
+
+        return [
+            # self.register = update_val
+            register_var.assign(ast.Constant(value=node.update_val)),
+        ] + self.done_cont
