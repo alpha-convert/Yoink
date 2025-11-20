@@ -63,16 +63,14 @@ class BufferOpStateCompiler(BufferOpVisitor):
         
 
     def visit_RegisterBuffer(self, node: 'RegisterBuffer') -> List[ast.stmt]:
-        # result_var(node) := []
-        buffer_var = self.result_var(node)
+        # The buffer is the thing that has type "event list", ad the register is just the base-typed value
+        result_var = self.result_var(node)
         register_var = self.ctx.state_var(node,'register')
-        tbc = TypedBufferBuilderCompiler(self.ctx)
         return [
-            # TODO: this list should be the right lengh!
-            buffer_var.assign(
-                ast.List(elts=[ast.Constant(value=None),ast.Constant(value=None),ast.Constant(value=None)], ctx=ast.Load())
+            result_var.assign(
+                ast.List(elts=[ast.Constant(value=None)], ctx=ast.Load())
             ),
-            register_var.assign(tbc.visit(Singleton(int)))
+            register_var.assign(ast.Constant(value = None))
         ]
 
     def visit_WaitOpBuffer(self, node: 'WaitOpBuffer') -> List[ast.stmt]:

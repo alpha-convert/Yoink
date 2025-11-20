@@ -80,19 +80,25 @@ class BufferOpCompiler(BufferOpVisitor):
         ]
 
     def visit_RegisterBuffer(self, node: 'RegisterBuffer') -> List[ast.stmt]:
-        buffer_var = self.result_var(node)
+        # The buffer is the thing that has type "event list", and the register is just the base-typed value
+        result_buffer = self.result_var(node)
         register_var = self.ctx.state_var(node, 'register')
 
+        # result_buffer[0] = BaseEvent(register_var)
         return [
             ast.Assign(
                 targets=[
                     ast.Subscript(
-                        value=buffer_var.rvalue(),
+                        value=result_buffer.rvalue(),
                         slice=ast.Constant(value=0),
                         ctx=ast.Store()
                     )
                 ],
-                value=register_var.rvalue(),
+                value=ast.Call(
+                    func=ast.Name(id='BaseEvent', ctx=ast.Load()),
+                    args=[register_var.rvalue()],
+                    keywords=[]
+                )
             )
         ]
 
