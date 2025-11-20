@@ -226,16 +226,6 @@ class GeneratorCompiler(StreamOpVisitor):
     @staticmethod
     def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
         """Generate reset method - reset state variables to initial values."""
-        # body: List[ast.stmt] = []
-
-        # # Use ResetVisitor to generate reset statements for all nodes
-        # reset_visitor = ResetVisitor(ctx)
-        # for node in dataflow_graph.nodes:
-        #     body.extend(reset_visitor.visit(node))
-
-        # # If no state to reset, just pass
-        # if not body:
-
         return ast.FunctionDef(
             name='reset',
             args=ast.arguments(

@@ -7,7 +7,7 @@ import ast
 from python_delta.compilation.runtime import Runtime
 from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
-from python_delta.compilation.reset_visitor import ResetVisitor
+from python_delta.compilation.streamop_reset_compiler import StreamOpResetCompiler
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -131,10 +131,8 @@ class DirectCompiler(StreamOpVisitor):
             )
         ]
 
-        # Add state initializers from all nodes (use ResetVisitor since initializing = resetting to initial state)
-        reset_visitor = ResetVisitor(ctx)
-        for node in dataflow_graph.nodes:
-            body.extend(reset_visitor.visit(node))
+        # Add state initializers from all nodes
+        body.extend(StreamOpResetCompiler(ctx).compile_all(dataflow_graph.nodes))
         # TODO: also add initializers for bufferop outputs here.
 
         return ast.FunctionDef(
@@ -210,17 +208,8 @@ class DirectCompiler(StreamOpVisitor):
 
     @staticmethod
     def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
-        """Generate reset method."""
-        from python_delta.compilation.reset_visitor import ResetVisitor
 
-        visitor = ResetVisitor(ctx)
-        body = []
-
-        for node in dataflow_graph.nodes:
-            body.extend(visitor.visit(node))
-
-        if not body:
-            body = [ast.Pass()]
+        body = StreamOpResetCompiler(ctx).compile_all(dataflow_graph.nodes)
 
         return ast.FunctionDef(
             name='reset',
@@ -313,14 +302,8 @@ class DirectCompiler(StreamOpVisitor):
 
     def visit_RecCall(self, node: 'RecCall') -> List[ast.stmt]:
         """Compile reset calls on all nodes in reset_set."""
-        from python_delta.compilation.reset_visitor import ResetVisitor
 
-        visitor = ResetVisitor(self.ctx)
-        reset_stmts = []
-
-        for reset_node in node.reset_set:
-            reset_stmts.extend(visitor.visit(reset_node))
-
+        reset_stmts = StreamOpResetCompiler(self.ctx).compile_all(node.reset_set)
         reset_stmts.append(
             ast.Assign(
                 targets=[self.dst.lvalue()],
@@ -891,8 +874,6 @@ class DirectCompiler(StreamOpVisitor):
 
         Consumes events from input stream and pokes them into a TypedBuffer
         until the buffer is complete, then returns DONE.
-
-        Note: Buffer initialization is handled by ResetVisitor using TypedBufferBuilderCompiler.
         """
         buffer_var = self.ctx.state_var(node, 'buffer')
         event_tmp = self.ctx.allocate_temp()
@@ -960,3 +941,6 @@ class DirectCompiler(StreamOpVisitor):
                 ]
             )
         ]
+
+    def visit_RegisterUpdateOp(self, node: 'RegisterUpdateOp') -> List[ast.stmt]:
+        return [ast.Pass()]

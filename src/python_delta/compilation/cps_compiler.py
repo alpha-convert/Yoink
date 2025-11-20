@@ -13,7 +13,7 @@ import ast
 from python_delta.compilation.runtime import Runtime
 from python_delta.compilation.streamop_visitor import StreamOpVisitor
 from python_delta.compilation import CompilationContext, StateVar
-from python_delta.compilation.reset_visitor import ResetVisitor
+from python_delta.compilation.streamop_reset_compiler import StreamOpResetCompiler
 
 if TYPE_CHECKING:
     from python_delta.stream_ops.var import Var
@@ -133,10 +133,7 @@ class CPSCompiler(StreamOpVisitor):
             )
         ]
 
-        # Add state initializers from all nodes (use ResetVisitor since initializing = resetting to initial state)
-        reset_visitor = ResetVisitor(ctx)
-        for node in dataflow_graph.nodes:
-            body.extend(reset_visitor.visit(node))
+        body.extend(StreamOpResetCompiler(ctx).compile_all(dataflow_graph.nodes))
 
         return ast.FunctionDef(
             name='__init__',
@@ -212,16 +209,8 @@ class CPSCompiler(StreamOpVisitor):
     @staticmethod
     def _generate_reset(dataflow_graph, ctx: CompilationContext) -> ast.FunctionDef:
         """Generate reset method."""
-        from python_delta.compilation.reset_visitor import ResetVisitor
 
-        visitor = ResetVisitor(ctx)
-        body = []
-
-        for node in dataflow_graph.nodes:
-            body.extend(visitor.visit(node))
-
-        if not body:
-            body = [ast.Pass()]
+        body = StreamOpResetCompiler(ctx).compile_all(dataflow_graph.nodes)
 
         return ast.FunctionDef(
             name='reset',
@@ -303,13 +292,7 @@ class CPSCompiler(StreamOpVisitor):
         ]
 
     def visit_RecCall(self, node: 'RecCall') -> List[ast.stmt]:
-        """Compile reset calls on all nodes in reset_set."""
-        from python_delta.compilation.reset_visitor import ResetVisitor
-
-        visitor = ResetVisitor(self.ctx)
-        reset_stmts = []
-        for reset_node in node.reset_set:
-            reset_stmts.extend(visitor.visit(reset_node))
+        reset_stmts = StreamOpResetCompiler(self.ctx).compile_all(node.reset_set)
         return reset_stmts + self.skip_cont
 
     def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:

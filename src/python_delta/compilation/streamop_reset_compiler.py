@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from python_delta.compilation import CompilationContext
 
 
-class ResetVisitor:
+class StreamOpResetCompiler:
     """Visitor for generating reset statements."""
 
     def __init__(self, ctx: 'CompilationContext'):
@@ -33,6 +33,14 @@ class ResetVisitor:
         method_name = f'visit_{node.__class__.__name__}'
         visitor = getattr(self, method_name, self.generic_visit)
         return visitor(node)
+    
+    def compile_all(self, nodes):
+        body = []
+        for node in nodes:
+            body.extend(self.visit(node))
+        if body == []:
+            body = [ast.Pass()]
+        return body
 
     def generic_visit(self, node) -> List[ast.stmt]:
         """Called if no explicit visitor method exists for a node."""
