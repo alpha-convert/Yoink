@@ -45,3 +45,6 @@ class CatR(StreamOp):
         """Reset state and recursively reset input streams."""
         self.current_state = CatRState.FIRST_STREAM
 
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.input_streams[0].ensure_legal_recursion(is_in_tail = False)
+        self.input_streams[1].ensure_legal_recursion(is_in_tail)

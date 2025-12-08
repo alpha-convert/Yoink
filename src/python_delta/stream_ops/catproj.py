@@ -77,6 +77,9 @@ class CatProjCoordinator(StreamOp):
         self.seen_punc = False
         self.input_exhausted = False
 
+    def ensure_legal_recursion(self, is_in_tail: bool):
+        self.input_stream.ensure_legal_recursion(is_in_tail = False)
+
 
 class CatProj(StreamOp):
     """Projection from a TyCat stream."""
@@ -103,3 +106,6 @@ class CatProj(StreamOp):
     def reset(self):
         """Reset is handled by the coordinator."""
         pass  # Coordinator manages the state
+
+    def ensure_legal_recursion(self, is_in_tail: bool):
+        self.coordinator.ensure_legal_recursion(is_in_tail)

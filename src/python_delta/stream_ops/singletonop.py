@@ -34,3 +34,5 @@ class SingletonOp(StreamOp):
     def reset(self):
         self.exhausted = False
 
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        pass

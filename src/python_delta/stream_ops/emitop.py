@@ -101,3 +101,7 @@ class EmitOp(StreamOp):
     @property
     def id(self):
         return hash(("EmitOp", self.buffer_op.id))
+
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        for op in self.buffer_op.get_sources():
+            op.ensure_legal_recursion(is_in_tail = False)

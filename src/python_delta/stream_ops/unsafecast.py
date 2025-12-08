@@ -25,3 +25,6 @@ class UnsafeCast(StreamOp):
 
     def reset(self):
         pass
+
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.input_stream.ensure_legal_recursion(is_in_tail)

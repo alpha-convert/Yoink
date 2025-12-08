@@ -58,4 +58,7 @@ class StreamOp:
 
     def accept(self, visitor):
         return visitor.visit(self)
+    
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        raise NotImplementedError(f"Subclass {__class__(self)} must implement is_legal_recursion")
 

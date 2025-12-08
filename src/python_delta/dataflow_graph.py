@@ -65,6 +65,11 @@ class DataflowGraph:
             var.source = iterator
 
         # Return the output stream(s)
+        if isinstance(self.outputs,tuple):
+            for output in self.outputs:
+                output.ensure_legal_recursion(is_in_tail=True)
+        else:
+            self.outputs.ensure_legal_recursion(is_in_tail=True)
         return self.outputs
 
     def to_graphviz(self):

@@ -33,3 +33,6 @@ class RegisterUpdateOp(StreamOp):
 
     def reset(self):
         pass
+
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        pass

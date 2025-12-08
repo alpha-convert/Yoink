@@ -53,3 +53,7 @@ class CaseOp(StreamOp):
         self.tag_read = False
         self.active_branch = None
 
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.input_stream.ensure_legal_recursion(is_in_tail = False)
+        self.branches[0].ensure_legal_recursion(is_in_tail)
+        self.branches[1].ensure_legal_recursion(is_in_tail)

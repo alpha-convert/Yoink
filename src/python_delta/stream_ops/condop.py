@@ -49,3 +49,7 @@ class CondOp(StreamOp):
         """Reset state and recursively reset branches."""
         self.active_branch = None
 
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.cond_stream.ensure_legal_recursion(is_in_tail = False)
+        self.branches[0].ensure_legal_recursion(is_in_tail)
+        self.branches[1].ensure_legal_recursion(is_in_tail)

@@ -39,3 +39,6 @@ class WaitOp(StreamOp):
 
     def reset(self):
         self.buffer = make_typed_buffer(self.input_stream.stream_type)
+
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.input_stream.ensure_legal_recursion(is_in_tail=False)

@@ -41,3 +41,6 @@ class SinkThen(StreamOp):
         """Reset state."""
         self.first_exhausted = False
 
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.input_streams[0].ensure_legal_recursion(is_in_tail = False)
+        self.input_streams[1].ensure_legal_recursion(is_in_tail)

@@ -15,8 +15,8 @@ class Delta:
         self.ordering.metadata[node.id] = str(node)
         self.nodes.add(node)
 
-    def _recursive_block(self,f,ty):
-        reset_node = RecCall(set(),enclosing_block= None,stream_type=ty)
+    def _recursive_block(self,f,ty, unsafe = False):
+        reset_node = RecCall(set(),enclosing_block= None,stream_type=ty, unsafe=unsafe)
         nodes_before = self.nodes.copy()
         res = f(reset_node)
         reset_node.reset_set = self.nodes - nodes_before
@@ -316,7 +316,6 @@ class Delta:
     # https://github.com/AndrasKovacs/staged-fusion/blob/main/Pull.hs
     # It only lets you write affine functions, so you can't write
 
-    # FROM CLAUDE:
     # Java Streams: One-shot consumption. Once you start a terminal operation, the stream is consumed. Trying to reuse throws IllegalStateException. You can't even express your concat(s2, s1) example—once s2 starts consuming, s is dead.
     # Rust iterators: Ownership system prevents aliasing! When you pass an iterator to take or drop, it's moved (consumed). You can't use the original s again. If you want multiple views, you need .clone() (when supported), which creates independent state.
 
@@ -352,7 +351,7 @@ class Delta:
 
             return self.starcase(xs,nil_case, cons_case)
 
-        return self._recursive_block(build_body,TyCat(xs_type,xs_type))
+        return self._recursive_block(build_body,TyCat(xs_type,xs_type),unsafe=True)
 
 
     def runsOfNonZ(self,xs):
@@ -398,7 +397,7 @@ class Delta:
                 
                 return self.starcase(xs,nil_case,cons_case)
 
-            return self._recursive_block(build_body,TyCat(TyStar(Singleton(int)),TyStar(TyStar(Singleton(int)))))
+            return self._recursive_block(build_body,TyCat(TyStar(Singleton(int)),TyStar(TyStar(Singleton(int)))), unsafe = True)
 
         run,rest = self.catl(runOfNonZ_helper(self,xs))
         return self.cons(run,rest)
