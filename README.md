@@ -1,10 +1,10 @@
 # Yoink
 
-Yoink is a Python implementation of the streaming dataflow language described in Chapter 6 of Cutler's dissertation. It allows programmers to write stream processing code in a functional style embedded in Python, and compiles it to Python iterators.
+This repository contains the implementation of the Yoink language from my (Joe Cutler) dissertation. Don't use this for anything real, it's a research prototype.
 
 ## Overview
 
-Yoink implements a type system based on algebraic stream types (concatenation, sum types, and Kleene star), along with an ordered type system that ensures streams are consumed in a valid order. The implementation includes both an interpreter that directly implements the operational semantics, and a compiler that generates fused imperative code.
+Yoink implements a type system based on ordered stream types (concatenation, sum types, and star). The ordered types enusre that streams are consumed in a valid order. The implementation includes both an interpreter that directly implements the operational semantics, and a compiler that generates fused imperative code.
 
 The surface syntax is a lightweight shim over writing terms directly in the core calculus. Functions are written as Python methods annotated with a `@Yoink.jit` decorator, with the signature `def f(yoink, ...): ...`. The first argument is a special object that serves as the gateway to term constructors. The rest of the arguments are stream arguments to the function, implicitly in parallel.
 
@@ -70,7 +70,3 @@ The implementation has been tested using the Hypothesis property-based testing f
 ```
 uv run pytest tests/
 ```
-
-## Limitations
-
-The surface syntax is essentially a very lightweight shim over writing terms directly; more work would be required to make it feel ergonomic and natural to program in.
