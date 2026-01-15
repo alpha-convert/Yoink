@@ -2,9 +2,9 @@
 
 import pytest
 from hypothesis import given, settings
-from python_delta.core import Delta, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
-from python_delta.util.hypothesis_strategies import events_of_type
-from python_delta.typecheck.has_type import has_type
+from yoink.core import Yoink, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
+from yoink.util.hypothesis_strategies import events_of_type
+from yoink.typecheck.has_type import has_type
 
 
 INT_TY = Singleton(int)
@@ -13,9 +13,9 @@ STRING_TY = Singleton(str)
 
 def test_zip_with_catr_empty():
     """Test zip_with with CatR on empty lists."""
-    @Delta.jit
-    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_pair(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     xs = [PlusPuncA()]
     ys = [PlusPuncA()]
@@ -28,9 +28,9 @@ def test_zip_with_catr_empty():
 
 def test_zip_with_catr_single():
     """Test zip_with with CatR on single element lists."""
-    @Delta.jit
-    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_pair(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncA()]
     ys = [PlusPuncB(), CatEvA(BaseEvent(10)), CatPunc(), PlusPuncA()]
@@ -52,9 +52,9 @@ def test_zip_with_catr_single():
 
 def test_zip_with_catr_multiple():
     """Test zip_with with CatR on multiple element lists."""
-    @Delta.jit
-    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_pair(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
@@ -85,9 +85,9 @@ def test_zip_with_catr_multiple():
 
 def test_zip_with_fst_single():
     """Test zip_with using only first argument - projection on fst."""
-    @Delta.jit
-    def zip_fst(delta, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: x)
+    @Yoink.jit
+    def zip_fst(yoink, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: x)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncA()]
     ys = [PlusPuncB(), CatEvA(BaseEvent("a")), CatPunc(), PlusPuncA()]
@@ -100,9 +100,9 @@ def test_zip_with_fst_single():
 
 
 def test_zip_with_fst_multiple():
-    @Delta.jit
-    def zip_fst(delta, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: x)
+    @Yoink.jit
+    def zip_fst(yoink, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: x)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
@@ -126,9 +126,9 @@ def test_zip_with_fst_multiple():
 
 
 def test_zip_with_snd_single():
-    @Delta.jit
-    def zip_snd(delta, xs: TyStar(STRING_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: y)
+    @Yoink.jit
+    def zip_snd(yoink, xs: TyStar(STRING_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: y)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent("a")), CatPunc(), PlusPuncA()]
     ys = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncA()]
@@ -143,9 +143,9 @@ def test_zip_with_snd_single():
 
 def test_zip_with_snd_multiple():
     """Test zip_with using only second argument - multiple elements."""
-    @Delta.jit
-    def zip_snd(delta, xs: TyStar(STRING_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: y)
+    @Yoink.jit
+    def zip_snd(yoink, xs: TyStar(STRING_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: y)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent("a")), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent("b")), CatPunc(),
@@ -167,9 +167,9 @@ def test_zip_with_snd_multiple():
 
 def test_zip_with_swap():
     """Test zip_with that swaps the order - catr(y, x) instead of catr(x, y)."""
-    @Delta.jit
-    def zip_swap(delta, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(y, x))
+    @Yoink.jit
+    def zip_swap(yoink, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(y, x))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncA()]
     ys = [PlusPuncB(), CatEvA(BaseEvent("a")), CatPunc(), PlusPuncA()]
@@ -192,9 +192,9 @@ def test_zip_with_nested_pair():
     """Test zip_with with nested pairs."""
     input_type = TyStar(TyCat(INT_TY, INT_TY))
 
-    @Delta.jit
-    def zip_nested(delta, xs: input_type, ys: input_type):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_nested(yoink, xs: input_type, ys: input_type):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     # Input: [(1, 2), (3, 4)]
     xs = [PlusPuncB(),
@@ -227,9 +227,9 @@ def test_zip_with_nested_pair():
 @settings(max_examples=20)
 def test_zip_with_catr_preserves_types(xs, ys):
     """Property test: zip_with with catr preserves types."""
-    @Delta.jit
-    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_pair(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     assert has_type(xs, TyStar(INT_TY))
     assert has_type(ys, TyStar(INT_TY))
@@ -247,9 +247,9 @@ def test_zip_with_catr_preserves_types(xs, ys):
 @settings(max_examples=20)
 def test_zip_with_fst_preserves_types(xs, ys):
     """Property test: zip_with with fst projection preserves types."""
-    @Delta.jit
-    def zip_fst(delta, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: x)
+    @Yoink.jit
+    def zip_fst(yoink, xs: TyStar(INT_TY), ys: TyStar(STRING_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: x)
 
     assert has_type(xs, TyStar(INT_TY))
     assert has_type(ys, TyStar(STRING_TY))
@@ -267,9 +267,9 @@ def test_zip_with_fst_preserves_types(xs, ys):
 @settings(max_examples=20)
 def test_zip_with_snd_preserves_types(xs, ys):
     """Property test: zip_with with snd projection preserves types."""
-    @Delta.jit
-    def zip_snd(delta, xs: TyStar(STRING_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: y)
+    @Yoink.jit
+    def zip_snd(yoink, xs: TyStar(STRING_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: y)
 
     assert has_type(xs, TyStar(STRING_TY))
     assert has_type(ys, TyStar(INT_TY))

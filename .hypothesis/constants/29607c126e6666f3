@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/event_buffer_size.py
+# hypothesis_version: 6.141.1
+
+['Singleton', 'TyCat', 'TyEps', 'TyPlus', 'TyStar', 'TypeVar']

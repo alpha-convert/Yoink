@@ -1,0 +1,124 @@
+"""Base visitor class for StreamOp compilation.
+
+This module defines the visitor pattern interface for compiling StreamOps to Python AST.
+Each compilation strategy (direct, CPS, generator) is implemented as a concrete visitor.
+"""
+
+from __future__ import annotations
+from typing import List, TYPE_CHECKING
+import ast
+
+if TYPE_CHECKING:
+    from yoink.stream_ops.base import StreamOp
+    from yoink.stream_ops.var import Var
+    from yoink.stream_ops.catr import CatR
+    from yoink.stream_ops.catproj import CatProj, CatProjCoordinator
+    from yoink.stream_ops.suminj import SumInj
+    from yoink.stream_ops.caseop import CaseOp
+    from yoink.stream_ops.eps import Eps
+    from yoink.stream_ops.singletonop import SingletonOp
+    from yoink.stream_ops.sinkthen import SinkThen
+    from yoink.stream_ops.rec_call import RecCall
+    from yoink.stream_ops.unsafecast import UnsafeCast
+    from yoink.stream_ops.condop import CondOp
+    from yoink.stream_ops.recursive_section import RecursiveSection
+    from yoink.stream_ops.waitop import WaitOp
+    from yoink.stream_ops.emitop import EmitOp
+    from yoink.stream_ops.register_update_op import RegisterUpdateOp
+    from yoink.compilation import CompilationContext, StateVar
+
+
+class StreamOpVisitor:
+    """Base visitor for compiling StreamOps to AST statements.
+
+    Each compilation strategy (direct, CPS, generator) extends this class
+    and implements visit methods for each StreamOp type.
+    """
+
+    def __init__(self, ctx: 'CompilationContext'):
+        self.ctx = ctx
+
+    @staticmethod
+    def compile(dataflow_graph) -> type:
+        """Compile a dataflow graph to a Python class.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The compiled class (not an instance)
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def get_code(dataflow_graph) -> str:
+        """Get the compiled Python code as a string.
+
+        Args:
+            dataflow_graph: The DataflowGraph to compile
+
+        Returns:
+            The generated Python code as a string
+        """
+        raise NotImplementedError
+
+    def visit(self, node: 'StreamOp') -> List[ast.stmt]:
+        """Dispatch to the appropriate visit method based on node type."""
+        method_name = f'visit_{node.__class__.__name__}'
+        visitor = getattr(self, method_name, self.generic_visit)
+        return visitor(node)
+
+    def generic_visit(self, node: 'StreamOp') -> List[ast.stmt]:
+        """Called if no explicit visitor method exists for a node."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} has no visit method for {node.__class__.__name__}"
+        )
+
+    # Visit methods for each StreamOp type
+    # These are abstract and must be implemented by concrete visitors
+
+    def visit_Var(self, node: 'Var') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_CatR(self, node: 'CatR') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_CatProj(self, node: 'CatProj') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_CaseOp(self, node: 'CaseOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_Eps(self, node: 'Eps') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_SingletonOp(self, node: 'SingletonOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_SinkThen(self, node: 'SinkThen') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_RecCall(self, node: 'RecCall') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_UnsafeCast(self, node: 'UnsafeCast') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_CondOp(self, node: 'CondOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_RecursiveSection(self, node: 'RecursiveSection') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_WaitOp(self, node: 'WaitOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_EmitOp(self, node: 'EmitOp') -> List[ast.stmt]:
+        raise NotImplementedError
+
+    def visit_RegisterUpdate(self, node: 'RegisterUpdate') -> List[ast.stmt]:
+        raise NotImplementedError
+

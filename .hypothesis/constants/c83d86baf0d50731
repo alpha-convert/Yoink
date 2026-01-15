@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/util/viz_builder.py
+# hypothesis_version: 6.141.1
+
+['  rankdir=BT;', '-o', '.', '.dot', '.pdf', '.png', '.svg', 'CaseOp', 'CatProj', 'CatR', 'Cons', 'Eps', 'Nil', 'ParLCoordinator', 'ParProj', 'ParR', 'RecCall', 'RecursiveSection', 'SumInj', 'UnsafeCast', 'Var', 'block_contents', 'coordinator', 'dot', 'gold', 'head', 'input_stream', 'input_streams', 'khaki', 'lavender', 'lightblue', 'lightcoral', 'lightgray', 'lightgreen', 'lightyellow', 'mistyrose', 'name', 'orange', 'palegreen', 'pink', 'plum', 'position', 'salmon', 'tail', 'w', 'white', '}']

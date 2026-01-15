@@ -1,18 +1,18 @@
 
 import pytest
 from hypothesis import given, settings
-from python_delta.core import Delta, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent, TyPlus
-from python_delta.util.hypothesis_strategies import events_of_type
-from python_delta.typecheck.has_type import has_type
+from yoink.core import Yoink, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent, TyPlus
+from yoink.util.hypothesis_strategies import events_of_type
+from yoink.typecheck.has_type import has_type
 
 INT_TY = Singleton(int)
 STRING_TY = Singleton(str)
 
 def test_wait_emit_int():
-    @Delta.jit
-    def f(delta, x: INT_TY):
-        y = delta.wait(x)
-        return delta.emit(y)
+    @Yoink.jit
+    def f(yoink, x: INT_TY):
+        y = yoink.wait(x)
+        return yoink.emit(y)
 
     xs = [BaseEvent(1)]
 
@@ -22,10 +22,10 @@ def test_wait_emit_int():
     assert result == [BaseEvent(1)]
 
 def test_wait_emit_cat():
-    @Delta.jit
-    def f(delta, x: TyCat(INT_TY,INT_TY)):
-        y = delta.wait(x)
-        return delta.emit(y)
+    @Yoink.jit
+    def f(yoink, x: TyCat(INT_TY,INT_TY)):
+        y = yoink.wait(x)
+        return yoink.emit(y)
 
     xs = [CatEvA(BaseEvent(1)),CatPunc(),BaseEvent(2)]
 
@@ -35,10 +35,10 @@ def test_wait_emit_cat():
     assert result == xs
 
 def test_wait_emit_plus():
-    @Delta.jit
-    def f(delta, x: TyPlus(INT_TY,INT_TY)):
-        y = delta.wait(x)
-        return delta.emit(y)
+    @Yoink.jit
+    def f(yoink, x: TyPlus(INT_TY,INT_TY)):
+        y = yoink.wait(x)
+        return yoink.emit(y)
 
     xs = [PlusPuncA(), BaseEvent(1)]
 
@@ -48,10 +48,10 @@ def test_wait_emit_plus():
     assert result == xs
 
 def test_wait_emit_int_plus_one():
-    @Delta.jit
-    def f(delta, x: INT_TY):
-        y = delta.wait(x)
-        return delta.emit(y + 1)
+    @Yoink.jit
+    def f(yoink, x: INT_TY):
+        y = yoink.wait(x)
+        return yoink.emit(y + 1)
 
     xs = [BaseEvent(1)]
 
@@ -61,11 +61,11 @@ def test_wait_emit_int_plus_one():
     assert result == [BaseEvent(2)]
 
 def test_wait_emit_int_plus():
-    @Delta.jit
-    def f(delta, x: INT_TY, y : INT_TY):
-        x = delta.wait(x)
-        y = delta.wait(y)
-        return delta.emit(x + y)
+    @Yoink.jit
+    def f(yoink, x: INT_TY, y : INT_TY):
+        x = yoink.wait(x)
+        y = yoink.wait(y)
+        return yoink.emit(x + y)
 
     xs = [BaseEvent(1)]
     ys = [BaseEvent(2)]
@@ -76,9 +76,9 @@ def test_wait_emit_int_plus():
     assert result == [BaseEvent(3)]
 
 def test_map_plus_one():
-    @Delta.jit
-    def f(delta, xs: TyStar(INT_TY)):
-        return delta.map(xs,lambda x : delta.emit(delta.wait(x) + 1))
+    @Yoink.jit
+    def f(yoink, xs: TyStar(INT_TY)):
+        return yoink.map(xs,lambda x : yoink.emit(yoink.wait(x) + 1))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
 
@@ -88,9 +88,9 @@ def test_map_plus_one():
     assert result == [PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncA()]
 
 def test_zip_with_sum():
-    @Delta.jit
-    def zip_sum(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.emit(delta.wait(x) + delta.wait(y)))
+    @Yoink.jit
+    def zip_sum(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.emit(yoink.wait(x) + yoink.wait(y)))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
@@ -111,13 +111,13 @@ def test_zip_with_sum():
     assert result == expected
 
 def test_map_double():
-    @Delta.jit
+    @Yoink.jit
 
-    def f(delta, xs: TyStar(INT_TY)):
+    def f(yoink, xs: TyStar(INT_TY)):
         def body(x):
-            y = delta.wait(x)
-            return delta.emit(y + y)
-        return delta.map(xs,body)
+            y = yoink.wait(x)
+            return yoink.emit(y + y)
+        return yoink.map(xs,body)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
 
@@ -127,10 +127,10 @@ def test_map_double():
     assert result == [PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
 
 def test_wait_emit_cat_parallel_inps():
-    @Delta.jit
-    def f(delta, x: INT_TY, y : INT_TY):
-        z = delta.wait(x)
-        return delta.catr(delta.emit(z + 2),y)
+    @Yoink.jit
+    def f(yoink, x: INT_TY, y : INT_TY):
+        z = yoink.wait(x)
+        return yoink.catr(yoink.emit(z + 2),y)
 
     x = [BaseEvent(0)]
     y = [BaseEvent(1)]
@@ -143,11 +143,11 @@ def test_wait_emit_cat_parallel_inps():
 
 # TODO: test backwards inputs! ensure that fails
 def test_wait_emit_cat_cat_inps():
-    @Delta.jit
-    def f(delta, xy: TyCat(INT_TY,INT_TY)):
-        x,y = delta.catl(xy)
-        z = delta.wait(x)
-        return delta.catr(delta.emit(z + 2),y)
+    @Yoink.jit
+    def f(yoink, xy: TyCat(INT_TY,INT_TY)):
+        x,y = yoink.catl(xy)
+        z = yoink.wait(x)
+        return yoink.catr(yoink.emit(z + 2),y)
 
     xy = [CatEvA(BaseEvent(0)),CatPunc(), BaseEvent(1)]
 
@@ -159,23 +159,23 @@ def test_wait_emit_cat_cat_inps():
 
 def test_wait_emit_cat_cat_inps_backwards():
     with pytest.raises(Exception):
-        @Delta.jit
-        def f(delta, xy: TyCat(INT_TY,INT_TY)):
-            x,y = delta.catl(xy)
-            z = delta.wait(y)
-            return delta.catr(delta.emit(z + 2),x)
+        @Yoink.jit
+        def f(yoink, xy: TyCat(INT_TY,INT_TY)):
+            x,y = yoink.catl(xy)
+            z = yoink.wait(y)
+            return yoink.catr(yoink.emit(z + 2),x)
 
 
 
 def test_wait_head():
-    @Delta.jit
-    def f(delta, xs: TyStar(INT_TY), b : INT_TY):
+    @Yoink.jit
+    def f(yoink, xs: TyStar(INT_TY), b : INT_TY):
         def nil_case(_):
-            return delta.catr(b,delta.nil())
+            return yoink.catr(b,yoink.nil())
         def cons_case(x,xs):
-            y = delta.wait(x)
-            return delta.catr(delta.emit(y),xs)
-        return delta.starcase(xs,nil_case,cons_case)
+            y = yoink.wait(x)
+            return yoink.catr(yoink.emit(y),xs)
+        return yoink.starcase(xs,nil_case,cons_case)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
     b = [BaseEvent(0)]

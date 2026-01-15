@@ -1,16 +1,16 @@
 import pytest
 from hypothesis import given
-from python_delta.core import Delta, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
-from python_delta.util.hypothesis_strategies import events_of_type
-from python_delta.typecheck.has_type import has_type
+from yoink.core import Yoink, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
+from yoink.util.hypothesis_strategies import events_of_type
+from yoink.typecheck.has_type import has_type
 
 
 INT_TY = Singleton(int)
 
 def test_ronz_nil():
-    @Delta.jit
-    def f(delta,s : TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink,s : TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     output = f(iter([PlusPuncA()]))
     result = [x for x in list(output) if x is not None]
@@ -23,9 +23,9 @@ def test_ronz_nil():
 
 
 def test_ronz_none():
-    @Delta.jit
-    def f(delta,s : TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink,s : TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
              PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
@@ -46,9 +46,9 @@ def test_ronz_none():
     assert result == expected_result
 
 def test_splitz_cons_immediate_z():
-    @Delta.jit
-    def f(delta,s : TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink,s : TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     input = [PlusPuncB(),CatEvA(BaseEvent(0)),CatPunc(),
              PlusPuncB(),CatEvA(BaseEvent(5)),CatPunc(),
@@ -68,9 +68,9 @@ def test_splitz_cons_immediate_z():
     assert result == expected_result
 
 def test_splitz_cons_onez():
-    @Delta.jit
-    def f(delta,s : TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink,s : TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
              PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
@@ -99,9 +99,9 @@ def test_splitz_cons_onez():
     assert result == expected_result
 
 def test_splitz_cons_twoz():
-    @Delta.jit
-    def f(delta,s : TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink,s : TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
              PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),
@@ -131,9 +131,9 @@ def test_splitz_cons_twoz():
     assert result == expected_result
 
 def test_splitz_cons_twoz_endz():
-    @Delta.jit
-    def f(delta,s : TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink,s : TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     input = [PlusPuncB(),CatEvA(BaseEvent(1)),CatPunc(),
              PlusPuncB(),CatEvA(BaseEvent(2)),CatPunc(),

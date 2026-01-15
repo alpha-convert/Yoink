@@ -1,5 +1,5 @@
 import pytest
-from python_delta.core import Delta, Singleton, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
+from yoink.core import Yoink, Singleton, TyStar, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
 
 
 STRING_TY = Singleton(str)
@@ -8,9 +8,9 @@ INT_TY = Singleton(int)
 
 def test_nil():
     """Test nil creates empty star type."""
-    @Delta.jit
-    def f(delta):
-        return delta.nil()
+    @Yoink.jit
+    def f(yoink):
+        return yoink.nil()
 
     output = f()
     result = list(output)
@@ -22,10 +22,10 @@ def test_nil():
 
 def test_cons_nil():
     """Test cons with nil creates a single-element list."""
-    @Delta.jit
-    def f(delta, x: STRING_TY):
-        nil_list = delta.nil()
-        return delta.cons(x, nil_list)
+    @Yoink.jit
+    def f(yoink, x: STRING_TY):
+        nil_list = yoink.nil()
+        return yoink.cons(x, nil_list)
 
     output = f(iter(["hello"]))
     result = list(output)
@@ -40,11 +40,11 @@ def test_cons_nil():
 
 def test_cons_cons_nil():
     """Test cons with cons-nil creates a two-element list."""
-    @Delta.jit
-    def f(delta, x: STRING_TY, y: STRING_TY):
-        nil_list = delta.nil()
-        one_elem = delta.cons(y, nil_list)
-        two_elem = delta.cons(x, one_elem)
+    @Yoink.jit
+    def f(yoink, x: STRING_TY, y: STRING_TY):
+        nil_list = yoink.nil()
+        one_elem = yoink.cons(y, nil_list)
+        two_elem = yoink.cons(x, one_elem)
         return two_elem
 
     output = f(iter(["a"]), iter(["b"]))
@@ -63,9 +63,9 @@ def test_cons_cons_nil():
 
 def test_starcase_nil():
     """Test starcase on nil takes the nil branch."""
-    @Delta.jit
-    def f(delta, x: TyStar(STRING_TY), base_case : STRING_TY):
-        return delta.starcase(
+    @Yoink.jit
+    def f(yoink, x: TyStar(STRING_TY), base_case : STRING_TY):
+        return yoink.starcase(
             x,
             lambda _: base_case,  # Nil branch
             lambda head, tail: head  # Cons branch (not taken)
@@ -78,9 +78,9 @@ def test_starcase_nil():
 
 def test_starcase_cons():
     """Test starcase on nil takes the cons branch."""
-    @Delta.jit
-    def f(delta, x: TyStar(STRING_TY), base_case : STRING_TY):
-        return delta.starcase(
+    @Yoink.jit
+    def f(yoink, x: TyStar(STRING_TY), base_case : STRING_TY):
+        return yoink.starcase(
             x,
             lambda _: base_case,  # Nil branch
             lambda head, tail: head  # Cons branch (not taken)
@@ -92,13 +92,13 @@ def test_starcase_cons():
 
 
 def test_starcase_eta():
-    @Delta.jit
-    def f(delta, xs: TyStar(INT_TY)):
+    @Yoink.jit
+    def f(yoink, xs: TyStar(INT_TY)):
         def nil_case(_):
-            return delta.nil()
+            return yoink.nil()
         def cons_case(y,ys):
-            return delta.cons(y,ys)
-        return delta.starcase(xs,nil_case,cons_case)
+            return yoink.cons(y,ys)
+        return yoink.starcase(xs,nil_case,cons_case)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(), PlusPuncA()]
 

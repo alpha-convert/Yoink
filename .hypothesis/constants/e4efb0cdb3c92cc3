@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/runtime.py
+# hypothesis_version: 6.141.1
+
+['BaseEvent', 'CatEvA', 'CatPunc', 'CatRState', 'DONE', 'EmitOpPhase', 'FlattenedIterator', 'ParEvA', 'ParEvB', 'PlusPuncA', 'PlusPuncB']

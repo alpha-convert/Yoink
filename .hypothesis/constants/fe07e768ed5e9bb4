@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/stream_ops/bufferop.py
+# hypothesis_version: 6.141.1
+
+['!=', '%', '*', '**', '+', '-', '/', '//', '<', '<=', '==', '>', '>=', 'BinaryOp', 'ComparisonOp', 'ConstantOp', 'RegisterBuffer', 'UnaryOp', 'WaitOpBuffer', 'not', '~']

@@ -1,154 +1,154 @@
 import pytest
-from python_delta.core import *
+from yoink.core import *
 
 STRING_TY = Singleton(str)
 
 def test_catl():
-    delta = Delta()
-    z = delta.var("z",TyCat(STRING_TY,STRING_TY))
-    (x,y) = delta.catl(z)
+    yoink = Yoink()
+    z = yoink.var("z",TyCat(STRING_TY,STRING_TY))
+    (x,y) = yoink.catl(z)
 
 def test_catl_wrong_ty():
-    delta = Delta()
-    z = delta.var("z",STRING_TY)
+    yoink = Yoink()
+    z = yoink.var("z",STRING_TY)
     with pytest.raises(Exception):
-        (x,y) = delta.catl(z)
+        (x,y) = yoink.catl(z)
 
 def test_catl_ordered_use():
-    delta = Delta()
-    z = delta.var("z",TyCat(STRING_TY,STRING_TY))
-    (x,y) = delta.catl(z)
-    delta.catr(x,y)
+    yoink = Yoink()
+    z = yoink.var("z",TyCat(STRING_TY,STRING_TY))
+    (x,y) = yoink.catl(z)
+    yoink.catr(x,y)
 
 def test_catl_out_of_order_use():
-    delta = Delta()
-    z = delta.var("z",TyCat(STRING_TY,STRING_TY))
-    (x,y) = delta.catl(z)
+    yoink = Yoink()
+    z = yoink.var("z",TyCat(STRING_TY,STRING_TY))
+    (x,y) = yoink.catl(z)
     with pytest.raises(Exception):
-        delta.catr(y,x)
+        yoink.catr(y,x)
 
 def test_double_catl():
-    delta = Delta()
-    z = delta.var("z",TyCat(STRING_TY,STRING_TY))
-    (x1,y1) = delta.catl(z)
-    (x2,y2) = delta.catl(z)
-    delta.catr(x1,y1)
-    delta.catr(x2,y2)
-    delta.catr(x1,y2)
+    yoink = Yoink()
+    z = yoink.var("z",TyCat(STRING_TY,STRING_TY))
+    (x1,y1) = yoink.catl(z)
+    (x2,y2) = yoink.catl(z)
+    yoink.catr(x1,y1)
+    yoink.catr(x2,y2)
+    yoink.catr(x1,y2)
 
 def test_double_catl_cross():
-    delta = Delta()
-    z = delta.var("z",TyCat(STRING_TY,STRING_TY))
-    (x1,y1) = delta.catl(z)
-    (x2,y2) = delta.catl(z)
+    yoink = Yoink()
+    z = yoink.var("z",TyCat(STRING_TY,STRING_TY))
+    (x1,y1) = yoink.catl(z)
+    (x2,y2) = yoink.catl(z)
     with pytest.raises(Exception):
-        delta.catr(y2,x1)
+        yoink.catr(y2,x1)
 
 def test_nested_catl():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
     # All allowable
-    delta.catr(y,u)
-    delta.catr(y,v)
-    delta.catr(x,u)
-    delta.catr(x,v)
+    yoink.catr(y,u)
+    yoink.catr(y,v)
+    yoink.catr(x,u)
+    yoink.catr(x,v)
 
 def test_nested_catl_bad1():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
     with pytest.raises(Exception):
-        delta.catr(u,y)
+        yoink.catr(u,y)
 
 def test_nested_catl_bad2():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
     with pytest.raises(Exception):
-        delta.catr(u,x)
+        yoink.catr(u,x)
 
 def test_nested_catl_bad3():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
     with pytest.raises(Exception):
-        delta.catr(v,x)
+        yoink.catr(v,x)
 
 def test_nested_catl_bad4():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
     with pytest.raises(Exception):
-        delta.catr(v,y)
+        yoink.catr(v,y)
 
 def test_nested_catl_bad_nested1():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
-    s1 = delta.catr(x,v) #allowed
-    s2 = delta.catr(y,u) #allowed
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
+    s1 = yoink.catr(x,v) #allowed
+    s2 = yoink.catr(y,u) #allowed
     with pytest.raises(Exception):
-        delta.catr(s1,s2)
+        yoink.catr(s1,s2)
 
 def test_nested_catl_bad_nested2():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
-    s1 = delta.catr(x,v) #allowed
-    s2 = delta.catr(y,u) #allowed
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
+    s1 = yoink.catr(x,v) #allowed
+    s2 = yoink.catr(y,u) #allowed
     with pytest.raises(Exception):
-        delta.catr(s2,s1)
+        yoink.catr(s2,s1)
     
 def test_nested_catl_bad_nested3():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
-    s1 = delta.catr(x,u) #allowed
-    s2 = delta.catr(y,v) #allowed
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
+    s1 = yoink.catr(x,u) #allowed
+    s2 = yoink.catr(y,v) #allowed
     with pytest.raises(Exception):
-        delta.catr(s1,s2)
+        yoink.catr(s1,s2)
 
 def test_nested_catl_bad_nested4():
-    delta = Delta()
+    yoink = Yoink()
     t = TyCat(STRING_TY,STRING_TY)
-    z = delta.var("z",TyCat(t,t))
-    (z1,z2) = delta.catl(z)
-    (x,y) = delta.catl(z1)
-    (u,v) = delta.catl(z2)
-    s1 = delta.catr(x,u) #allowed
-    s2 = delta.catr(y,v) #allowed
+    z = yoink.var("z",TyCat(t,t))
+    (z1,z2) = yoink.catl(z)
+    (x,y) = yoink.catl(z1)
+    (u,v) = yoink.catl(z2)
+    s1 = yoink.catr(x,u) #allowed
+    s2 = yoink.catr(y,v) #allowed
     with pytest.raises(Exception):
-        delta.catr(s2,s1)
+        yoink.catr(s2,s1)
 
 def test_valid_ordering():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.catr(x, y)
-    a, b = delta.catl(z)
-    delta.catr(a, b)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.catr(x, y)
+    a, b = yoink.catl(z)
+    yoink.catr(a, b)

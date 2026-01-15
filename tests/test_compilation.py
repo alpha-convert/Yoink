@@ -2,12 +2,12 @@
 
 import pytest
 from hypothesis import given, settings
-from python_delta.core import Delta, Singleton, TyStar, TyCat, TyPlus, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
-from python_delta.util.hypothesis_strategies import events_of_type
-from python_delta.typecheck.has_type import has_type
-from python_delta.compilation.direct_compiler import DirectCompiler
-from python_delta.compilation.cps_compiler import CPSCompiler
-from python_delta.compilation.generator_compiler import GeneratorCompiler
+from yoink.core import Yoink, Singleton, TyStar, TyCat, TyPlus, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
+from yoink.util.hypothesis_strategies import events_of_type
+from yoink.typecheck.has_type import has_type
+from yoink.compilation.direct_compiler import DirectCompiler
+from yoink.compilation.cps_compiler import CPSCompiler
+from yoink.compilation.generator_compiler import GeneratorCompiler
 
 
 INT_TY = Singleton(int)
@@ -19,7 +19,7 @@ def run_all(program, *inputs, compilers):
     Run a program in interpreted mode and with each specified compiler.
 
     Args:
-        program: A @Delta.jit decorated function (DataflowGraph)
+        program: A @Yoink.jit decorated function (DataflowGraph)
         *inputs: Input iterables for the program
         compilers: List of compiler classes to test
 
@@ -66,8 +66,8 @@ def run_all(program, *inputs, compilers):
 
 def test_compile_var_passthrough():
     """Simplest case: just pass through a var."""
-    @Delta.jit
-    def passthrough(delta, x: STRING_TY):
+    @Yoink.jit
+    def passthrough(yoink, x: STRING_TY):
         return x
 
     data = [BaseEvent("x")]
@@ -75,9 +75,9 @@ def test_compile_var_passthrough():
 
 
 def test_compile_catr_simple():
-    @Delta.jit
-    def f(delta, x: STRING_TY, y: STRING_TY):
-        return delta.catr(x, y)
+    @Yoink.jit
+    def f(yoink, x: STRING_TY, y: STRING_TY):
+        return yoink.catr(x, y)
 
     xs = [BaseEvent("x")]
     ys = [BaseEvent("y")]
@@ -87,9 +87,9 @@ def test_compile_catr_simple():
 
 def test_compile_sum_inl():
     """Test sum injection left."""
-    @Delta.jit
-    def inl_test(delta, x: STRING_TY):
-        return delta.inl(x)
+    @Yoink.jit
+    def inl_test(yoink, x: STRING_TY):
+        return yoink.inl(x)
 
     xs = [BaseEvent("asdf")]
 
@@ -98,12 +98,12 @@ def test_compile_sum_inl():
 
 def test_compile_sum_case():
     """Test case analysis on sum types."""
-    @Delta.jit
-    def swap(delta, x: TyPlus(STRING_TY, STRING_TY)):
-        return delta.case(
+    @Yoink.jit
+    def swap(yoink, x: TyPlus(STRING_TY, STRING_TY)):
+        return yoink.case(
             x,
-            lambda left: delta.inr(left),
-            lambda right: delta.inl(right)
+            lambda left: yoink.inr(left),
+            lambda right: yoink.inl(right)
         )
 
     # Left injection
@@ -116,9 +116,9 @@ def test_compile_sum_case():
 
 def test_compile_map_identity():
     """Test map with identity function."""
-    @Delta.jit
-    def map_id(delta, s: TyStar(INT_TY)):
-        return delta.map(s, lambda x: x)
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(INT_TY)):
+        return yoink.map(s, lambda x: x)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(), PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(), PlusPuncA()]
 
@@ -126,10 +126,10 @@ def test_compile_map_identity():
 
 
 def test_compile_3catr_strings():
-    @Delta.jit
-    def catr3(delta, x: INT_TY, y: INT_TY, z: INT_TY):
-        xy = delta.catr(x, y)
-        return delta.catr(xy, z)
+    @Yoink.jit
+    def catr3(yoink, x: INT_TY, y: INT_TY, z: INT_TY):
+        xy = yoink.catr(x, y)
+        return yoink.catr(xy, z)
 
     xs = [BaseEvent(1)]
     ys = [BaseEvent(2)]
@@ -149,8 +149,8 @@ def test_compile_3catr_strings():
 @settings(max_examples=20)
 def test_compile_var_preserves_output(input_events):
     """Property test: var passthrough produces same results compiled vs interpreted."""
-    @Delta.jit
-    def passthrough(delta, x: STRING_TY):
+    @Yoink.jit
+    def passthrough(yoink, x: STRING_TY):
         return x
 
     assert has_type(input_events, STRING_TY)
@@ -165,9 +165,9 @@ def test_compile_var_preserves_output(input_events):
 @settings(max_examples=20)
 def test_compile_catr_preserves_output(xs, ys):
     """Property test: catr produces same results compiled vs interpreted."""
-    @Delta.jit
-    def concat(delta, x: STRING_TY, y: STRING_TY):
-        return delta.catr(x, y)
+    @Yoink.jit
+    def concat(yoink, x: STRING_TY, y: STRING_TY):
+        return yoink.catr(x, y)
 
     assert has_type(xs, STRING_TY)
     assert has_type(ys, STRING_TY)
@@ -181,9 +181,9 @@ def test_compile_catr_preserves_output(xs, ys):
 @settings(max_examples=20)
 def test_compile_catr_stars_preserves_output(xs, ys):
     """Property test: catr produces same results compiled vs interpreted."""
-    @Delta.jit
-    def concat(delta, x: TyStar(STRING_TY), y: TyStar(STRING_TY)):
-        return delta.catr(x, y)
+    @Yoink.jit
+    def concat(yoink, x: TyStar(STRING_TY), y: TyStar(STRING_TY)):
+        return yoink.catr(x, y)
 
     assert has_type(xs, TyStar(STRING_TY))
     assert has_type(ys, TyStar(STRING_TY))
@@ -195,9 +195,9 @@ def test_compile_catr_stars_preserves_output(xs, ys):
 @settings(max_examples=20)
 def test_compile_inl_preserves_output(input_events):
     """Property test: inl produces same results compiled vs interpreted."""
-    @Delta.jit
-    def inl_test(delta, x: STRING_TY):
-        return delta.inl(x)
+    @Yoink.jit
+    def inl_test(yoink, x: STRING_TY):
+        return yoink.inl(x)
 
     assert has_type(input_events, STRING_TY)
 
@@ -207,9 +207,9 @@ def test_compile_inl_preserves_output(input_events):
 @settings(max_examples=20)
 def test_compile_catproj_position0(input_events):
     """Property test: CatProj position 0 (first element of cat) compiles correctly."""
-    @Delta.jit
-    def proj0(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
-        (x, _) = delta.catl(z)
+    @Yoink.jit
+    def proj0(yoink, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
+        (x, _) = yoink.catl(z)
         return x
 
     assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
@@ -224,9 +224,9 @@ def test_compile_catproj_position0(input_events):
 @settings(max_examples=20)
 def test_compile_catproj_position1(input_events):
     """Property test: CatProj position 1 (second element of cat) compiles correctly."""
-    @Delta.jit
-    def proj1(delta, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
-        (_, y) = delta.catl(z)
+    @Yoink.jit
+    def proj1(yoink, z: TyCat(TyStar(INT_TY), TyStar(INT_TY))):
+        (_, y) = yoink.catl(z)
         return y
 
     assert has_type(input_events, TyCat(TyStar(INT_TY), TyStar(INT_TY)))
@@ -242,9 +242,9 @@ def test_compile_catproj_position1(input_events):
 @settings(max_examples=20)
 def test_compile_case_preserves_output(input_events):
     """Property test: case produces same results compiled vs interpreted."""
-    @Delta.jit
-    def case_id(delta, x: TyPlus(STRING_TY, STRING_TY)):
-        return delta.case(x, lambda l: l, lambda r: r)
+    @Yoink.jit
+    def case_id(yoink, x: TyPlus(STRING_TY, STRING_TY)):
+        return yoink.case(x, lambda l: l, lambda r: r)
 
     assert has_type(input_events, TyPlus(STRING_TY, STRING_TY))
 
@@ -254,9 +254,9 @@ def test_compile_case_preserves_output(input_events):
 @given(events_of_type(TyStar(INT_TY), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_identity_preserves_output(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(INT_TY)):
-        return delta.map(s, lambda x: x)
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(INT_TY)):
+        return yoink.map(s, lambda x: x)
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -268,9 +268,9 @@ def test_compile_map_identity_preserves_output(input_events):
 @given(events_of_type(TyStar(INT_TY), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_inl(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(INT_TY)):
-        return delta.map(s, lambda x: delta.inl(x))
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(INT_TY)):
+        return yoink.map(s, lambda x: yoink.inl(x))
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -282,9 +282,9 @@ def test_compile_map_inl(input_events):
 @given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_concat_nil(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(TyStar(INT_TY))):
-        return delta.map(s, lambda x: delta.concat(x,delta.nil()))
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(TyStar(INT_TY))):
+        return yoink.map(s, lambda x: yoink.concat(x,yoink.nil()))
 
     assert has_type(input_events, TyStar(TyStar(INT_TY)))
 
@@ -296,9 +296,9 @@ def test_compile_map_concat_nil(input_events):
 @given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_concat_backwards_nil(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(TyStar(INT_TY))):
-        return delta.map(s, lambda x: delta.concat(delta.nil(),x))
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(TyStar(INT_TY))):
+        return yoink.map(s, lambda x: yoink.concat(yoink.nil(),x))
 
     assert has_type(input_events, TyStar(TyStar(INT_TY)))
 
@@ -310,12 +310,12 @@ def test_compile_map_concat_backwards_nil(input_events):
 @given(events_of_type(TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY))), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_concat_catl(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY)))):
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY)))):
         def body(xy):
-            x,y = delta.catl(xy)
-            return delta.concat(x,y)
-        return delta.map(s, body)
+            x,y = yoink.catl(xy)
+            return yoink.concat(x,y)
+        return yoink.map(s, body)
 
     assert has_type(input_events, TyStar(TyCat(TyStar(INT_TY),TyStar(INT_TY))))
 
@@ -333,9 +333,9 @@ def test_compile_map_concat_catl(input_events):
 )
 @settings(max_examples=20)
 def test_compile_concat(xs,ys):
-    @Delta.jit
-    def f(delta, s1 : TyStar(INT_TY), s2 : TyStar(INT_TY)):
-        return delta.concat(s1,s2)
+    @Yoink.jit
+    def f(yoink, s1 : TyStar(INT_TY), s2 : TyStar(INT_TY)):
+        return yoink.concat(s1,s2)
 
     assert has_type(xs, TyStar(INT_TY))
     assert has_type(ys, TyStar(INT_TY))
@@ -350,10 +350,10 @@ def test_compile_concat(xs,ys):
 )
 @settings(max_examples=1)
 def test_compile_concat_const(xs):
-    @Delta.jit
-    def f(delta, _ : TyStar(INT_TY)):
-        r = delta.cons(delta.singleton(0),delta.nil())
-        return delta.concat(r,delta.nil())
+    @Yoink.jit
+    def f(yoink, _ : TyStar(INT_TY)):
+        r = yoink.cons(yoink.singleton(0),yoink.nil())
+        return yoink.concat(r,yoink.nil())
 
     assert has_type(xs, TyStar(INT_TY))
 
@@ -367,10 +367,10 @@ def test_compile_concat_const(xs):
 )
 @settings(max_examples=20)
 def test_compile_concat_cat(xsys):
-    @Delta.jit
-    def f(delta, s : TyCat(TyStar(INT_TY),TyStar(INT_TY))):
-        x,y = delta.catl(s)
-        return delta.concat(x,y)
+    @Yoink.jit
+    def f(yoink, s : TyCat(TyStar(INT_TY),TyStar(INT_TY))):
+        x,y = yoink.catl(s)
+        return yoink.concat(x,y)
 
     assert has_type(xsys, TyCat(TyStar(INT_TY),TyStar(INT_TY)))
 
@@ -382,9 +382,9 @@ def test_compile_concat_cat(xsys):
 @given(events_of_type(TyStar(INT_TY), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_zeroes(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(INT_TY)):
-        return delta.map(s, lambda x: delta.singleton(0))
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(INT_TY)):
+        return yoink.map(s, lambda x: yoink.singleton(0))
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -397,9 +397,9 @@ def test_compile_map_zeroes(input_events):
 @given(events_of_type(TyStar(INT_TY), max_depth=10))
 @settings(max_examples=20)
 def test_compile_map_lift(input_events):
-    @Delta.jit
-    def map_id(delta, s: TyStar(INT_TY)):
-        return delta.map(s, lambda x: delta.cons(x,delta.nil()))
+    @Yoink.jit
+    def map_id(yoink, s: TyStar(INT_TY)):
+        return yoink.map(s, lambda x: yoink.cons(x,yoink.nil()))
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -413,12 +413,12 @@ def test_compile_map_lift(input_events):
 @settings(max_examples=20)
 def test_compile_map_proj1_preserves_output(input_events):
     """Property test: map with projection produces same results compiled vs interpreted."""
-    @Delta.jit
-    def map_proj1(delta, s: TyStar(TyCat(INT_TY, INT_TY))):
+    @Yoink.jit
+    def map_proj1(yoink, s: TyStar(TyCat(INT_TY, INT_TY))):
         def proj1(z):
-            (x, _) = delta.catl(z)
+            (x, _) = yoink.catl(z)
             return x
-        return delta.map(s, proj1)
+        return yoink.map(s, proj1)
 
     assert has_type(input_events, TyStar(TyCat(INT_TY, INT_TY)))
 
@@ -429,9 +429,9 @@ def test_compile_map_proj1_preserves_output(input_events):
 @settings(max_examples=20)
 def test_compile_concatmap_nil_preserves_output(input_events):
     """Property test: concat_map with nil compiles correctly."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda _: delta.nil())
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.concat_map(s, lambda _: yoink.nil())
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -440,9 +440,9 @@ def test_compile_concatmap_nil_preserves_output(input_events):
 @given(events_of_type(TyStar(TyStar(INT_TY)), max_depth=5))
 @settings(max_examples=20)
 def test_compile_concatmap_flatten(input_events):
-    @Delta.jit
-    def f(delta, s: TyStar(TyStar(INT_TY))):
-        return delta.concat_map(s, lambda x: x)
+    @Yoink.jit
+    def f(yoink, s: TyStar(TyStar(INT_TY))):
+        return yoink.concat_map(s, lambda x: x)
 
     assert has_type(input_events, TyStar(TyStar(INT_TY)))
 
@@ -453,9 +453,9 @@ def test_compile_concatmap_flatten(input_events):
 
 def test_compile_zip_with_catr():
     """Test zip_with with CatR function - pairs elements together."""
-    @Delta.jit
-    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_pair(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
@@ -472,26 +472,26 @@ def test_compile_zip_with_catr():
 )
 @settings(max_examples=20)
 def test_zipwith_catr(xs_inps,ys_inps):
-    @Delta.jit
-    def zip_pair(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.zip_with(xs, ys, lambda x, y: delta.catr(x, y))
+    @Yoink.jit
+    def zip_pair(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.zip_with(xs, ys, lambda x, y: yoink.catr(x, y))
 
     run_all(zip_pair, xs_inps,ys_inps, compilers=[DirectCompiler, CPSCompiler])
 
 def test_compile_splitz_nil():
     """Test splitZ with nil (empty list)."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.splitZ(s)
 
     xs = [PlusPuncA()]
     run_all(f, xs, compilers=[DirectCompiler, CPSCompiler])
     
 def test_compile_splitz_cons_all_nonz():
     """Test splitZ with all non-zero elements."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.splitZ(s)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
@@ -503,9 +503,9 @@ def test_compile_splitz_cons_all_nonz():
 
 def test_compile_splitz_cons_immediate_z():
     """Test splitZ with zero as first element."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.splitZ(s)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(0)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(5)), CatPunc(),
@@ -517,9 +517,9 @@ def test_compile_splitz_cons_immediate_z():
 
 def test_compile_splitz_cons_onez():
     """Test splitZ with zero in middle of list."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.splitZ(s)
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(1)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(2)), CatPunc(),
@@ -533,9 +533,9 @@ def test_compile_splitz_cons_onez():
 
 def test_compile_concatmap_nil():
     """Test concat_map with nil function."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda _: delta.nil())
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.concat_map(s, lambda _: yoink.nil())
 
     xs = [PlusPuncB(), CatEvA(BaseEvent(3)), CatPunc(),
           PlusPuncB(), CatEvA(BaseEvent(4)), CatPunc(),
@@ -548,9 +548,9 @@ def test_compile_concatmap_nil():
 @settings(max_examples=20)
 def test_compile_concatmap_id_preserves_output(input_events):
     """Property test: concat_map with identity compiles correctly."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda x: delta.cons(x, delta.nil()))
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.concat_map(s, lambda x: yoink.cons(x, yoink.nil()))
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -560,9 +560,9 @@ def test_compile_concatmap_id_preserves_output(input_events):
 @settings(max_examples=20)
 def test_compile_concatmap_cons_one_preserves_output(input_events):
     """Property test: concat_map with cons(1, cons(x, nil)) compiles correctly."""
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.concat_map(s, lambda x: delta.cons(delta.singleton(1), delta.cons(x, delta.nil())))
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.concat_map(s, lambda x: yoink.cons(yoink.singleton(1), yoink.cons(x, yoink.nil())))
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -573,9 +573,9 @@ def test_compile_concatmap_cons_one_preserves_output(input_events):
 @given(events_of_type(INT_TY, max_depth=10))
 @settings(max_examples=20)
 def test_compile_wait_emit(input_events):
-    @Delta.jit
-    def f(delta, s: INT_TY):
-        return delta.emit(delta.wait(s))
+    @Yoink.jit
+    def f(yoink, s: INT_TY):
+        return yoink.emit(yoink.wait(s))
 
     assert has_type(input_events, INT_TY)
 
@@ -586,9 +586,9 @@ def test_compile_wait_emit(input_events):
 @given(events_of_type(TyStar(INT_TY), max_depth=20))
 @settings(max_examples=20)
 def test_compile_splitz(input_events):
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.splitZ(s)
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.splitZ(s)
 
     assert has_type(input_events, TyStar(INT_TY))
 
@@ -597,9 +597,9 @@ def test_compile_splitz(input_events):
 @given(events_of_type(TyStar(INT_TY), max_depth=20))
 @settings(max_examples=20)
 def test_compile_runs_of_nonz(input_events):
-    @Delta.jit
-    def f(delta, s: TyStar(INT_TY)):
-        return delta.runsOfNonZ(s)
+    @Yoink.jit
+    def f(yoink, s: TyStar(INT_TY)):
+        return yoink.runsOfNonZ(s)
 
     assert has_type(input_events, TyStar(INT_TY))
 

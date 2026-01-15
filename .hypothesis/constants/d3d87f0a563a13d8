@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/python_delta/core.py
+# hypothesis_version: 6.141.1
+
+['BaseEvent', 'CaseOp', 'CatEvA', 'CatProj', 'CatPunc', 'CatR', 'DataflowGraph', 'Delta', 'Eps', 'ParEvA', 'ParEvB', 'PartialOrder', 'PlusPuncA', 'PlusPuncB', 'RealizedOrdering', 'Singleton', 'StreamOp', 'SumInj', 'TyCat', 'TyEps', 'TyPlus', 'TyStar', 'Type', 'UnsafeCast', 'Var']

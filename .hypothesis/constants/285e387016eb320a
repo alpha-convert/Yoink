@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/python_delta/stream_ops/caseop.py
+# hypothesis_version: 6.141.1
+
+['CaseOp', 'DONE', 'Got PPA in case', 'PlusPuncA', 'PlusPuncB', 'RuntimeError', 'active_branch', 'isinstance', 'tag_read']

@@ -1,5 +1,5 @@
 import pytest
-from python_delta.core import Delta, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat,BaseEvent, CatEvA, TyEps, CatPunc
+from yoink.core import Yoink, Singleton, TyPlus, PlusPuncA, PlusPuncB, TyCat,BaseEvent, CatEvA, TyEps, CatPunc
 
 
 STRING_TY = Singleton(str)
@@ -8,9 +8,9 @@ INT_TY = Singleton(int)
 
 def test_inl():
     """Test left injection creates PlusPuncA tag."""
-    @Delta.jit
-    def f(delta, x: STRING_TY):
-        return delta.inl(x)
+    @Yoink.jit
+    def f(yoink, x: STRING_TY):
+        return yoink.inl(x)
 
     output = f.run(iter(["a", "b", "c"]))
     result = list(output)
@@ -21,9 +21,9 @@ def test_inl():
 
 def test_inr():
     """Test right injection creates PlusPuncB tag."""
-    @Delta.jit
-    def f(delta, x: STRING_TY):
-        return delta.inr(x)
+    @Yoink.jit
+    def f(yoink, x: STRING_TY):
+        return yoink.inr(x)
 
     output = f.run(iter(["a", "b", "c"]))
     result = list(output)
@@ -34,9 +34,9 @@ def test_inr():
 
 def test_case_left():
     """Test case analysis takes left branch on PlusPuncA."""
-    @Delta.jit
-    def f(delta, x: TyPlus(STRING_TY, STRING_TY)):
-        return delta.case(
+    @Yoink.jit
+    def f(yoink, x: TyPlus(STRING_TY, STRING_TY)):
+        return yoink.case(
             x,
             lambda left: left,
             lambda right: right
@@ -50,9 +50,9 @@ def test_case_left():
 
 def test_case_right():
     """Test case analysis takes right branch on PlusPuncB."""
-    @Delta.jit
-    def f(delta, x: TyPlus(STRING_TY, STRING_TY)):
-        return delta.case(
+    @Yoink.jit
+    def f(yoink, x: TyPlus(STRING_TY, STRING_TY)):
+        return yoink.case(
             x,
             lambda left: left,   
             lambda right: right  
@@ -66,12 +66,12 @@ def test_case_right():
 
 def test_case_with_operations():
     """Test case analysis with operations in each branch."""
-    @Delta.jit
-    def f(delta, x: TyPlus(STRING_TY, STRING_TY), prefix : STRING_TY, suffix : STRING_TY):
-        return delta.case(
+    @Yoink.jit
+    def f(yoink, x: TyPlus(STRING_TY, STRING_TY), prefix : STRING_TY, suffix : STRING_TY):
+        return yoink.case(
             x,
-            lambda left: delta.catr(left, suffix),
-            lambda right: delta.catr(prefix, right)
+            lambda left: yoink.catr(left, suffix),
+            lambda right: yoink.catr(prefix, right)
         )
 
     # Test left branch
@@ -83,7 +83,7 @@ def test_case_with_operations():
     result_left = []
     for item in output_left:
         result_left.append(item)
-    from python_delta.core import CatEvA, CatPunc
+    from yoink.core import CatEvA, CatPunc
     assert result_left[0] == None
     assert result_left[1] == CatEvA("a")
     assert result_left[2] == CatEvA("b")
@@ -106,10 +106,10 @@ def test_case_with_operations():
 def test_case_ordering_check():
     """Test case analysis takes left branch on PlusPuncA."""
     with pytest.raises(Exception):
-        @Delta.jit
-        def f(delta, x: TyCat(STRING_TY,TyPlus(STRING_TY,STRING_TY))):
-            u,v = delta.catl(x)
-            return delta.case(
+        @Yoink.jit
+        def f(yoink, x: TyCat(STRING_TY,TyPlus(STRING_TY,STRING_TY))):
+            u,v = yoink.catl(x)
+            return yoink.case(
                 v,
                 lambda left: u,
                 lambda right: u 
@@ -119,12 +119,12 @@ def test_case_ordering_check():
 
 def test_case_eta():
     """Test case analysis with operations in each branch."""
-    @Delta.jit
-    def f(delta, x: TyPlus(STRING_TY, STRING_TY)):
-        return delta.case(
+    @Yoink.jit
+    def f(yoink, x: TyPlus(STRING_TY, STRING_TY)):
+        return yoink.case(
             x,
-            lambda left: delta.inl(left),
-            lambda right: delta.inr(right)
+            lambda left: yoink.inl(left),
+            lambda right: yoink.inr(right)
         )
 
     # Test left branch
@@ -142,14 +142,14 @@ def test_case_eta():
 
 # Emulate starcase with pluscase
 def test_case_eta_staremu():
-    @Delta.jit
-    def f(delta, x: TyPlus(TyEps(), TyCat(STRING_TY,STRING_TY))):
+    @Yoink.jit
+    def f(yoink, x: TyPlus(TyEps(), TyCat(STRING_TY,STRING_TY))):
         def body(right):
-            l,r = delta.catl(right)
-            return delta.inr(delta.catr(l,r))
-        return delta.case(
+            l,r = yoink.catl(right)
+            return yoink.inr(yoink.catr(l,r))
+        return yoink.case(
             x,
-            lambda left: delta.inl(left),
+            lambda left: yoink.inl(left),
             body
         )
 

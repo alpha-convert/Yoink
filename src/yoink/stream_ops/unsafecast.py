@@ -1,0 +1,30 @@
+"""UnsafeCast StreamOp - cast stream to different type without validation."""
+
+from __future__ import annotations
+
+from yoink.stream_ops.base import StreamOp, DONE
+
+
+class UnsafeCast(StreamOp):
+    """Unsafe cast - forwards data from input stream with a different type annotation."""
+    def __init__(self, input_stream, target_type):
+        super().__init__(target_type)
+        self.input_stream = input_stream
+
+    @property
+    def id(self):
+        return hash(("UnsafeCast", self.input_stream.id, str(self.stream_type)))
+
+    @property
+    def vars(self):
+        return self.input_stream.vars
+
+    def _pull(self):
+        """Forward data from input stream without modification."""
+        return self.input_stream._pull()
+
+    def reset(self):
+        pass
+
+    def ensure_legal_recursion(self,is_in_tail : bool):
+        self.input_stream.ensure_legal_recursion(is_in_tail)

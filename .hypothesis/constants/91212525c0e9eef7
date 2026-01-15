@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/core.py
+# hypothesis_version: 6.141.1
+
+['BaseEvent', 'CaseOp', 'CatEvA', 'CatProj', 'CatPunc', 'CatR', 'DataflowGraph', 'Eps', 'ParEvA', 'ParEvB', 'PartialOrder', 'PlusPuncA', 'PlusPuncB', 'RealizedOrdering', 'Singleton', 'StreamOp', 'SumInj', 'TyCat', 'TyEps', 'TyPlus', 'TyStar', 'Type', 'UnsafeCast', 'Var', 'Yoink']

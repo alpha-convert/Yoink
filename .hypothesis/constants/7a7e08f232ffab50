@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/bufferop_compiler.py
+# hypothesis_version: 6.141.1
+
+['!=', '%', '*', '**', '+', '-', '/', '//', '<', '<=', '==', '>', '>=', 'BaseEvent', 'BinaryOp', 'BufferOp', 'ComparisonOp', 'CompilationContext', 'ConstantOp', 'RegisterBuffer', 'UnaryOp', 'WaitOpBuffer', 'buffer', 'not', 'out_buf', 'register', 'value', '~']

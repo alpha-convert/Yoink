@@ -1,12 +1,12 @@
 import pytest
-from python_delta.core import *
+from yoink.core import *
 
 STRING_TY = Singleton(str)
 
 def test_var():
-    delta = Delta()
-    delta.var("x")
+    yoink = Yoink()
+    yoink.var("x")
 
 def test_var_typed():
-    delta = Delta()
-    delta.var("x",STRING_TY)
+    yoink = Yoink()
+    yoink.var("x",STRING_TY)

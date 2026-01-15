@@ -1,80 +1,80 @@
 import pytest
-from python_delta.core import *
+from yoink.core import *
 
 STRING_TY = Singleton(str)
 
 def test_catr():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    delta.catr(x,y)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    yoink.catr(x,y)
 
 def test_catr_disj():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
     with pytest.raises(Exception):
-        delta.catr(x,x)
+        yoink.catr(x,x)
 
 def test_catr_consistency():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    delta.catr(x,y)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    yoink.catr(x,y)
     with pytest.raises(Exception):
-        delta.catr(y,x)
+        yoink.catr(y,x)
 
 def test_nested_catr_1():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.var("z",STRING_TY)
-    delta.catr(x,delta.catr(y,z))
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.var("z",STRING_TY)
+    yoink.catr(x,yoink.catr(y,z))
 
 def test_nested_catr_2():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.var("z",STRING_TY)
-    delta.catr(delta.catr(y,z),x)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.var("z",STRING_TY)
+    yoink.catr(yoink.catr(y,z),x)
 
 def forked_cat1():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.var("z",STRING_TY)
-    s1 = delta.catr(x,y)
-    s2 = delta.catr(x,z)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.var("z",STRING_TY)
+    s1 = yoink.catr(x,y)
+    s2 = yoink.catr(x,z)
     with pytest.raises(Exception):
-        delta.catr(s1,s2)
+        yoink.catr(s1,s2)
 
 def test_bad_triangle():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.var("z",STRING_TY)
-    s1 = delta.catr(x,y)
-    s2 = delta.catr(y,z)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.var("z",STRING_TY)
+    s1 = yoink.catr(x,y)
+    s2 = yoink.catr(y,z)
     with pytest.raises(Exception):
-        delta.catr(z,z)
+        yoink.catr(z,z)
 
 def test_good_square():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.var("z",STRING_TY)
-    w = delta.var("w",STRING_TY)
-    s1 = delta.catr(x,y)
-    s2 = delta.catr(z,w)
-    delta.catr(s1,s2)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.var("z",STRING_TY)
+    w = yoink.var("w",STRING_TY)
+    s1 = yoink.catr(x,y)
+    s2 = yoink.catr(z,w)
+    yoink.catr(s1,s2)
 
 def test_bad_square():
-    delta = Delta()
-    x = delta.var("x",STRING_TY)
-    y = delta.var("y",STRING_TY)
-    z = delta.var("z",STRING_TY)
-    w = delta.var("w",STRING_TY)
-    delta.catr(x,y)
-    delta.catr(y,z)
-    delta.catr(z,w)
+    yoink = Yoink()
+    x = yoink.var("x",STRING_TY)
+    y = yoink.var("y",STRING_TY)
+    z = yoink.var("z",STRING_TY)
+    w = yoink.var("w",STRING_TY)
+    yoink.catr(x,y)
+    yoink.catr(y,z)
+    yoink.catr(z,w)
     with pytest.raises(Exception):
-        delta.catr(w,x)
+        yoink.catr(w,x)

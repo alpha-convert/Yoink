@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/python_delta/dataflow_graph.py
+# hypothesis_version: 6.141.1
+
+['<generated>', 'BaseEvent', 'CatEvA', 'CatPunc', 'CatRState', 'DONE', 'FlattenedIterator', 'ParEvA', 'ParEvB', 'PlusPuncA', 'PlusPuncB', 'StopIteration', '__init__', '__iter__', '__next__', 'exec', 'input_iterators', 'inputs', 'list', 'reset', 'result', 'self']

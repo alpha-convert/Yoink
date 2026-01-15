@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/direct_compiler.py
+# hypothesis_version: 6.141.1
+
+['<generated>', 'BaseEvent', 'CatEvA', 'CatPunc', 'DONE', 'Eps', 'FlattenedIterator', 'PlusPuncA', 'PlusPuncB', 'RecCall', 'RuntimeError', 'SingletonOp', 'StopIteration', 'SumInj', 'Var', '__init__', '__iter__', '__next__', 'active_branch', 'buffer', 'buffer_write_idx', 'emit_index', 'exec', 'exhausted', 'first_exhausted', 'input_exhausted', 'input_iterators', 'inputs', 'isinstance', 'len', 'list', 'next', 'phase', 'register', 'reset', 'result', 'seen_punc', 'self', 'state', 'tag_emitted', 'tag_read', 'value']

@@ -1,16 +1,16 @@
 import pytest
 from hypothesis import given
-from python_delta.core import Delta, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
-from python_delta.util.hypothesis_strategies import events_of_type
-from python_delta.typecheck.has_type import has_type
+from yoink.core import Yoink, Singleton, TyStar, TyCat, PlusPuncA, PlusPuncB, CatEvA, CatPunc, BaseEvent
+from yoink.util.hypothesis_strategies import events_of_type
+from yoink.typecheck.has_type import has_type
 
 
 INT_TY = Singleton(int)
 
 def test_concat_emp0_emp():
-    @Delta.jit
-    def f(delta,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
-        return delta.concat(xs,ys)
+    @Yoink.jit
+    def f(yoink,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
+        return yoink.concat(xs,ys)
 
     output = f(iter([]),iter([PlusPuncA()]))
     expected_result = []
@@ -18,9 +18,9 @@ def test_concat_emp0_emp():
     assert result == expected_result
 
 def test_concat_emp_emp():
-    @Delta.jit
-    def f(delta,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
-        return delta.concat(xs,ys)
+    @Yoink.jit
+    def f(yoink,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
+        return yoink.concat(xs,ys)
 
     output = f(iter([PlusPuncA()]),iter([PlusPuncA()]))
     expected_result = [PlusPuncA()]
@@ -28,9 +28,9 @@ def test_concat_emp_emp():
     assert result == expected_result
 
 def test_concat_emp_cons():
-    @Delta.jit
-    def f(delta,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
-        return delta.concat(xs,ys)
+    @Yoink.jit
+    def f(yoink,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
+        return yoink.concat(xs,ys)
 
     xs = [PlusPuncA()]
     ys = [PlusPuncB(),CatEvA(3),CatPunc(),PlusPuncB(),CatEvA(4),CatPunc()]
@@ -40,9 +40,9 @@ def test_concat_emp_cons():
     assert result == expected_result
 
 def test_concat_cons_cons():
-    @Delta.jit
-    def f(delta,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
-        return delta.concat(xs,ys)
+    @Yoink.jit
+    def f(yoink,xs : TyStar(INT_TY), ys : TyStar(INT_TY)):
+        return yoink.concat(xs,ys)
 
     xs = [PlusPuncB(),CatEvA(1),CatPunc(),PlusPuncB(),CatEvA(2),CatPunc(),PlusPuncA()]
     ys = [PlusPuncB(),CatEvA(3),CatPunc(),PlusPuncB(),CatEvA(4),CatPunc(),PlusPuncA()]
@@ -58,9 +58,9 @@ def test_concat_cons_cons():
 )
 def test_concat_preserves_types(xs, ys):
     """Property test: concat preserves types and produces valid output."""
-    @Delta.jit
-    def concat_test(delta, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
-        return delta.concat(xs, ys)
+    @Yoink.jit
+    def concat_test(yoink, xs: TyStar(INT_TY), ys: TyStar(INT_TY)):
+        return yoink.concat(xs, ys)
 
     assert has_type(xs, TyStar(INT_TY))
     assert has_type(ys, TyStar(INT_TY))

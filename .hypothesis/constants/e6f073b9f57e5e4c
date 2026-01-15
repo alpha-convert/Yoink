@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/generator_compiler.py
+# hypothesis_version: 6.141.1
+
+['<generated>', 'BaseEvent', 'CaseOp', 'CatEvA', 'CatProj', 'CatPunc', 'CatR', 'CatRState', 'CondOp', 'DONE', 'Eps', 'Exception', 'FlattenedIterator', 'ParEvA', 'ParEvB', 'PlusPuncA', 'PlusPuncB', 'RecCall', 'RecursiveSection', 'SingletonOp', 'SinkThen', 'StopIteration', 'SumInj', 'UnsafeCast', 'Var', '__init__', '__iter__', 'exec', 'input_iterators', 'inputs', 'isinstance', 'list', 'next', 'reset', 'seen_punc', 'self', 'value']

@@ -1,65 +1,65 @@
 import pytest
-from python_delta.core import *
+from yoink.core import *
 
 STRING_TY = Singleton(str)
 
 def test_jit_basic():
-    @Delta.jit
-    def simple_cat(delta, x: STRING_TY, y: STRING_TY):
-        return delta.catr(x, y)
+    @Yoink.jit
+    def simple_cat(yoink, x: STRING_TY, y: STRING_TY):
+        return yoink.catr(x, y)
 
 
 def test_jit_complex():
-    @Delta.jit
-    def cat_and_split(delta, x: STRING_TY, y: STRING_TY):
-        z = delta.catr(x, y)
-        a, b = delta.catl(z)
-        return delta.catr(a, b)
+    @Yoink.jit
+    def cat_and_split(yoink, x: STRING_TY, y: STRING_TY):
+        z = yoink.catr(x, y)
+        a, b = yoink.catl(z)
+        return yoink.catr(a, b)
 
     
 def test_jit_nested_types():
     t = TyCat(STRING_TY, STRING_TY)
 
-    @Delta.jit
-    def nested(delta, z: t):
-        a, b = delta.catl(z)
-        return delta.catr(a, b)
+    @Yoink.jit
+    def nested(yoink, z: t):
+        a, b = yoink.catl(z)
+        return yoink.catr(a, b)
 
 
 def test_jit_enforces_constraints():
-    @Delta.jit
-    def valid_ordering(delta, x: STRING_TY, y: STRING_TY):
-        z = delta.catr(x, y)
-        a, b = delta.catl(z)
-        return delta.catr(a, b)
+    @Yoink.jit
+    def valid_ordering(yoink, x: STRING_TY, y: STRING_TY):
+        z = yoink.catr(x, y)
+        a, b = yoink.catl(z)
+        return yoink.catr(a, b)
 
 
 def test_jit_rejects_invalid_constraints():
     with pytest.raises(Exception):
-        @Delta.jit
-        def invalid_ordering(delta, x: STRING_TY, y: STRING_TY):
-            z = delta.catr(x, y)
-            a, b = delta.catl(z)
-            return delta.catr(b, a)  # Should fail: b < a conflicts with a < b
+        @Yoink.jit
+        def invalid_ordering(yoink, x: STRING_TY, y: STRING_TY):
+            z = yoink.catr(x, y)
+            a, b = yoink.catl(z)
+            return yoink.catr(b, a)  # Should fail: b < a conflicts with a < b
 
 def test_jit_multiple_returns():
-    @Delta.jit
-    def multiple_outputs(delta, x: STRING_TY, y: STRING_TY):
-        z = delta.catr(x, y)
-        a, b = delta.catl(z)
+    @Yoink.jit
+    def multiple_outputs(yoink, x: STRING_TY, y: STRING_TY):
+        z = yoink.catr(x, y)
+        a, b = yoink.catl(z)
         return (a, b)
 
 
 def test_jit_composition():
     """Test that jitted functions can be composed by calling one inside another."""
-    @Delta.jit
-    def inner(delta, x: STRING_TY, y : STRING_TY):
-        return delta.catr(x, y)
+    @Yoink.jit
+    def inner(yoink, x: STRING_TY, y : STRING_TY):
+        return yoink.catr(x, y)
 
-    @Delta.jit
-    def outer(delta, z: TyCat(STRING_TY,STRING_TY)):
-        a, b = delta.catl(z)
-        return inner(delta,a,b)
+    @Yoink.jit
+    def outer(yoink, z: TyCat(STRING_TY,STRING_TY)):
+        a, b = yoink.catl(z)
+        return inner(yoink,a,b)
 
     output = outer(iter([CatEvA("hello"), CatPunc (), "world"]))
     result = [x for x in list(output) if x is not None]
@@ -69,8 +69,8 @@ def test_jit_composition():
     assert result[2] == "world"
 
 # def test_jit_wait():
-#     @Delta.jit
-#     def wait(delta, x: STRING_TY):
-#         x = delta.wait(x)
-#         delta.singleton(x + 1)
+#     @Yoink.jit
+#     def wait(yoink, x: STRING_TY):
+#         x = yoink.wait(x)
+#         yoink.singleton(x + 1)
 

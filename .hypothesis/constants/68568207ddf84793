@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/streamop_visitor.py
+# hypothesis_version: 6.141.1
+
+['CaseOp', 'CatProj', 'CatR', 'CompilationContext', 'CondOp', 'EmitOp', 'Eps', 'RecCall', 'RecursiveSection', 'RegisterUpdate', 'SingletonOp', 'SinkThen', 'StreamOp', 'SumInj', 'UnsafeCast', 'Var', 'WaitOp']

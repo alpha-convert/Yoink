@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/yoink/compilation/streamop_reset_compiler.py
+# hypothesis_version: 6.141.1
+
+['CaseOp', 'CatProj', 'CatR', 'CompilationContext', 'CondOp', 'EmitOp', 'Eps', 'RecCall', 'RecursiveSection', 'SingletonOp', 'SinkThen', 'SumInj', 'UnsafeCast', 'Var', 'WaitOp', 'active_branch', 'buffer', 'buffer_write_idx', 'emit_index', 'event_buffer', 'exhausted', 'first_exhausted', 'input_exhausted', 'phase', 'seen_punc', 'state', 'tag_emitted', 'tag_read']

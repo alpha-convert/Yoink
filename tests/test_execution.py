@@ -2,15 +2,15 @@
 Tests for stream execution semantics.
 """
 import random
-from python_delta.core import Delta, Singleton, CatEvA, CatPunc, TyCat
+from yoink.core import Yoink, Singleton, CatEvA, CatPunc, TyCat
 
 STRING_TY = Singleton(str)
 
 def test_simple_catr():
     """Test basic concatenation execution."""
-    @Delta.jit
-    def concat(delta, x: STRING_TY, y: STRING_TY):
-        return delta.catr(x, y)
+    @Yoink.jit
+    def concat(yoink, x: STRING_TY, y: STRING_TY):
+        return yoink.catr(x, y)
 
     output = concat(iter(['a', 'b']), iter(['c', 'd']))
     results = list(output)
@@ -23,10 +23,10 @@ def test_simple_catr():
 
 def test_catl_projection():
     """Test catl projection execution."""
-    @Delta.jit
-    def split_concat(delta, x: STRING_TY, y: STRING_TY):
-        z = delta.catr(x, y)
-        a, b = delta.catl(z)
+    @Yoink.jit
+    def split_concat(yoink, x: STRING_TY, y: STRING_TY):
+        z = yoink.catr(x, y)
+        a, b = yoink.catl(z)
         return (a,b)
 
     a,b = split_concat(iter([1, 2, 3]), iter([4, 5, 6]))
@@ -39,9 +39,9 @@ def test_catl_projection():
 
 def test_nested_catr():
     """Test nested concatenation: catr(x, catr(y, z))."""
-    @Delta.jit
-    def nested(delta, x: STRING_TY, y: STRING_TY, z: STRING_TY):
-        return delta.catr(x, delta.catr(y, z))
+    @Yoink.jit
+    def nested(yoink, x: STRING_TY, y: STRING_TY, z: STRING_TY):
+        return yoink.catr(x, yoink.catr(y, z))
 
     output = nested(iter([1]), iter([2]), iter([3]))
     results = list(output)
@@ -56,9 +56,9 @@ def test_nested_catr():
 def test_catl():
     t = TyCat(STRING_TY, STRING_TY)
     """Test catr followed by catl (round-trip)."""
-    @Delta.jit
-    def roundtrip(delta, z : t):
-        a, b = delta.catl(z)
+    @Yoink.jit
+    def roundtrip(yoink, z : t):
+        a, b = yoink.catl(z)
         return (a, b)
 
     a, b = roundtrip(iter([CatEvA(1), CatEvA(2), CatPunc(),3,4]))

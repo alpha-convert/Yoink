@@ -1,0 +1,4 @@
+# file: /home/jcutler/Documents/PyDelta/src/python_delta/stream_ops/catproj.py
+# hypothesis_version: 6.141.1
+
+['CatEvA', 'CatProj', 'CatProjCoordinator', 'CatPunc', 'DONE', 'input_exhausted', 'isinstance', 'seen_punc', 'value']
