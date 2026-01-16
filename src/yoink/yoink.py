@@ -25,6 +25,9 @@ class Yoink:
         reset_node.enclosing_block = reset_block
         self._register_node(reset_block)
         return reset_block
+    
+    def fix(self,f,ty):
+        return self._recursive_block(f,ty)
 
     def var(self, v, var_type=None):
         if var_type is None:
