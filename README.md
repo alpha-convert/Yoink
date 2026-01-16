@@ -18,10 +18,9 @@ from yoink.core import Yoink, Singleton, TyStar
 STRING_TY = Singleton(str)
 
 @Yoink.jit
-def cat_and_split(yoink, x: STRING_TY, y: STRING_TY):
-    z = yoink.catr(x, y)
-    a, b = yoink.catl(z)
-    return yoink.catr(a, b)
+def f(yoink, x: TyCat(STRING_TY,STRING_TY), y: STRING_TY):
+    a,b = yoink.catl(x)
+    return yoink.catr(a, yoink.catr(b,y))
 ```
 
 When you define a function decorated with `@Yoink.jit`, the decorator executes the function body with symbolic values for the inputs, tracing the evaluation to build a term. Along the way, the term is typechecked with an algorithmic form of the ordered type system. By collecting a partially ordered set of variables ordered by their usages, we can ensure that no disallowed usages occur. Type annotations can be given to top-level function arguments; these are then checked at intro/elim forms.
