@@ -27,9 +27,14 @@ class StreamOpResetCompiler:
 
     def __init__(self, ctx: 'CompilationContext'):
         self.ctx = ctx
+        self._visited: set[int] = set()
 
     def visit(self, node) -> List[ast.stmt]:
         """Dispatch to the appropriate visit method based on node type."""
+        node_id = id(node)
+        if node_id in self._visited:
+            return []
+        self._visited.add(node_id)
         method_name = f'visit_{node.__class__.__name__}'
         visitor = getattr(self, method_name, self.generic_visit)
         return visitor(node)
@@ -58,15 +63,18 @@ class StreamOpResetCompiler:
         state_var = self.ctx.state_var(node, 'state')
         return [state_var.assign(ast.Constant(value=CatRState.FIRST_STREAM.value))]
 
-    def visit_CatProj(self, node: 'CatProj') -> List[ast.stmt]:
+    def visit_CatProjCoordinator(self, node: 'CatProjCoordinator') -> List[ast.stmt]:
         """Reset coordinator state."""
-        coord = node.coordinator
-        seen_punc_var = self.ctx.state_var(coord, 'seen_punc')
-        input_exhausted_var = self.ctx.state_var(coord, 'input_exhausted')
+        seen_punc_var = self.ctx.state_var(node, 'seen_punc')
+        input_exhausted_var = self.ctx.state_var(node, 'input_exhausted')
         return [
             seen_punc_var.assign(ast.Constant(value=False)),
             input_exhausted_var.assign(ast.Constant(value=False))
         ]
+
+    def visit_CatProj(self, node: 'CatProj') -> List[ast.stmt]:
+        """CatProj has no state of its own; coordinator is visited separately."""
+        return []
 
     def visit_SumInj(self, node: 'SumInj') -> List[ast.stmt]:
         """Reset tag_emitted to False."""
