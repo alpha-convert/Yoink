@@ -32,32 +32,32 @@ After typechecking completes successfully, the result is a pull graph representa
 
 | Type | Description |
 |------|-------------|
-| `Singleton(T)` | A single value of Python type T |
-| `TyCat(A, B)` | Concatenation: stream A followed by stream B |
-| `TyPlus(A, B)` | Sum type: either stream A or stream B |
-| `TyStar(T)` | Kleene star: a list/sequence of elements of type T |
+| `Singleton(T)` | A singleton stream consisting of a value of Python type T |
+| `TyCat(S, T)` | Cat type: stream of type S followed by stream of type T |
+| `TyPlus(S, T)` | Sum type: either stream of type S or T|
+| `TyStar(S)` | Star type: a sequence of streams of type S |
 | `TyEps` | Empty stream |
 
 ## Operations
 
 **Concatenation:**
-- `yoink.catr(s1, s2)` - Concatenate two streams
-- `yoink.catl(s)` - Split a concatenated stream into `(left, right)`
+- `yoink.catr(s1, s2)` - Cat type intro
+- `yoink.catl(s)` - Cat type elim
 
 **Sum types:**
 - `yoink.inl(s)` / `yoink.inr(s)` - Left/right injection
 - `yoink.case(x, left_fn, right_fn)` - Case analysis on sum
 
 **Lists:**
-- `yoink.nil()` - Empty list
-- `yoink.cons(head, tail)` - Prepend element to list
-- `yoink.starcase(x, nil_fn, cons_fn)` - Case analysis on list
+- `yoink.nil()` - Empty stream of star type
+- `yoink.cons(head, tail)` - Cons for star type
+- `yoink.starcase(x, nil_fn, cons_fn)` - Case for star
 
 **Derived operations:**
-- `yoink.map(xs, fn)` - Map function over list
-- `yoink.concat(xs, ys)` - Concatenate two lists
-- `yoink.concat_map(xs, fn)` - Map and flatten
-- `yoink.zip_with(xs, ys, fn)` - Zip with combining function
+- `yoink.map(xs, fn)` - Map function over star stream
+- `yoink.concat(xs, ys)` - Concatenate two star streams
+- `yoink.concat_map(xs, fn)`
+- `yoink.zip_with(xs, ys, fn)` - Zip with combining function for star streams
 
 **Buffering:**
 - `yoink.wait(x)` - Buffer a value
